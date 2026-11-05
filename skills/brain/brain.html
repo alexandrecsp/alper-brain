@@ -34,17 +34,20 @@
   ::-webkit-scrollbar-thumb:hover { background-color: rgb(161 161 170 / .6); }
   ::-webkit-scrollbar-button { display: none; }
   /* The notes graph: one node per note, clustered round its repositories' hubs. */
-  :root { --surface: #ffffff; --glyph: #71717a; --nedge: #a1a1aa; --member: #d4d4d8; --label: #52525b; --accent: #10b981; }
+  :root { --surface: #ffffff; --glyph: #71717a; --nedge: #a1a1aa; --member: #d4d4d8; --label: #52525b; --accent: #10b981;
+    --t-feature: #5b84ae; --t-concept: #3c8f8f; --t-decision: #8775a9; --t-gotcha: #ab6e64; --t-contract: #967d46; --t-how-to: #618d62; --t-other: var(--glyph); }
   @media (prefers-color-scheme: dark) {
-    :root { --surface: #09090b; --glyph: #a1a1aa; --nedge: #71717a; --member: #3f3f46; --label: #a1a1aa; }
+    :root { --surface: #09090b; --glyph: #a1a1aa; --nedge: #71717a; --member: #3f3f46; --label: #a1a1aa;
+      --t-feature: #81a9d2; --t-concept: #68b4b3; --t-decision: #ac9acd; --t-gotcha: #cf9389; --t-contract: #baa16e; --t-how-to: #87b188; }
   }
   #noteCanvas svg { cursor: grab; }
   #noteCanvas svg:active { cursor: grabbing; }
-  #noteCanvas .link { stroke: var(--nedge); stroke-width: 1.25; stroke-opacity: .55; transition: opacity .15s, stroke .15s; }
-  #noteCanvas .link.member { stroke: var(--member); stroke-dasharray: 3 3; stroke-opacity: 1; }
+  #noteCanvas .link { stroke: var(--nedge); stroke-width: 1.25; stroke-opacity: .25; transition: opacity .15s, stroke .15s; }
+  #noteCanvas .link.member { stroke: var(--member); stroke-dasharray: 3 3; stroke-opacity: .5; }
   #noteCanvas .link.hot { stroke: var(--accent); stroke-opacity: 1; stroke-width: 2; }
   #noteCanvas .nnode { cursor: pointer; transition: opacity .15s; }
-  #noteCanvas .nnode .glyph { fill: var(--surface); stroke: var(--glyph); stroke-width: 1.75; }
+  #noteCanvas .nnode .glyph { --c: var(--glyph); fill: color-mix(in oklab, var(--c) 16%, var(--surface)); stroke: var(--c); stroke-width: 1.75; }
+  #noteCanvas .nnode.ghost .glyph { --c: var(--glyph); fill: var(--surface); }
   #noteCanvas .nnode.ghost .glyph { stroke-dasharray: 3 2; stroke-opacity: .7; }
   #noteCanvas .nnode.repo .glyph { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
   #noteCanvas .nnode.match .glyph, #noteCanvas .nnode.selected .glyph { stroke: var(--accent); stroke-width: 3; }
@@ -52,7 +55,8 @@
   #noteCanvas .nnode text { fill: var(--label); font-size: 10px; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
   #noteCanvas .nnode.repo text { fill: currentColor; font-size: 12px; font-weight: 600; }
   #noteCanvas .dim .nnode:not(.hot), #noteCanvas .dim .link:not(.hot) { opacity: .12; }
-  #noteCanvas .far .note-label { display: none; }
+  #noteCanvas .note-label { display: none; }
+  #noteCanvas .nnode.hover .note-label { display: inline; }
   #doc .wikilink { text-decoration: none; border-bottom: 1px solid currentColor; }
   #doc .wikilink.ghost { border-bottom-style: dashed; opacity: .7; }
 </style>
@@ -1502,10 +1506,12 @@ function closeDoc() {
 
 // ---------- notes ----------
 
-// A note's type is drawn as its shape, never its colour: five hues cannot stay apart on a scatter of nodes.
+// A note's type is drawn as its shape and its muted colour (the --t-* tokens). Six hues cannot all stay apart
+// for colour-blind readers on a scatter of nodes, so the shape is what tells two similar hues apart.
 const SHAPES = { feature: d3.symbolWye, concept: d3.symbolCircle, decision: d3.symbolSquare, gotcha: d3.symbolTriangle, contract: d3.symbolDiamond, 'how-to': d3.symbolStar, other: d3.symbolCross };
 const glyph = (type, size = 150) => d3.symbol().type(SHAPES[type] || SHAPES.other).size(size)();
-const icon = (type) => `<svg class="h-3.5 w-3.5" viewBox="-8 -8 16 16"><path d="${glyph(type, 70)}" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`;
+const tint = (type) => `var(--t-${SHAPES[type] ? type : 'other'})`;
+const icon = (type) => `<svg class="h-3.5 w-3.5" viewBox="-8 -8 16 16" style="color: ${tint(type)}"><path d="${glyph(type, 70)}" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`;
 
 // [[name]], [[name#heading]] and [[name|alias]], as Obsidian writes them.
 const WIKI = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]/g;
@@ -1607,10 +1613,7 @@ function drawGraph() {
     const { width, height } = host.getBoundingClientRect();
     gSvg = d3.select(host).append('svg').attr('class', 'h-full w-full');
     gRoot = gSvg.append('g');
-    gZoom = d3.zoom().scaleExtent([0.15, 4]).on('zoom', (e) => {
-      gRoot.attr('transform', e.transform);
-      gSvg.classed('far', e.transform.k < 0.7);
-    });
+    gZoom = d3.zoom().scaleExtent([0.15, 4]).on('zoom', (e) => gRoot.attr('transform', e.transform));
     gSvg.call(gZoom).on('dblclick.zoom', null).call(gZoom.transform, d3.zoomIdentity.translate(width / 2, height / 2));
     gSvg.on('click', (e) => { if (e.target === gSvg.node()) closeDoc(); });
   }
@@ -1634,7 +1637,8 @@ function drawGraph() {
   gNodes = gRoot.append('g').selectAll('g').data(nodes).join('g').attr('class', (d) => 'nnode ' + d.kind);
   gNodes.append('circle').attr('r', (d) => (d.kind === 'repo' ? hubR(d) + 6 : 14)).attr('fill', 'transparent');
   gNodes.filter((d) => d.kind === 'repo').append('circle').attr('class', 'glyph').attr('r', hubR);
-  gNodes.filter((d) => d.kind !== 'repo').append('path').attr('class', 'glyph').attr('d', (d) => glyph(d.kind === 'ghost' ? 'concept' : d.note.type));
+  gNodes.filter((d) => d.kind !== 'repo').append('path').attr('class', 'glyph').attr('d', (d) => glyph(d.kind === 'ghost' ? 'concept' : d.note.type))
+    .style('--c', (d) => (d.kind === 'note' ? tint(d.note.type) : null));
   gNodes.append('text')
     .attr('class', (d) => (d.kind === 'repo' ? '' : 'note-label'))
     .attr('text-anchor', 'middle')
@@ -1646,13 +1650,14 @@ function drawGraph() {
       const near = adj.get(d.id);
       gRoot.classed('dim', true);
       gNodes.classed('hot', (n) => near.has(n.id));
+      d3.select(ev.currentTarget).classed('hover', true);
       gLinks.classed('hot', (e) => e.source.id === d.id || e.target.id === d.id);
       showTip(ev, d);
     })
     .on('mousemove', moveTip)
     .on('mouseleave', () => {
       gRoot.classed('dim', false);
-      gNodes.classed('hot', false);
+      gNodes.classed('hot', false).classed('hover', false);
       gLinks.classed('hot', false);
       $('noteTip').classList.add('hidden');
     })
