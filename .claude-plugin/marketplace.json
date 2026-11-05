@@ -1,0 +1,23 @@
+{
+  "name": "alper-brain",
+  "owner": {
+    "name": "Alexandre",
+    "email": "alexandresp9@gmail.com"
+  },
+  "description": "Alper's spec-driven skills, worked from a second brain, as an installable Claude Code plugin.",
+  "plugins": [
+    {
+      "name": "alper-brain",
+      "source": "./",
+      "description": "Spec-driven skills worked from a second brain: shared notes across repositories, cross-repository specs, test-first builds, code review, domain modelling.",
+      "category": "engineering",
+      "keywords": [
+        "engineering",
+        "skills",
+        "spec-driven",
+        "second-brain",
+        "multi-repo"
+      ]
+    }
+  ]
+}

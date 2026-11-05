@@ -1,0 +1,20 @@
+{
+  "name": "alper-brain",
+  "version": "1.0.0",
+  "description": "Alper's spec-driven skills, worked from a second brain: the team's notes across every repository, and specs that build across several of them, test-first.",
+  "author": {
+    "name": "Alexandre",
+    "email": "alexandresp9@gmail.com"
+  },
+  "keywords": [
+    "engineering",
+    "skills",
+    "spec-driven",
+    "second-brain",
+    "multi-repo",
+    "tdd",
+    "code-review",
+    "domain-modeling"
+  ],
+  "skills": "./skills/"
+}

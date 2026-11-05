@@ -1,0 +1,54 @@
+Replace each guidance line with its content. Use the glossary's terms. Describe behaviour and modules by name; file paths and code snippets go stale.
+
+## milestone.md
+
+```markdown
+# Milestone NNN: <Milestone title>
+
+**Repo:** the slug of the one repository this milestone builds in.
+
+**Delivers:** the increment this milestone makes work, from the user's perspective.
+
+**Done when:** a check the builder can run that proves the increment works once its last ticket lands: a test at a seam the spec names, or a command and its expected output.
+
+**Phase:** none
+
+**Squash:** none
+
+**Landed:** none
+
+## Shape
+
+The **milestone shape**, by [DIAGRAMS.md](../to-spec/DIAGRAMS.md).
+```
+
+## NNN-<ticket-slug>.md
+
+```markdown
+# Ticket NNN: <Ticket title>
+
+**Milestone:** NNN <Milestone title>
+
+**Status:** todo
+
+**Depends on:** the lower-numbered tickets this one builds on directly, as `NNN, NNN`, or "None".
+
+**Commit:** none
+
+## What to build
+
+The end-to-end behaviour this ticket makes work, from the user's perspective, rather than a layer-by-layer implementation list. Then its **tracer bullet**, by [DIAGRAMS.md](../to-spec/DIAGRAMS.md).
+
+## Design patterns
+
+The spec's Design Patterns rows this ticket implements, copied as they are, or "None".
+
+## Acceptance criteria
+
+- [ ] <behaviour>, proven at <seam>
+- [ ] ...
+
+## Notes
+
+Left empty; the agent that builds this ticket fills it.
+```

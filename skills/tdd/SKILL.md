@@ -1,0 +1,48 @@
+---
+name: tdd
+description: Test-driven development, red then green. Use when the user wants work built test-first, or wants integration tests.
+metadata:
+  type: process
+---
+
+TDD is the **red → green** loop. This skill makes that loop produce tests worth keeping.
+
+Read the [domain docs](../domain-modeling/DOMAIN-DOCS.md): test names and interface vocabulary use the glossary's terms.
+
+## What a good test is
+
+A good test verifies behaviour through a public interface and reads like a specification: "user can checkout with valid cart" names a capability and survives any refactor that keeps it. The implementation can change entirely while the test stays as it is. See [TESTS.md](TESTS.md) for good and bad examples, and [MOCKING.md](MOCKING.md) for when to mock.
+
+## Seams: where tests go
+
+A **seam** is where a module's interface lives, as the `codebase-design` skill defines it: tests cross it and observe behaviour without reaching inside. Tests live at **confirmed seams** only, which puts the testing effort on the critical paths and complex logic rather than on every edge case.
+
+- When a spec or ticket names the seams (its Testing Decisions or acceptance criteria), they are already confirmed: test there.
+- Otherwise, before writing any test, propose the seams, each with a one-line note on what it catches and what it misses, and wait for the user to confirm them. As a sub-agent with no user to ask, report the seams you would propose instead of choosing them.
+
+When the shape of the interface is itself in question (how deep the module is, where the seam belongs, what the interface exposes), invoke the `codebase-design` skill for the vocabulary and principles.
+
+## Anti-patterns
+
+- **Implementation-coupled**: mocks internal collaborators, tests private methods, or verifies through a side channel (querying the database instead of using the interface). The tell: the test breaks on a refactor that kept the behaviour.
+- **Tautological**: the expected value is recomputed the way the code computes it, so the test passes by construction. Take expected values from an independent source of truth: a known-good literal, a worked example, the spec.
+- **Horizontal slicing**: writing all the tests first, then all the implementation. Bulk tests verify imagined behaviour, test the shape of things, and lock in a test structure before the implementation has taught you anything. Work in **vertical slices**: each test a **tracer bullet** that responds to what the last cycle taught you.
+
+## Rules of the loop
+
+- **Red first.** Write one failing test, run it, and watch it go red for the reason you expect. A test that fails for another reason, or passes, proves nothing yet.
+- **Then green.** Write only enough code to pass it, then run the test again.
+- **One slice at a time.** One seam, one test, one minimal implementation per cycle.
+- **One logical assertion per test.**
+- **Refactor at review.** Refactoring belongs to the `review-changes` skill's findings, outside the red → green cycle. When nothing will review the work afterwards (`build` reviews each milestone), end by offering the user a `review-changes` run.
+
+## Suites
+
+The **e2e suite** is the tests that drive a running app: a browser, a device or a deployed service. The **unit suite** is everything else: the linter, the typechecker, and the unit and integration tests. The **full suite** is both. The `unit` and `e2e` fields of the repository's `REPO.md` card in the brain ([FORMAT.md](../brain/FORMAT.md)) name each one's command, run from the repository's root; when they are missing, take them from the project's scripts and report that `/brain setup` would record them.
+
+- **Inside the loop**, run the test you are writing, filtered by its name, and the unit suite.
+- **Your e2e tests** are the e2e tests you wrote or changed. Run each one filtered by its name, never its whole file: red, then green. The rest of its file, and an e2e test that imports a helper you changed or drives a screen you changed, waits for the full suite.
+- **An e2e test outside your tests that fails** belongs to the full suite's run: report it and go on.
+- **Every run is foreground and terse**: give the tool call a timeout longer than the run, so it never moves to the background; use a one-line-per-failure reporter and stop at the first failure, so the run hands back its result in one turn and a few lines.
+
+The loop is done when every behaviour in scope has a test at a confirmed seam that went red, then green, and the unit suite and your e2e tests pass. Then run the full suite once, unless your brief names a later check that runs it.
