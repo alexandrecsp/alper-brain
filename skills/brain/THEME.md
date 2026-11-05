@@ -31,7 +31,7 @@ A report is one self-contained file. Tailwind and Mermaid come from CDNs; everyt
   <header class="sticky top-0 z-20 border-b border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/90 backdrop-blur">
     <div class="mx-auto max-w-7xl px-4 h-14 flex items-center gap-3 text-sm">
       <span class="flex items-center gap-2 font-semibold tracking-tight">
-        <span class="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-emerald-400 to-sky-500 text-xs font-bold text-white shadow-sm">S</span>SDD
+        <span class="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-emerald-400 to-sky-500 text-xs font-bold text-white shadow-sm">B</span>Brain
       </span>
       <span class="text-zinc-300 dark:text-zinc-700">/</span><span class="text-zinc-600 dark:text-zinc-300">{{report name}}</span>
       <nav class="ml-auto hidden sm:flex gap-1 font-mono text-xs">{{one anchor per section or item}}</nav>

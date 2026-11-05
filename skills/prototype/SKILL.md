@@ -1,6 +1,6 @@
 ---
 name: prototype
-description: Build a throwaway prototype that answers one design question. Use when the user wants to feel out whether logic or a state model is right, or explore what a UI should look like.
+description: Build a throwaway prototype that answers one design question. Use when the user wants to feel out whether logic, a state model or a contract between repositories is right, or explore what a UI should look like.
 argument-hint: "[question]"
 metadata:
   type: process
@@ -10,28 +10,33 @@ A prototype is **throwaway** code that answers one question. The question decide
 
 ## Pick the branch
 
-Name the question from the user's prompt and the code around it; ask when it is unclear and the user is here.
+Name the question from the user's prompt and the code around it, then its branch:
 
 - **"Does this logic or state model feel right?"** → [LOGIC.md](LOGIC.md): one shareable HTML file with free-play buttons and guided walkthroughs that push a pure state module through the cases that are hard to reason about on paper.
 - **"What should this look like?"** → [UI.md](UI.md): several structurally different variants on one route, switched by a `?variant=` search param and a floating bar.
 
-The two branches build very different things, so a wrong pick wastes the prototype. When the question stays ambiguous and the user is away, follow the code around it (a backend module → logic, a page or component → UI) and state that assumption at the top of the prototype.
+When the question is unclear, ask the user; when they are away, follow the code around it (a backend module or a contract → logic, a page or component → UI) and state that assumption at the top of the prototype. Done when you hold the question in one sentence, and its branch.
+
+## Where it lives
+
+- **A logic prototype** lives in the active brain, at `.sdd/prototypes/<slug>.html` ([FORMAT.md](../brain/FORMAT.md)), with `<slug>` the question in kebab-case. It changes no repository, so it needs none open, and it can model a contract between several. Read the code it models by each repository's root; linked is enough.
+- **A UI prototype** lives in the **working repository** that serves the page, by FORMAT.md's rules; inside a spec, the **Repos** entry that owns the page. It must be open. Check its tree is clean (`git -C <root> status --porcelain` prints nothing; otherwise ask the user to commit or stash, and stop), then create and check out `prototype/<slug>` from its base: the spec's **Base** entry for that slug, else the branch checked out. Write every prototype file on that branch, by absolute path under the root.
+
+Done when you hold the prototype's path, and for a UI prototype its branch is checked out on a clean tree.
 
 ## Rules for both branches
 
-- **Marked throwaway.** Place it next to the module or page it serves, so its context is obvious, with `prototype` in its file or route name. Follow the project's existing routing and folder conventions.
-- **One command to run.** A logic prototype opens by double-click; a UI prototype starts with one command from the project's task runner (`pnpm <name>`, `bun <path>`).
-- **In-memory state.** When persistence is itself the question, use a scratch database or local file named so it is obviously disposable (`prototype-wipe-me.db`).
+- **Throwaway, and named so.** `prototype` is in every file, route and branch name it adds.
 - **Speed over polish.** Write only the code that makes it runnable: tests, error handling and abstractions belong to the real build.
-- **State on screen.** After every action (logic) or variant switch (UI), render the full relevant state so the user sees what changed.
 
 ## Capture
 
-The prototype is done when its question has a verdict. Then:
+The prototype is done when its question has a **verdict**: the answer, the question it settled, and what the prototype showed that decided it. Then:
 
-1. **Keep the prototype** as a primary source: commit it on a branch `prototype/<slug>`, off the base branch, and leave the base branch free of prototype code.
+1. **Keep the prototype.** A UI prototype: commit every variant, the switcher and the bar on `prototype/<slug>` (`git -C <root>`), then check its base back out. A logic prototype stays at its `.sdd/prototypes/` path.
 2. **Hand over the verdict**, by where the work lives:
-   - **Inside a spec**, when a spec under the brain's `.sdd/specs/` covers the work: record the verdict in its Further Notes, with the branch name. The pipeline carries it into tickets and the build.
-   - **Standalone**: give the user the verdict and the branch name, and offer to apply it. On a yes, rebuild the decision in the real code, test-first where that code has tests.
+   - **Inside a spec**, when an in-flight spec under the brain's `.sdd/specs/` covers the work: write the verdict under its Implementation Decisions, with the prototype's branch or path, and delete the open question it settles from Further Notes. When the spec already has milestones, also add the verdict to the Notes of every ticket not yet `done` that builds on it.
+   - **Standalone**: give the user the verdict and the prototype's branch or path, and offer to apply it. On a yes, rebuild the decision in the working repository, with `tdd` where that code has tests.
+3. **Record the decision.** When the repositories it bears on are registered, invoke the `brain` skill to record the verdict as a `decision`: in `repos/<slug>/`, or in `shared/` with its `repos` when it settles a contract, linked to that contract's note. Its **Why** is what the prototype showed, written so a teammate who never ran the prototype can follow it.
 
-Either way, the real code is rebuilt from the verdict, and the prototype code stays on its branch. Done when the prototype is on its branch, and the verdict is in the spec or with the user alongside the offer to apply it.
+Done when the prototype is kept, the verdict is in the spec or with the user, and the user has confirmed or declined the decision note.

@@ -1,7 +1,11 @@
-The **domain docs** are each repository's glossary and ADRs, plus the brain's notes on it. Read the ones present, in the root of each repository the work touches ([FORMAT.md](../brain/FORMAT.md)):
+The **domain docs** are each repository's glossary and ADRs, plus the brain's notes on it. Each repository is its own context, or holds several under a root `GLOSSARY-MAP.md` ([CONTEXTS.md](CONTEXTS.md)). Read the ones present in each repository the work touches, by its root ([FORMAT.md](../brain/FORMAT.md)). A repository that is registered but not linked has only its notes.
 
-- **One context**: the root `GLOSSARY.md` and the ADRs in `docs/adr/`.
-- **Several contexts**, marked by a root `GLOSSARY-MAP.md`: the root ADRs, plus the `GLOSSARY.md` and `docs/adr/` of each context the work touches, where the map says each one lives.
-- **Second brain**: the notes bearing on the work and the contracts each repository shares with others, by [RECALL.md](../brain/RECALL.md).
+| Fact | Lives in |
+|---|---|
+| a term, as one repository means it | its root `GLOSSARY.md`, or its context's under a `GLOSSARY-MAP.md` |
+| a decision that binds one repository | its `docs/adr/`: its context's, or the root's when it spans contexts |
+| an interface between repositories, and the terms that cross it | a `contract` note in the brain's `shared/`, naming each side's term where they differ |
+| a decision that binds several repositories | a `decision` note in the brain's `shared/`, its `repos` naming each |
+| anything else the brain knows of a repository | its notes, by [RECALL.md](../brain/RECALL.md) |
 
-Name things in the glossary's terms, keep the work within the ADRs' decisions, and count the repositories a contract names among the callers of its interface.
+Name each repository's code in its own glossary's terms, keep the work within the decisions its ADRs and the `decision` notes record, and count the repositories a contract names among the callers of its interface.

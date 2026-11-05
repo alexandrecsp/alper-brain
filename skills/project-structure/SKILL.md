@@ -1,11 +1,13 @@
 ---
 name: project-structure
-description: Hexagonal folder layouts and file names for frontend, backend and full-stack apps, in any language. Use when creating a project, placing or naming a new file, or recording a repo's layout.
+description: Folder layout and file names: the working repository's docs/STRUCTURE.md, else the default hexagonal layout for frontend, backend and full-stack apps. Use when creating, moving or naming a file, starting a project, or recording a repository's layout.
 metadata:
   type: reference
 ---
 
-Lay code out as a **hexagon** per module (Ports and Adapters, Cockburn): the domain at the centre, the application around it, infrastructure at the edge. One layout serves every language; only the casing of names changes. This skill is the default; a repo's `docs/STRUCTURE.md` records its own layout and always wins over it.
+Lay code out as a **hexagon** per module (Ports and Adapters, Cockburn): the domain at the centre, the application around it, infrastructure at the edge. One layout serves every language; only the casing of names changes.
+
+**The repository's own layout comes first.** The session starts in the brain, so name the **working repository** by [FORMAT.md](../brain/FORMAT.md)'s working repository rules and read `<root>/docs/STRUCTURE.md` by absolute path: the section of the app you are placing a file in. It is that repository's source of truth and wins over everything below, which fills in only where it is silent. When the repository has none, place the file by the default below and tell the user `/brain setup` records its layout.
 
 ## Vocabulary
 
@@ -52,6 +54,8 @@ Use these terms exactly; `port` and `adapter` mean what they mean in `codebase-d
 - **Every driven port has two adapters**: production, and the in-memory one use-case tests run on (`codebase-design`'s "two adapters mean a real one").
 - **A folder exists once it holds a file.** A display-only frontend module can be just `infrastructure/driving/`.
 - **Tests sit beside the file they test**, where the language allows; use-case tests run at the application seam with in-memory driven adapters.
+- **Another repository is a driven port like any other**, named for what the module needs from it (`InvoiceGateway Port`), so it survives that repository being renamed or split. Its adapter is named for the technology (`Http InvoiceGateway Adapter`); a generated client (OpenAPI, protobuf) lives inside that adapter's technology folder, `infrastructure/driven/<technology>/`, and only that adapter imports it. Its in-memory adapter is what lets this repository's milestone test without the other one running.
+- **A contract's wire shape lives only in infrastructure DTOs**: the producer's driving `Request` and `Response`, or the `Payload` its driven publisher adapter maps a domain event to; the consumer's driven `Payload`, and the `Listener` that receives an event it consumes. Each is one glob away, so a diff that touches one is a contract change ([CONTRACT-CHANGE.md](../to-tickets/CONTRACT-CHANGE.md)).
 
 ## Names
 
@@ -87,10 +91,11 @@ Detect the archetype from the manifests, then read its file:
 
 - **Full-stack**: a framework that serves UI and server code from one app (`next`, `nuxt`, `@remix-run/*`, `@sveltejs/kit`). [FULLSTACK.md](FULLSTACK.md).
 - **Frontend**: a UI framework with no server of its own (`react`, `vue`, `svelte` with `vite`). [FRONTEND.md](FRONTEND.md).
-- **Backend**: a server framework or none (`express`, `fastify`, `@nestjs/core`, `spring-boot`, `django`, `fastapi`). [BACKEND.md](BACKEND.md).
+- **Backend**: a server, worker or CLI entry point (`express`, `fastify`, `@nestjs/core`, `spring-boot`, `django`, `fastapi`). [BACKEND.md](BACKEND.md).
+- **Library**: a package other apps or repositories import, with no entry point of its own (a monorepo's `packages/*`, a published client or contracts package). Its modules keep the hexagon where they hold rules; it has no composition root, and its public entry is its interface. A package of wire types alone is one `dtos/` folder, suffixed as the boundary names them.
 
-A monorepo gets an archetype per app or package (`apps/web` frontend, `apps/api` backend), each laid out on its own.
+A monorepo gets an archetype per app or package (`apps/web` frontend, `apps/api` backend, `packages/contracts` library), each laid out on its own.
 
 ## Recording
 
-`docs/STRUCTURE.md` is the repo's source of truth for layout, committed with the code, at the root of the **working repository** ([FORMAT.md](../brain/FORMAT.md)). Read the section of the app you're placing a file in. To write or update it, follow [RECORDING.md](RECORDING.md).
+To write or update a repository's `docs/STRUCTURE.md`, follow [RECORDING.md](RECORDING.md).

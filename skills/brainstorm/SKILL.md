@@ -19,9 +19,9 @@ To sort a decision: if two different implementations could both satisfy it, it i
 
 Every `How` decision hangs off `What` decisions, so settle the `What` first. When a `How` question surfaces during the `What`, **park** it for the `How` phase and keep it out of the round. When the `How` exposes a gap in the `What`, reopen that branch: ask it in the next round tagged **(What)**, and the frontier rule holds back the `How` questions that depend on it.
 
-Close each phase, once its frontier is empty, with a **summary** of its settled decisions as a short bulleted list. The `What` summary also lists the parked questions under **Parked for How**; the user's confirmation of it opens the `How`, with the parked questions in its first frontier.
+Close each phase, once its frontier is empty, with a **summary** of its settled decisions as a short bulleted list. The `What` summary opens with **Repositories**: each slug in scope with its one-line reason, plus any that need `/brain setup` or `/brain link`. It ends with the parked questions under **Parked for How**; the user's confirmation of it opens the `How`, with the parked questions in its first frontier.
 
-When the `How` opens, invoke the `design-patterns` skill. Each structural problem in the `How` is then a frontier question: recommend a pattern with its Where and Why, or no pattern when the problem doesn't call for one. The `How` summary lists the settled patterns as Pattern, Where and Why.
+When the `How` opens, invoke the `design-patterns` skill. Each module and contract `design-patterns` says to weigh is then a frontier question: recommend a pattern with its Where and Why, or no pattern when the problem doesn't call for one. The `How` summary adds four lists, which `/to-spec` reads: **Contracts**, each changed contract with its consumers and the settled path (expand–contract, additive only, or old shape kept); **Builds on**, each overlapping in-flight spec and what it shares; **Patterns**, as Pattern, Where and Why, the Where prefixed by its repository's slug when the design spans several; and **Notes read**, the absolute paths of the brain notes the session relied on.
 
 ## Rounds
 
@@ -35,15 +35,15 @@ Write every round in the format of [ROUND-FORMAT.md](ROUND-FORMAT.md).
 
 ### Facts and Decisions
 
-Finding _facts_ is your job; the user only ever answers _decisions_. When a frontier question needs a fact from the environment (codebase, docs, tools), dispatch an `alper-brain:scout` agent to find it, with the root of each repository it needs ([FORMAT.md](../brain/FORMAT.md)). Keep the round moving: a running exploration is an unsettled prerequisite, so only the questions downstream of it wait for the sub-agent to report; ask the rest of the frontier now.
+Finding _facts_ is your job; the user only ever answers _decisions_. When a frontier question needs a fact from the environment (codebase, docs, tools), dispatch an `alper-brain:scout` agent to find it, its brief opening with the Context block by [BRIEF.md](../brain/BRIEF.md): one scout per repository the round's facts sit in, in one message, each answering every fact for its repository with its `path:line`, or "not found" with where it looked. A fact one known file answers, read inline. When the fact is owned outside the repositories (a library, API, standard or tool), invoke the `research` skill for it instead; its answer arrives in the background like a scout's. Keep the round moving: a running exploration is an unsettled prerequisite, so only the questions downstream of it wait for the sub-agent to report; ask the rest of the frontier now.
 
 ### Second brain
 
-Name the repositories the topic touches, by [FORMAT.md](../brain/FORMAT.md)'s working repository rules; a design can span several. Follow [RECALL.md](../brain/RECALL.md) for them alongside `What · Round 1`: its notes are facts, so you look them up rather than ask. Each changed contract enters the round as a frontier question: do its other repositories change with it, or does the interface stay compatible?
+Follow [RECALL.md](../brain/RECALL.md) alongside `What · Round 1`, picking every repository the topic reaches by its **Pick the repositories**: a design can span several, and its notes are facts, so you look them up rather than ask. Each in-or-out call the notes leave open enters the round as a scope question. Each changed contract enters the `What` as a scope question (do its consumers change with it, or does the interface stay compatible?), and its mechanism is parked for the `How`, by [CONTRACT-CHANGE.md](../to-tickets/CONTRACT-CHANGE.md): expand–contract, additive only, or the old shape kept. A repository that is registered but not linked is designed from its notes alone, its explored notes standing in for its code, with the hint `/brain link`.
 
 ### In-flight specs
 
-When the brain's `.sdd/specs/` holds specs, other specs may be planned or mid-build in the modules or contracts this design touches, in any repository. Follow [IN-FLIGHT.md](../to-spec/IN-FLIGHT.md) alongside `What · Round 1`, and again when the `How` opens, since the `How` names new modules. Each conflict with an in-flight spec enters the next round as a frontier question.
+When the brain's `.sdd/specs/` holds specs, other specs may be planned or mid-build in the modules or contracts this design touches, in any repository. Follow [IN-FLIGHT.md](../to-spec/IN-FLIGHT.md) alongside `What · Round 1`, and again when the `How` opens, since the `How` names new modules. Each overlap with an in-flight spec enters the next round as a frontier question: build on its planned state, or revise it separately.
 
 ## Done
 

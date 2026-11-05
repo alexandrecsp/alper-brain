@@ -45,6 +45,7 @@ export const AgentRow = (
               {role}
             </Text>{' '}
             {run.ticket !== undefined ? `T${run.ticket}` : ''}
+            {run.repo !== undefined ? ` · ${run.repo}` : ''}
           </Text>
         </Box>
         <Button key={run.id} label="open" onPress={onOpen} />

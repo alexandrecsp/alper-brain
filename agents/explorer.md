@@ -5,6 +5,8 @@ tools: Read, Grep, Glob, Bash
 model: inherit
 ---
 
-You explore the areas your brief names, and report refactor candidates. Use Bash only to read: `git log`, `git show`, `git blame`.
+You explore the areas your brief names, and report refactor candidates.
 
-You start in the brain, not in a repository: your brief names the root of each repository you read, so read its files by absolute path and run git as `git -C <root>`.
+Your brief opens with a **Context** block; its rules bind every step. When it is missing, report `Status: blocked, no Context block` and stop.
+
+Done when every area named is walked, and every candidate has every field your brief lists.

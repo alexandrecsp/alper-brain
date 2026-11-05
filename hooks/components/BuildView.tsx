@@ -15,7 +15,7 @@ export const BuildView = ({ ui: { Box, Text }, Svg, at }: Draw, { build, spent, 
   const cost = spent === null ? 0 : spent.agentTokens + spent.mainTokens
 
   return (
-    <Box flexDirection="column" marginBottom={1}>
+    <Box key={`build-${build.key}`} flexDirection="column" marginBottom={1}>
       <Box flexDirection="row" flexWrap="nowrap" gap={1}>
         {/* The spec gives way before the milestone, which is the one being built. */}
         <Box flexShrink={4} minWidth={0}>
@@ -29,6 +29,11 @@ export const BuildView = ({ ui: { Box, Text }, Svg, at }: Draw, { build, spent, 
             M{build.milestone.slice(0, 3)} {oneLine(build.milestoneTitle)}
           </Text>
         </Box>
+        {build.repo !== null && (
+          <Box flexShrink={0}>
+            <Text dimColor>· {build.repo}</Text>
+          </Box>
+        )}
       </Box>
       <Box flexDirection="row" flexWrap="nowrap" alignItems="center" gap={1}>
         {Svg === undefined ? (

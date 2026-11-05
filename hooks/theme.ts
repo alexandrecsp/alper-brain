@@ -47,6 +47,8 @@ export const stageTone = (index: number, current: number, phase: string): Tone =
 // beside its persona.
 export const ROLES: Record<string, { color: string; hex: string }> = {
   builder: { color: 'claude', hex: '#F4C542' },
+  fixer: { color: 'warning', hex: '#F08A24' },
+  scribe: { color: 'success', hex: '#7FB069' },
   reviewer: { color: 'suggestion', hex: '#5FB3D9' },
   'spec-reviewer': { color: 'permission', hex: '#6C7EE0' },
   scout: { color: 'ide', hex: '#3FB68B' },

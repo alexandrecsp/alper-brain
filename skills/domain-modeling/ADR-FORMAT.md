@@ -1,6 +1,6 @@
 # ADR Format
 
-ADRs use sequential numbering within their `docs/adr/` folder: `0001-slug.md`, `0002-slug.md`, etc. Which folder an ADR goes in, and whether to offer one at all, is in [SKILL.md](./SKILL.md).
+ADRs are numbered in sequence within their `docs/adr/` folder: `0001-slug.md`, `0002-slug.md`. [DOMAIN-DOCS.md](DOMAIN-DOCS.md) says which folder, or whether the decision is a brain `decision` note instead, and [SKILL.md](SKILL.md) says whether to offer one at all.
 
 ## Template
 
@@ -20,10 +20,6 @@ Only include these when they add genuine value. Most ADRs won't need them.
 - **Considered Options**: only when the rejected alternatives are worth remembering
 - **Consequences**: only when non-obvious downstream effects need to be called out
 - **Diagram**: when the decision has a shape (an architecture, a boundary, an integration between contexts), drawn by [DIAGRAMS.md](../to-spec/DIAGRAMS.md)'s **Decision**
-
-## Numbering
-
-Scan the target `docs/adr/` for the highest existing number and increment by one.
 
 ## What qualifies
 

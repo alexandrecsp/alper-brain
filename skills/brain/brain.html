@@ -1503,7 +1503,7 @@ function closeDoc() {
 // ---------- notes ----------
 
 // A note's type is drawn as its shape, never its colour: five hues cannot stay apart on a scatter of nodes.
-const SHAPES = { concept: d3.symbolCircle, decision: d3.symbolSquare, gotcha: d3.symbolTriangle, contract: d3.symbolDiamond, 'how-to': d3.symbolStar, other: d3.symbolCross };
+const SHAPES = { feature: d3.symbolWye, concept: d3.symbolCircle, decision: d3.symbolSquare, gotcha: d3.symbolTriangle, contract: d3.symbolDiamond, 'how-to': d3.symbolStar, other: d3.symbolCross };
 const glyph = (type, size = 150) => d3.symbol().type(SHAPES[type] || SHAPES.other).size(size)();
 const icon = (type) => `<svg class="h-3.5 w-3.5" viewBox="-8 -8 16 16"><path d="${glyph(type, 70)}" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`;
 

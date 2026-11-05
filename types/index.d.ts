@@ -1,6 +1,6 @@
 export type RunStatus = 'running' | 'done' | 'failed' | 'stopped'
 
-/** What a run is for, within /build: its ticket, the review, the arbiter's decisions, the review's fixes or the milestone check. */
+/** What a run is for, within /build: its ticket, the review, the arbiter's decisions, the fixer's fixes or the milestone check. */
 export type Job = 'ticket' | 'review' | 'decide' | 'fix' | 'check' | 'other'
 
 export type Tokens = {
@@ -28,6 +28,8 @@ export type AgentRun = {
   milestone?: string
   /** The ticket's number (`003`), when its brief names a ticket file. */
   ticket?: string
+  /** The slug of the repository its brief's Context block says it works in. */
+  repo?: string
   job: Job
 }
 
@@ -46,6 +48,8 @@ export type Build = {
   specTitle: string
   milestone: string
   milestoneTitle: string
+  /** The slug on the milestone's **Repo** line: the repository it builds in. */
+  repo: string | null
   phase: string
   squash: string | null
   tickets: Ticket[]
@@ -67,8 +71,10 @@ declare module 'claude-code' {
     'alper-brain': {
       runs: Shaped<AgentRun[]>
       now: number
-      build: Shaped<Build | null>
-      ledger: Shaped<Ledger | null>
+      /** The milestones the pane follows: one, or a wave of them, all of one spec. */
+      builds: Shaped<Build[]>
+      /** What each followed milestone has spent, by its key. */
+      ledgers: Shaped<Record<string, Ledger>>
       viewed: string
     }
   }

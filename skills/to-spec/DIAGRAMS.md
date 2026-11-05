@@ -45,7 +45,7 @@ flowchart LR
 
 **Where:** `spec.md`, Implementation Decisions.
 
-A `flowchart` of the modules the feature builds or changes, plus the unmarked modules they call or are called by. Arrows read "calls" or "sends to"; label one with the interface when that interface changes. When the spec's **Repos** names more than one repository, group each repository's modules in a `subgraph` titled with its slug, so the arrows that cross a subgraph's edge are the contracts between them. When the schema changes, follow it with an `erDiagram` of the entities touched; when a state model changes, with a `stateDiagram-v2`, its new states marked.
+A `flowchart` of the modules the feature builds or changes, plus the unmarked modules they call or are called by. Arrows read "calls" or "sends to"; label one with the interface when that interface changes. When the map holds modules of more than one repository, including unmarked consumers outside the spec's **Repos**, group each repository's modules in a `subgraph` titled with its slug, so the arrows that cross a subgraph's edge are the contracts between them. When the schema changes, follow it with an `erDiagram` of the entities touched; when a state model changes, with a `stateDiagram-v2`, its new states marked.
 
 ```mermaid
 flowchart TD
@@ -92,7 +92,7 @@ flowchart LR
 
 **Where:** `review.md`, Summary.
 
-A `flowchart` of the modules the diff touches, each labelled with the numbers of its findings and marked by its worst one: `escalate` over `violation` over `judgement`. A Spec finding about a missing requirement sits on the module that should build it. Modules without findings stay unmarked. When the review has no findings, the slot holds the count line alone.
+A `flowchart` of the modules the diff touches, each labelled with the numbers of its findings and marked by its worst one: `escalate` over `violation` over `judgement`. A Spec finding about a missing requirement sits on the module that should build it, and a Consumers finding (`CN1`…) on the producer module whose change breaks the consumer. Modules without findings stay unmarked. When the review has no findings, the slot holds the count line alone.
 
 ```mermaid
 flowchart TD

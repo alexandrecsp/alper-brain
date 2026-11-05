@@ -1,41 +1,31 @@
 ---
 name: domain-modeling
-description: Build and sharpen a project's domain model. Use when discussing codebase terminology, editing a GLOSSARY.md, or recording an ADR.
+description: Build and sharpen each repository's domain model, its glossary and decisions. Use when discussing domain terms, editing a GLOSSARY.md, or recording an ADR.
 metadata:
   type: process
 ---
 
 # Domain Modeling
 
-Actively build and sharpen the project's domain model as you design: challenge terms, invent edge-case scenarios, and write the glossary and decisions down the moment they crystallise.
+Actively build and sharpen the domain model as you design: challenge terms, invent edge-case scenarios, and write the glossary and decisions down the moment they settle.
 
-## File structure
+## Where it lives
 
-The glossary and ADRs live in the **working repository**, by [FORMAT.md](../brain/FORMAT.md): the paths below are relative to its root. Most repos have a single context:
+Each repository the topic touches is its own context, with its own glossary and ADRs. Read the [domain docs](DOMAIN-DOCS.md) of every one of them before the first challenge: their glossaries are what you challenge against, and their notes are what you check terms and decisions against. Write each settled fact where DOMAIN-DOCS.md's table puts it.
 
-```
-/
-├── GLOSSARY.md
-├── docs/
-│   └── adr/
-│       ├── 0001-event-sourced-orders.md
-│       └── 0002-postgres-for-write-model.md
-└── src/
-```
-
-If a `GLOSSARY-MAP.md` exists at the root, the repo has multiple contexts: follow [CONTEXTS.md](CONTEXTS.md).
-
-Create files lazily: only when you have something to write. If no `GLOSSARY.md` exists, create a root one when the first term is resolved. If the target `docs/adr/` doesn't exist, create it when its first ADR is needed.
+Create files lazily: a `GLOSSARY.md` or a `docs/adr/` folder only when its first entry is written. When a `GLOSSARY-MAP.md` sits at a repository's root, it holds several contexts: follow [CONTEXTS.md](CONTEXTS.md).
 
 ## During the session
 
 ### Challenge against the glossary
 
-When the user uses a term that conflicts with the existing language in `GLOSSARY.md`, call it out immediately. "Your glossary defines 'cancellation' as X, but you seem to mean Y. Which is it?"
+When the user uses a term that conflicts with the language of the glossary of the repository it belongs to, call it out immediately. "Your glossary defines 'cancellation' as X, but you seem to mean Y. Which is it?" One word defined two ways in two repositories is two contexts, not a conflict: the contract between them records the translation.
 
 ### Sharpen fuzzy language
 
 When the user uses vague or overloaded terms, propose a precise canonical term. "You're saying 'account': do you mean the Customer or the User? Those are different things."
+
+When the term crosses an interface a `contract` note records, settling a new name changes the contract: raise it as the contract question `brainstorm` asks (do its other repositories change with it, or does the interface keep the old name?), and record the mapping in the contract note when the two sides keep different words.
 
 ### Discuss concrete scenarios
 
@@ -43,13 +33,15 @@ When domain relationships are being discussed, stress-test them with specific sc
 
 ### Cross-reference with code
 
-When the user states how something works, check whether the code agrees. If you find a contradiction, surface it: "Your code cancels entire Orders, but you just said partial cancellation is possible. Which is right?"
+When the user states how something works, check whether the code of each repository it involves agrees, and surface a contradiction: "Your code cancels entire Orders, but you just said partial cancellation is possible. Which is right?"
 
-### Update GLOSSARY.md inline
+Beside `brainstorm`, the check is a fact: its **Facts and Decisions** sends it to a scout, and the round moves on. On your own, read one repository's code yourself. For a claim spanning several linked repositories, dispatch one `alper-brain:scout` per repository in one message, each brief opening with the Context block by [BRIEF.md](../brain/BRIEF.md), with the claim. Read glossaries yourself: they are short, and a challenge quotes them exactly.
 
-When a term is resolved, update `GLOSSARY.md` right there, as it happens. Use the format in [GLOSSARY-FORMAT.md](./GLOSSARY-FORMAT.md).
+### Write it down as it settles
 
-`GLOSSARY.md` holds the domain's terms and their definitions, nothing else: implementation decisions belong in ADRs or the spec.
+When a term settles, write it where [DOMAIN-DOCS.md](DOMAIN-DOCS.md) puts it, in [GLOSSARY-FORMAT.md](GLOSSARY-FORMAT.md)'s format. A glossary or ADR in a repository needs that repository **open** ([FORMAT.md](../brain/FORMAT.md)). When it is only linked, add the entry to a **pending** list and keep the session moving. When it is only registered, the term rides on to the spec. A brain note needs only the brain: write it through **Record** in the [brain skill](../brain/SKILL.md).
+
+A glossary holds terms and their definitions only: an implementation decision is an ADR or part of the spec. When a settled term contradicts a brain note you read, propose that note's fix through **Record** when it is authored; an explored note catches up at the next `/brain explore`.
 
 ### Offer ADRs sparingly
 
@@ -59,8 +51,23 @@ Only offer to create an ADR when all three are true:
 2. **Surprising without context**: a future reader will wonder "why did they do it this way?"
 3. **The result of a real trade-off**: there were genuine alternatives and you picked one for specific reasons
 
-If any of the three is missing, skip the ADR. Use the format in [ADR-FORMAT.md](./ADR-FORMAT.md).
+Weigh each candidate against **What qualifies** in [ADR-FORMAT.md](ADR-FORMAT.md) before offering, and write the accepted ones in its format, where [DOMAIN-DOCS.md](DOMAIN-DOCS.md) puts them: a decision that binds several repositories passes the same tests, and becomes a brain `decision` note.
+
+## Beside brainstorm
+
+When this skill runs beside `brainstorm`, the brainstorm drives: its rounds, phases and summaries stay as written, and this skill feeds them.
+
+- Read the domain docs of every repository the topic touches alongside `What · Round 1`. They include the brain's recall, so they stand in for brainstorm's own.
+- Each challenge (a conflicting or fuzzy term, an edge-case scenario) enters the current round as a frontier question. Across repositories, challenge a word with two meanings only where the design carries the concept across that boundary, and ask which meaning the contract carries.
+- A claim about how the code works is a fact, checked by brainstorm's **Facts and Decisions**; each contradiction enters the next round as a frontier question.
+- A settled decision that passes the three tests enters the next round as a frontier question, naming where it would go: a repository's `docs/adr/`, a context's, or a `shared/` decision note. Recommend yes or no.
+- Each phase summary ends with **Domain docs**: per repository, the terms written, the ADRs written or declined, and the pending writes with what they wait on; cross-repository terms and decisions under the brain.
 
 ## Done
 
-Done when every term the session settled is in its `GLOSSARY.md`, and every decision that passed the three tests has been offered as an ADR. When this skill runs beside another (such as `brainstorm`), check this before that skill's session ends.
+Done when every settled term is written in its home by DOMAIN-DOCS.md, and every decision that passed the three tests has been offered and, when accepted, written. Close it out in this order:
+
+1. Ask the user once to run `/add-dir` for each root the **pending** list names, then write its entries.
+2. Offer to commit each repository's domain-doc changes with `commit`, one commit per repository, since `/build` stops on a dirty tree.
+
+Beside `brainstorm`, done when the user confirms the `How` summary with its **Domain docs** list complete, closed out as above.

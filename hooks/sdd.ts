@@ -45,6 +45,20 @@ export const field = (md: string, name: string) => {
   return (line?.[1] ?? '').replace(/`/g, '').trim()
 }
 
+/**
+ * The repository a brief's Context block names on its `**Works in:** <slug> at <root>`
+ * line (skills/brain/BRIEF.md); undefined when the brief has none.
+ */
+export const repoOf = (brief: string) =>
+  /\*\*Works in:\*\*\s*`?([\w.-]+)`?\s+at\s/.exec(brief)?.[1]
+
+/** A milestone's **Repo** line, or null when it names none. */
+export const repoField = (md: string) => {
+  const repo = field(md, 'Repo')
+
+  return repo === '' || /^none$/i.test(repo) ? null : repo
+}
+
 export const heading = (md: string) => (/^#\s+(.*)$/m.exec(md)?.[1] ?? '').trim()
 
 export const shortSha = (value: string) =>

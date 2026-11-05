@@ -8,7 +8,7 @@ import { BuildView } from './components/BuildView'
 import { TranscriptView } from './components/TranscriptView'
 import type { Draw } from './components/ui'
 import { NO_TOKENS, addUsage, describe, pathArgs, tokens, total, usageTotal } from './format'
-import { STAGES, field, findRef, heading, jobOf, keyOf, shortSha, stageOf } from './sdd'
+import { STAGES, field, findRef, heading, jobOf, keyOf, repoField, repoOf, shortSha, stageOf } from './sdd'
 import { STATUS_LINE_GLYPH, roleOf } from './theme'
 
 const PANE = 'build-watch'
@@ -17,10 +17,10 @@ const AGENT_PANE = 'build-watch-agent'
 const KEEP = 50
 // Change a tag when that value's fields change: it declines what an earlier
 // version stored, which outlives a reload.
-const runs = atom({ plugin: 'alper-brain', key: 'runs' } as const, [], { shape: 'runs-1' })
+const runs = atom({ plugin: 'alper-brain', key: 'runs' } as const, [], { shape: 'runs-2' })
 const now = atom({ plugin: 'alper-brain', key: 'now' } as const, 0)
-const build = atom({ plugin: 'alper-brain', key: 'build' } as const, null, { shape: 'build-1' })
-const ledger = atom({ plugin: 'alper-brain', key: 'ledger' } as const, null, { shape: 'ledger-1' })
+const builds = atom({ plugin: 'alper-brain', key: 'builds' } as const, [], { shape: 'builds-1' })
+const ledgers = atom({ plugin: 'alper-brain', key: 'ledgers' } as const, {}, { shape: 'ledgers-1' })
 // The id of the agent whose transcript the second pane shows.
 const viewed = atom({ plugin: 'alper-brain', key: 'viewed' } as const, '')
 
@@ -30,7 +30,18 @@ const ENDED: Partial<Record<AgentStatus, RunStatus>> = {
   killed: 'stopped',
 }
 
-const isBuilding = (b: Build | null): b is Build => b !== null && b.squash === null
+const isBuilding = (b: Build | null | undefined): b is Build => b != null && b.squash === null
+
+// The milestone the main session last touched: its own requests count toward it.
+let focus: string | undefined
+
+// The milestone a run without a path of its own works for: the only one being
+// built, else the one the main session last touched.
+const fallback = (list: Build[]) => {
+  const building = list.filter(isBuilding)
+
+  return building.length === 1 ? building[0] : building.find(b => b.key === focus)
+}
 
 // When each message of an agent's transcript was first seen, the Nth from the Nth message. The engine
 // stamps none: a message the pane sees as it comes is stamped true to the second, one already there
@@ -74,42 +85,58 @@ const loadBuild = async (
     specTitle: heading(specMd).replace(/^Spec:\s*/i, '') || ref.spec,
     milestone: ref.milestone,
     milestoneTitle: heading(milestoneMd).replace(/^Milestone\s+\d+:\s*/i, '') || ref.milestone,
+    repo: repoField(milestoneMd),
     phase: field(milestoneMd, 'Phase').toLowerCase() || 'none',
     squash: shortSha(field(milestoneMd, 'Squash')),
     tickets,
   }
 }
 
-// Makes the milestone `ref` points into the one the pane follows, or reads
-// it again when it already is; a new one brings its saved spending along.
+// Adds the milestone `ref` points into to those the pane follows, or reads it
+// again when it already is; a new one brings its saved spending along. A
+// milestone of another spec starts the list afresh, so a wave shows together.
 const follow = async (
   $: EngineInterface,
   ref: { root: string; spec: string; milestone: string },
+  focused = true,
 ) => {
   const loaded = await loadBuild($, ref)
   if (loaded === null) return
+  if (focused) focus = loaded.key
 
-  const before = await read($, build)
-  await update($, build, () => loaded)
-  if (before?.key === loaded.key) return
+  let isNew = false
+  const list = await update($, builds, all => {
+    isNew = !all.some(b => b.key === loaded.key)
+    const kept = all.filter(b => b.key !== loaded.key && b.root === loaded.root && b.spec === loaded.spec)
+
+    return [...kept, loaded].sort((a, b) => a.milestone.localeCompare(b.milestone))
+  })
+  if (!isNew) return
 
   const saved = (await $.store.get(`ledger:${loaded.key}`)) as Ledger | undefined
   const fresh: Ledger = { key: loaded.key, agentTokens: 0, mainTokens: 0, agents: 0, byTicket: {} }
-  await update($, ledger, () => saved ?? fresh)
+  await update($, ledgers, all => {
+    const kept = Object.fromEntries(Object.entries(all).filter(([key]) => list.some(b => b.key === key)))
+
+    return { ...kept, [loaded.key]: saved ?? fresh }
+  })
   void $.ui.open({ id: PANE, title: TITLE })
 }
 
-const refreshBuild = async ($: EngineInterface) => {
-  const current = await read($, build)
-  if (current !== null) await follow($, current)
+const refreshBuilds = async ($: EngineInterface) => {
+  for (const b of await read($, builds)) await follow($, b, false)
 }
 
-// Adds to the followed milestone's spending, and saves it for later sessions.
+// Adds to a followed milestone's spending, and saves it for later sessions.
 const charge = async ($: EngineInterface, key: string | undefined, fn: (l: Ledger) => Ledger) => {
   if (key === undefined) return
 
-  const saved = await update($, ledger, l => (l !== null && l.key === key ? fn(l) : l))
-  if (saved !== null && saved.key === key) await $.store.set(`ledger:${key}`, saved)
+  const all = await update($, ledgers, l => {
+    const one = l[key]
+    return one === undefined ? l : { ...l, [key]: fn(one) }
+  })
+  const saved = all[key]
+  if (saved !== undefined) await $.store.set(`ledger:${key}`, saved)
 }
 
 const chargeTicket = (l: Ledger, ticket: string | undefined, add: { tokens?: number; ms?: number }) => {
@@ -141,9 +168,10 @@ const ensure = async ($: EngineInterface, id: string, brief = '') => {
   const ref = findRef(brief, cwd)
   if (ref !== undefined) await follow($, ref)
 
-  const active = await read($, build)
-  const milestone = ref !== undefined ? keyOf(ref) : isBuilding(active) ? active.key : undefined
-  // The arbiter and the fixer are both handed review.md: the phase tells them apart.
+  const list = await read($, builds)
+  const active = ref !== undefined ? list.find(b => b.key === keyOf(ref)) : fallback(list)
+  const milestone = ref !== undefined ? keyOf(ref) : active?.key
+  // The arbiter and the review's fixer are both handed review.md: the phase tells them apart.
   const job: Job =
     ref?.ticket !== undefined
       ? 'ticket'
@@ -151,7 +179,7 @@ const ensure = async ($: EngineInterface, id: string, brief = '') => {
         ? jobOf(active?.phase ?? '') === 'decide'
           ? 'decide'
           : 'fix'
-        : milestone !== undefined && active !== null
+        : milestone !== undefined && active !== undefined
           ? jobOf(active.phase)
           : 'other'
   const run: AgentRun = {
@@ -169,6 +197,7 @@ const ensure = async ($: EngineInterface, id: string, brief = '') => {
     lastText: '',
     milestone,
     ticket: ref?.ticket,
+    repo: repoOf(brief),
     job,
   }
   let isNew = false
@@ -181,16 +210,22 @@ const ensure = async ($: EngineInterface, id: string, brief = '') => {
 
 const refreshStatus = async ($: EngineInterface) => {
   const list = await read($, runs)
-  const current = await read($, build)
-  const spent = await read($, ledger)
+  const building = (await read($, builds)).filter(isBuilding)
+  const spent = await read($, ledgers)
   const running = list.filter(run => run.status === 'running').length
   const agents = `${running} agent${running === 1 ? '' : 's'} running`
+  const cost = building.reduce((sum, b) => sum + (spent[b.key]?.agentTokens ?? 0) + (spent[b.key]?.mainTokens ?? 0), 0)
+  const label = (b: Build) => {
+    const done = b.tickets.filter(t => t.status === 'done').length
+    return `M${b.milestone.slice(0, 3)}${b.repo === null ? '' : ` ${b.repo}`} ${done}/${b.tickets.length}`
+  }
   let text: string | undefined
-  if (isBuilding(current)) {
-    const done = current.tickets.filter(t => t.status === 'done').length
+  if (building.length === 1 && building[0] !== undefined) {
+    const current = building[0]
     const stage = STAGES[stageOf(current.phase, current.squash)] ?? 'done'
-    const cost = spent === null ? 0 : spent.agentTokens + spent.mainTokens
-    text = `${STATUS_LINE_GLYPH} M${current.milestone.slice(0, 3)} ${done}/${current.tickets.length} tickets · ${stage} · ${agents} · ${tokens(cost)} tok`
+    text = `${STATUS_LINE_GLYPH} ${label(current)} tickets · ${stage} · ${agents} · ${tokens(cost)} tok`
+  } else if (building.length > 1) {
+    text = `${STATUS_LINE_GLYPH} ${building.map(label).join(' · ')} · ${agents} · ${tokens(cost)} tok`
   } else if (list.length > 0) {
     const cost = list.reduce((sum, run) => sum + total(run.tokens), 0)
     text = `${STATUS_LINE_GLYPH} ${agents} · ${list.length - running} done · ${tokens(cost)} tok`
@@ -206,12 +241,12 @@ const refreshStatus = async ($: EngineInterface) => {
 // agent); every third second while a milestone is open, reads its files again.
 const tick = async ($: EngineInterface) => {
   ticks += 1
-  const current = await read($, build)
-  if (isBuilding(current) && ticks % 3 === 0) await refreshBuild($)
+  const anyBuilding = (await read($, builds)).some(isBuilding)
+  if (anyBuilding && ticks % 3 === 0) await refreshBuilds($)
 
   const list = await read($, runs)
   if (!list.some(run => run.status === 'running')) {
-    if (isBuilding(current)) await refreshStatus($)
+    if (anyBuilding) await refreshStatus($)
     return
   }
 
@@ -269,8 +304,8 @@ export const register: Register = on => {
     if (id === undefined) {
       // The main session's own requests count toward the milestone it builds.
       const result = yield* next(e)
-      const current = await read($, build)
-      if (result.usage !== null && isBuilding(current)) {
+      const current = fallback(await read($, builds))
+      if (result.usage !== null && current !== undefined) {
         const spent = usageTotal(result.usage)
         await charge($, current.key, l => ({ ...l, mainTokens: l.mainTokens + spent }))
       }
@@ -342,7 +377,7 @@ export const register: Register = on => {
     if (run !== undefined) {
       await charge($, run.milestone, l => chargeTicket(l, run.ticket, { ms: at - run.startedAt }))
     }
-    await refreshBuild($)
+    await refreshBuilds($)
     await refreshStatus($)
 
     return next(e)
@@ -381,8 +416,12 @@ export const register: Register = on => {
     // fragment where the surface has none, so ask the surface.
     const Svg = e.surface === 'terminal' ? undefined : ui.Svg
     const list = await read($, runs)
-    const current = await read($, build)
-    const spent = await read($, ledger)
+    const followed = await read($, builds)
+    const spent = await read($, ledgers)
+    // The milestones being built, a wave of them side by side; once all are
+    // squashed, the last one stays up to show it.
+    const building = followed.filter(isBuilding)
+    const shown = building.length > 0 ? building : followed.slice(-1)
     const draw: Draw = {
       ui,
       Svg,
@@ -392,7 +431,7 @@ export const register: Register = on => {
     const finished = list.length - running.length
     const largest = Math.max(1, ...list.map(run => total(run.tokens)))
 
-    if (current === null && list.length === 0) {
+    if (shown.length === 0 && list.length === 0) {
       return (
         <Text dimColor>
           Nothing yet. A /build milestone and its subagents show here as they start.
@@ -402,7 +441,7 @@ export const register: Register = on => {
 
     return (
       <Box flexDirection="column">
-        {current !== null && BuildView(draw, { build: current, spent, running })}
+        {shown.map(b => BuildView(draw, { build: b, spent: spent[b.key] ?? null, running }))}
         {list.length > 0 &&
           AgentsHeader(draw, {
             finished,
@@ -415,7 +454,7 @@ export const register: Register = on => {
           .map(run =>
             AgentRow(draw, {
               run,
-              ticketTitle: current?.tickets.find(t => t.num === run.ticket)?.title,
+              ticketTitle: followed.find(b => b.key === run.milestone)?.tickets.find(t => t.num === run.ticket)?.title,
               largest,
               // Where the host has no main view to switch (the editor's), the agent's transcript opens in a pane of its own.
               onOpen: async () => {

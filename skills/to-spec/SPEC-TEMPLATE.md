@@ -5,7 +5,7 @@ Replace each section's guidance with its content. The first four sections are th
 
 **Repos:** <the slugs of the repositories this spec changes, such as `billing-api, web-app`>
 
-**Key:** <the key the user gave, the `<slug>: <key>` entries when the repositories' patterns differ, or "None">
+**Key:** <the key line the user gave, shaped by FORMAT.md's **Key**, or "None">
 
 **Depends on:** <the folder names of the specs this one is built after, such as `003-invoice-export, 005-tax-rules`, or "None">
 
@@ -48,13 +48,13 @@ Describe modules and interfaces by name and behaviour; file paths and code snipp
 
 ## Relies On
 
-For each dependency, the assumptions this spec makes about its planned state, one bullet each: an interface, a seam, a behaviour, a term. `/build` checks each one against the landed code before it builds. Without dependencies, write "None".
+For each dependency, the assumptions this spec makes about its planned state, one bullet each: an interface, a seam, a behaviour, a term, with the repository it sits in, or the contract when it is an interface between repositories. `/build` checks each one against that repository's landed code before it builds. Without dependencies, write "None".
 
-- `<dependency folder>`: <assumption>
+- `<dependency folder>` · `<repo slug or contract note>`: <assumption>
 
 ## Testing Decisions
 
-- The seams the user confirmed, each with what it catches.
+- The seams the user confirmed, each as `<repo slug>` · `<unit|e2e>`: the seam, and what it catches.
 - What makes a good test here: external behaviour through the seam, never implementation details.
 - Prior art: similar tests already in the codebase.
 

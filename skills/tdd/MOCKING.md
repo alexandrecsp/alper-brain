@@ -1,10 +1,11 @@
-Mock only what you don't control or can't run in the test:
+Mock only what the test can't run in-process:
 
-- External APIs (payment, email)
+- Another repository's interface, even one this brain registers: by [CONTRACTS.md](CONTRACTS.md)
+- Third-party APIs (payment, email)
 - Time and randomness
 - Databases and the file system, when no local stand-in exists (prefer a test database or an in-memory filesystem)
 
-Everything you control, your own modules and their internal collaborators, runs for real in the test.
+Everything inside the working repository, your own modules and their internal collaborators, runs for real in the test.
 
 ## Designing a mocked dependency
 

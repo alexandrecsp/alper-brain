@@ -2,7 +2,7 @@
 
 Built on the [report theme](../brain/THEME.md): its scaffold, hero, card and diagram canvas, filled as below. The tour reads top to bottom as its stops, each a `<section>` headed by its name in `text-2xl font-semibold tracking-tight`. Diagrams carry the big picture and the journeys; the cards and tables carry the detail.
 
-Every file path is a **file link**: `font-mono text-xs text-zinc-500`, its `href` relative to the tour (`../../src/orders/intake.ts`), so it opens from the page.
+Every file path is a **file link**: `font-mono text-xs text-zinc-500`, its `href` the file's absolute `file:///` URL under the repository's root (`file:///C:/work/acme/billing-api/src/orders/intake.ts`), so it opens from the page. The tour sits in the brain, not the repository, so a relative path never reaches the code.
 
 ## Scaffold
 
@@ -12,14 +12,14 @@ Every file path is a **file link**: `font-mono text-xs text-zinc-500`, its `href
 
 ## Hero
 
-- **Eyebrow**: repo name, date and the stamped commit.
+- **Eyebrow**: repo name, date, the stamped commit, and its branch when it is not the default branch.
 - **Headline**: what the system does, in one sentence, and under it a line naming the stack.
 - **Stat tiles**: Areas, Journeys, Entry points, Glossary terms.
 - **Start here** row: the first journey's title, linking to its card.
 
 ## Big picture
 
-A **context map** on a diagram canvas: a Mermaid `flowchart LR` with one node per area, labelled in the glossary's terms, an edge per dependency labelled with how it calls (`HTTP`, `queue`, `import`), and each external system as a cylinder (`[(Postgres)]`) or a subroutine node (`[[Stripe]]`). Draw it by [DIAGRAMS.md](../to-spec/DIAGRAMS.md)'s smallest-view rule, with its nodes unmarked: the tour describes the code as it stands. With more than a dozen areas, group them in `subgraph`s by app or context. Under the map, one line per area: its name linking to its card, and its purpose.
+A **context map** on a diagram canvas: a Mermaid `flowchart LR` with one node per area, labelled in the glossary's terms, an edge per dependency labelled with how it calls (`HTTP`, `queue`, `import`), and each external system as a cylinder (`[(Postgres)]`) or a subroutine node (`[[Stripe]]`). Draw it by [DIAGRAMS.md](../to-spec/DIAGRAMS.md)'s smallest-view rule, with its nodes unmarked: the tour describes the code as it stands. With more than a dozen areas, group them in `subgraph`s by app or context. Around the areas, draw one node per other registered repository this one produces for or consumes from, as a stadium (`([web-app])`), each edge labelled with its `contract` note's name: draw them from the contract notes and the cards. Under the map, one line per area: its name linking to its card, and its purpose.
 
 ## Journeys
 
@@ -27,7 +27,7 @@ One card per journey, accent bar `from-sky-400 to-indigo-500`:
 
 - **Meta row**: the entry point's kind as a chip.
 - **Title**: "What happens when…", in the glossary's terms ("What happens when a customer places an Order").
-- **Sequence diagram**: a Mermaid `sequenceDiagram` on a canvas, one participant per area the journey crosses, one message per hop.
+- **Sequence diagram**: a Mermaid `sequenceDiagram` on a canvas, one participant per area the journey crosses, prefixed with its repository's slug when the journey leaves this one, one message per hop.
 - **Hops**: an ordered list, each hop its function in `font-mono`, its file link, and its area as a chip linking to the area's card.
 
 ## Areas

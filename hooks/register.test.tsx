@@ -21,7 +21,7 @@ const DIR = 'C:/repo/.sdd/specs/003-invoice-export/milestones/001-parse-invoices
 
 const files: Record<string, string> = {
   'C:/repo/.sdd/specs/003-invoice-export/spec.md': '# Spec: Invoice export\n\n**Key:** None\n',
-  [`${DIR}/milestone.md`]: '# Milestone 001: Parse invoices\n\n**Phase:** none\n\n**Squash:** none\n',
+  [`${DIR}/milestone.md`]: '# Milestone 001: Parse invoices\n\n**Repo:** billing-api\n\n**Phase:** none\n\n**Squash:** none\n',
   [`${DIR}/001-read-rows.md`]: '# Ticket 001: Read rows\n\n**Status:** done\n\n**Commit:** a1b2c3d4\n',
   [`${DIR}/002-map-columns.md`]: '# Ticket 002: Map columns\n\n**Status:** doing\n\n**Commit:** none\n',
   [`${DIR}/003-check-totals.md`]: '# Ticket 003: Check totals\n\n**Status:** todo\n\n**Commit:** none\n',
@@ -76,7 +76,7 @@ test("a /build ticket's builder shows under its milestone, with its spending", a
   on('turn.complete', (_, e) => ({ text: e.answer }))
 
   await $.turn.start({
-    text: `Build this ticket: ${DIR}/002-map-columns.md, ${DIR}/milestone.md, C:/repo/.sdd/specs/003-invoice-export/spec.md`,
+    text: `## Context\n- **Works in:** billing-api at C:/work/billing-api (open), changes it\n\nBuild this ticket: ${DIR}/002-map-columns.md, ${DIR}/milestone.md, C:/repo/.sdd/specs/003-invoice-export/spec.md`,
     turnId: 't1',
     agentId: 'a1',
   })
@@ -94,6 +94,9 @@ test("a /build ticket's builder shows under its milestone, with its spending", a
     const ui = await $.ui.mount({ ...PANE, surface })
     expect(await ui.find({ type: 'Text', text: /003 Invoice export/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /M001 Parse invoices/ })).toBeDefined()
+    // The milestone's repository heads the build, and the agent's row names the one its brief works in.
+    expect(await ui.find({ type: 'Text', text: /^· billing-api$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /builder T002 · billing-api/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /1\/3 tickets/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /001 Read rows/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /a1b2c3d/ })).toBeDefined()
@@ -159,5 +162,92 @@ test('the decide phase shows as the stage the milestone is at, and its arbiter a
   expect(await ui.find({ type: 'Text', text: /✅ review/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /decide: Decide the escalations/ })).toBeDefined()
   expect(await ui.find({ type: 'Svg', alt: 'arbiter, running' })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a wave shows each of its milestones, each builder under its own', async ($, on) => {
+  const DIR2 = 'C:/repo/.sdd/specs/003-invoice-export/milestones/002-show-totals'
+  const wave: Record<string, string> = {
+    ...files,
+    [`${DIR2}/milestone.md`]: '# Milestone 002: Show totals\n\n**Repo:** web-app\n\n**Phase:** none\n\n**Squash:** none\n',
+    [`${DIR2}/004-totals-page.md`]: '# Ticket 004: Totals page\n\n**Status:** doing\n\n**Commit:** none\n',
+  }
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 1_000_000 }))
+  on('store.get', () => ({ value: undefined }))
+  on('store.set', () => ({ value: undefined }))
+  on('fs.list', (_, e) => ({
+    value: Object.keys(wave)
+      .filter(path => path.startsWith(`${slash(e.path)}/`))
+      .map(path => ({ name: path.slice(slash(e.path).length + 1), kind: 'file' as const, size: 1, mtimeMs: 1, isLink: false })),
+  }))
+  on('fs.read', (_, e) => ({ value: wave[slash(e.path)] ?? '' }))
+  on('agent.list', () => ({
+    value: [
+      { id: 'w1', type: 'alper-brain:builder', description: 'Build ticket 002', status: 'running' },
+      { id: 'w2', type: 'alper-brain:builder', description: 'Build ticket 004', status: 'running' },
+    ],
+  }))
+  on('turn.start', (_, e) => ({ turnId: e.turnId }))
+  on('tool.call', () => ({ result: {} }))
+
+  // The round's builders start side by side, one per milestone of the wave.
+  await $.turn.start({
+    text: `## Context\n- **Works in:** billing-api at C:/work/billing-api (open), changes it\n\nBuild this ticket: ${DIR}/002-map-columns.md`,
+    turnId: 'tw1',
+    agentId: 'w1',
+  })
+  await $.turn.start({
+    text: `## Context\n- **Works in:** web-app at C:/work/web-app (open), changes it\n\nBuild this ticket: ${DIR2}/004-totals-page.md`,
+    turnId: 'tw2',
+    agentId: 'w2',
+  })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: /M001 Parse invoices/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /M002 Show totals/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^· web-app$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /002 Map columns/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /004 Totals page/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /builder T002 · billing-api/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /builder T004 · web-app/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('the fixer shows as fixing in the fix phase, dressed as its own role', async ($, on) => {
+  const fixing: Record<string, string> = {
+    ...files,
+    [`${DIR}/milestone.md`]: '# Milestone 001: Parse invoices\n\n**Repo:** billing-api\n\n**Phase:** fix\n\n**Squash:** none\n',
+    [`${DIR}/review.md`]: '# Review\n',
+  }
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 1_000_000 }))
+  on('store.get', () => ({ value: undefined }))
+  on('store.set', () => ({ value: undefined }))
+  on('fs.list', (_, e) => ({
+    value: Object.keys(fixing)
+      .filter(path => path.startsWith(`${slash(e.path)}/`))
+      .map(path => ({ name: path.slice(slash(e.path).length + 1), kind: 'file' as const, size: 1, mtimeMs: 1, isLink: false })),
+  }))
+  on('fs.read', (_, e) => ({ value: fixing[slash(e.path)] ?? '' }))
+  on('agent.list', () => ({
+    value: [{ id: 'a3', type: 'alper-brain:fixer', description: 'Fix the review findings', status: 'running' }],
+  }))
+  on('turn.start', (_, e) => ({ turnId: e.turnId }))
+  on('tool.call', () => ({ result: {} }))
+
+  await $.tool.call({ tool: 'Read', file_path: `${DIR}/milestone.md` })
+  await $.turn.start({
+    text: `## Context\n- **Works in:** billing-api at C:/work/billing-api (open), changes it\n\nFix the findings in this review: ${DIR}/review.md`,
+    turnId: 't3',
+    agentId: 'a3',
+  })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: /fix: Fix the review findings/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /fixer\s+· billing-api/ })).toBeDefined()
+  expect(await ui.find({ type: 'Svg', alt: 'fixer, running' })).toBeDefined()
   await ui.unmount()
 })

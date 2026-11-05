@@ -11,6 +11,7 @@ Built on the [report theme](../brain/THEME.md): its scaffold, hero, card and dia
 
 ## Hero
 
+- **Eyebrow**: the repo slug, the date, the branch and the short SHA scanned.
 - **Headline**: the count ("7 refactor candidates"), and under it one line naming the scanned areas.
 - **Stat tiles**: Candidates, Strong, Worth exploring, Speculative.
 - **Start here** row: the candidate to tackle first by number and title, one sentence on why, linking to its card's anchor.
@@ -35,7 +36,9 @@ In order:
 - **Problem**: one sentence, what hurts.
 - **Refactor**: one sentence, what changes.
 - **Wins**: check bullets of at most six words, each naming its gain in `codebase-design` terms ("locality: bugs concentrate in one module", "leverage: one interface, N call sites", "tests cross one interface").
-- **ADR callout**, when the candidate reopens an ADR: "reopens ADR-0007 because…".
+- **ADR callout**, when the candidate reopens an ADR or a `decision` note: "reopens ADR-0007 because…".
+- **Contract callout**, when the refactor changes an interface a `contract` note records: "crosses `invoice-event-contract`: web-app and ledger consume it", in the same amber callout.
+- The before and after diagrams draw the candidate's **Shape** field.
 
 ## Diagram patterns
 

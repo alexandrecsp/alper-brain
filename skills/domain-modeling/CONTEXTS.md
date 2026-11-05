@@ -16,7 +16,7 @@ A root `GLOSSARY-MAP.md` marks a repo with multiple contexts. The map points to 
 │       └── docs/adr/
 ```
 
-Infer which context the current topic belongs to; if unclear, ask. A decision that binds one context goes in that context's `docs/adr/`; one that spans contexts goes in the root `docs/adr/`.
+Infer which context the current topic belongs to; if unclear, ask. A decision that binds one context goes in that context's `docs/adr/`; one that spans contexts goes in the root `docs/adr/`. Across repositories there is no map file: the brain's `contract` notes are the relationships, by [DOMAIN-DOCS.md](DOMAIN-DOCS.md).
 
 ## GLOSSARY-MAP.md
 

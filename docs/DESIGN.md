@@ -30,7 +30,7 @@ One sentence: **knowledge is shared, work stays local, and both live in the brai
 
 The brain commits a `.gitignore` holding `.sdd/`, so every teammate's clone ignores it the same way. `.sdd/` keeps its meaning (this machine's pipeline state) and only moves: from the root of each repo to the root of the brain. The format draft is [skills/brain/FORMAT.md](../skills/brain/FORMAT.md).
 
-The brain holds what the code cannot tell you by looking, and what the team shares is only that. Specs stay what they are today: your working plan, from which knowledge is harvested when it lands.
+The brain holds what the team knows about its repositories, readable without cloning them, so a product owner or a newcomer can ask it too. **Authored** notes hold what the code cannot tell you by looking. **Explored** notes hold what the code does, written by `/brain explore` for a reader who never opens it, and stamped with the commit they were read at so anyone can tell when they fall behind. Specs stay what they are today: your working plan, from which knowledge is harvested when it lands.
 
 ## Work from the brain
 
@@ -103,7 +103,7 @@ flowchart LR
 Keeping specs out of the brain's git keeps the shared part small and conflict-free. There are no owners, no run state to merge, no SHAs that point at someone else's unpushed branches, and nobody sees your drafts. What you give up:
 
 - **Teammates cannot see each other's in-flight work.** `status` and the in-flight checks cover only this machine's specs. Two people changing the same contract at the same time still find out at review or merge, as they do today.
-- **A lost machine still loses its specs.** So harvesting knowledge at landing (LAND step 5) stays essential, and the knowledge inbox discussed earlier gets more valuable, not less: it would live at `.sdd/inbox/` in the brain.
+- **A lost machine still loses its specs.** So harvesting knowledge at landing (LAND's **Keep what was learned**) stays essential, and the knowledge inbox discussed earlier gets more valuable, not less: it would live at `.sdd/inbox/` in the brain.
 
 If the first cost starts to bite, a small step fixes it without sharing specs. `to-spec` could add an **In flight** line to each `contract` note the spec changes, naming who changes it and how. That line is knowledge a teammate needs, and `LAND.md` removes it when the spec lands.
 
@@ -116,7 +116,7 @@ If the first cost starts to bite, a small step fixes it without sharing specs. `
 | `to-spec`, `SPEC-ID.md`, `SPEC-TEMPLATE.md` | Write to the brain's `.sdd/specs/`. The template gains **Repos**, and the module map tags repos. |
 | `IN-FLIGHT.md` | Reads every spec in the brain's `.sdd/specs/`, and adds the contract overlap. |
 | `to-tickets`, `TEMPLATES.md` | Add the milestone **Repo** line, and cut contract changes expand-then-contract. |
-| `build`, `LAND.md` | Build in the milestone's repo, once it is open, and land per repo. LAND step 5 stays as it is. |
+| `build`, `LAND.md` | Build in the milestone's repo, once it is open, and land per repo. LAND's **Keep what was learned** stays as it is. |
 | `research`, `onboard`, `improve-and-refactor` | Save to the brain's `.sdd/research/`, `.sdd/tours/<slug>/` and `.sdd/refactors/<slug>/`. |
 | `dashboard`, `brain graph` | Become one page over the brain folder: the notes graph beside the specs, milestones and tickets, with each repo as a hub that both hang from. You pick one folder per knowledge base instead of one per repo. |
 | `alper-flow` (mods) | Reads `.sdd/` from the brain it was launched in. Since you launch Claude in the brain, that path is the hook's `cwd`, as it is today. |

@@ -1,23 +1,35 @@
 # Skill mechanics
 
-The skill-specific branch of [`writing-for-agents`](SKILL.md): what changes when the document is a skill (frontmatter, the invocation choice, and router skills). Everything else about writing it is the universal reference in `SKILL.md`.
+The skill-specific branch of [`writing-for-agents`](SKILL.md): what changes when the document is a skill (frontmatter, the invocation choice, shared reference, and router skills).
+
+## Frontmatter
+
+- `name`: the folder's name, and what the user types after the slash.
+- `description` and `disable-model-invocation`: see Invocation.
+- `argument-hint`: only when the skill takes arguments, written as the user types them (`"[spec-id] [milestone-id]"`).
+- `metadata.type`: `process` when the skill has steps, `reference` when it is all reference, by the content types in `SKILL.md`'s Information hierarchy.
 
 ## Invocation
 
 Two choices, trading the two loads:
 
-- A **model-invoked** skill keeps a `description`, so the agent can fire it autonomously, and other skills can reach it. You can still type its name: model-invocation always _includes_ user reach; a description only ever adds agent discovery, never removes the human's. The description is the skill's top-level context pointer, forced to stay loaded at all times: permanent context load in exchange for discoverability. A model-invoked skill whose content is all reference is also one home for shared reference: another skill can invoke it, so reference needed by several skills lives in one place. Mechanics: omit `disable-model-invocation`, and write a model-facing description carrying the trigger branches (the pointer-writing rules in `SKILL.md` apply in full).
+- A **model-invoked** skill keeps a `description`, so the agent can fire it autonomously, and other skills can reach it. You can still type its name: model-invocation always _includes_ user reach; a description only ever adds agent discovery, never removes the human's. The description is the skill's top-level context pointer, forced to stay loaded at all times: permanent context load in exchange for discoverability. Mechanics: omit `disable-model-invocation`, and write a model-facing description carrying the trigger branches (the pointer-writing rules in `SKILL.md` apply in full).
 - A **user-invoked** skill strips the description from the agent's reach: only the human typing its name can invoke it, and no other skill can. Zero context load, but it spends cognitive load: you are the index that must remember it exists. Mechanics: set `disable-model-invocation: true`; the `description` becomes human-facing: a one-line summary, trigger lists stripped.
 
 Pick model-invocation only when the agent must reach the skill on its own, or another skill must. If it only ever fires by hand, make it user-invoked and pay no context load.
 
-Shared reference that two user-invoked skills both need can live in neither: with no descriptions, neither can fire the other. Push it to a plain file outside the skill system: external reference any skill can point at.
-
-Point another skill at a reference file, so the reader loads only the material it needs: a pointer into a SKILL.md loads that skill's whole process, and its steps compete with the reader's own. When another skill needs a fragment of a SKILL.md, move the fragment into a reference file beside it and point both skills there.
-
 ## Splitting by invocation
 
-The invocation cut of splitting (the sequence cut lives in `SKILL.md`): split off a model-invoked skill when you have a distinct leading word that should trigger it on its own (a trigger word you actually use in your prompts), or another skill must reach it. You pay context load for the new always-loaded description, so that independent reach has to be worth it.
+The invocation cut of splitting (the sequence and context cuts live in `SKILL.md`): split off a model-invoked skill when you have a distinct leading word that should trigger it on its own (a trigger word you actually use in your prompts), or another skill must reach it. You pay context load for the new always-loaded description, so that independent reach has to be worth it.
+
+## Shared reference
+
+Reference several skills need lives once, at the narrowest place every reader can reach:
+
+- **A reference file** beside the skill that owns it, which other skills point at by path. It loads only that material. A pointer into a SKILL.md loads that skill's whole process, whose steps compete with the reader's own, so when another skill needs a fragment of a SKILL.md, move the fragment into a reference file and point both skills there.
+- **A model-invoked reference skill**, when the reference has its own trigger: any skill can invoke it, and the agent can reach it unprompted.
+- **A plain file outside the skill system**, when only user-invoked skills need it: with no descriptions, neither can fire the other.
+- **A brief**, when a sub-agent needs it: hand over its absolute path (see [`AGENT-MECHANICS.md`](AGENT-MECHANICS.md)).
 
 ## Router skills
 

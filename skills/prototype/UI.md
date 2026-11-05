@@ -15,15 +15,16 @@ A variant is judged best **in situ**: against the app's real header, sidebar, da
 
 2. **Draft the variants.** Spawn one `alper-brain:designer` agent per variant, in parallel. A separate context per variant keeps each one from drifting toward the others' layouts. Each brief carries:
 
+   - the Context block by [BRIEF.md](../brain/BRIEF.md), with **Writes** the variant's file, and every path below given as an absolute path under the root: the designer starts in the brain, so a relative path writes the variant there
    - the question, and the host page: its route, its data and props, and the files around it
    - the project's component library and styling, by file path
    - the variant's file path, and its exported name (`VariantA`, `VariantB`)
-   - the variant's structural constraint from step 1
-   - the variant rules below, and the rules for both branches from [SKILL.md](SKILL.md), pasted in
+   - the variant's structural constraint from step 1, and each other variant's constraint, so this one stays clear of them
+   - the variant rules below, pasted in
 
-   The variant rules: variants differ in **structure**: layout, information hierarchy, primary affordance. Colour and copy alone make a tweak, not a variant. Each variant owns its layout, sharing at most small pieces such as a header. Variants stay read-only; one that needs a mutation calls a stub.
+   The variant rules: variants differ in **structure**: layout, information hierarchy, primary affordance. Colour and copy alone make a tweak, not a variant. Each variant owns its layout, sharing at most small pieces such as a header. Variants stay read-only; one that needs a mutation calls a stub. Write only the code that makes it render: tests, error handling and abstractions belong to the real build.
 
-   Each designer returns its variant's short name for the floating bar (`Sidebar layout`) and one line on its structure. Done when every designer has returned and no two variants share a layout; redispatch one with a sharper constraint ("no card grid") when two come out alike.
+   Each designer returns its variant's short name for the floating bar (`Sidebar layout`), one line on its structure, and every path it wrote. While they draft, do steps 3 and 4: both need only the keys and export names from step 1. Done when every variant file exists at its path, and reading each one's top-level layout, no two match; redispatch one with a sharper constraint ("no card grid") when two come out alike.
 
 3. **Wire the switcher.** One switcher on the route reads the param and renders the variant:
 
@@ -40,7 +41,7 @@ A variant is judged best **in situ**: against the app's real header, sidebar, da
    );
    ```
 
-   Done when each `?variant=` key renders its variant.
+   Done when the project's type check passes and loading the route with each `?variant=` key shows its variant.
 
 4. **Build the floating bar.** One shared component, placed where the project keeps shared UI: a fixed pill at bottom centre with a left arrow, the current key plus the variant's name (`B (Sidebar layout)`), and a right arrow, both wrapping around.
 
@@ -53,4 +54,4 @@ A variant is judged best **in situ**: against the app's real header, sidebar, da
 
 5. **Hand it over.** Give the user the URL and the `?variant=` keys. The best feedback is usually "the header from B with the sidebar from C": that combination is the design they want. Done when a variant, or a combination, has won.
 
-6. **Capture.** Follow the capture in [SKILL.md](SKILL.md): every variant and the switcher go to the prototype branch, and the verdict names the winner and why. The winner is rebuilt properly in the real page; its prototype code was written without tests or error handling.
+6. **Capture.** Follow the capture in [SKILL.md](SKILL.md): the verdict names the winner and why.

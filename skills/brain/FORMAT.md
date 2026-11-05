@@ -1,6 +1,6 @@
 # Brain format
 
-The shape of the second brain: the team's notes on every repository, shared, and this machine's pipeline work across them, kept local. The `brain` skill's branches, the pipeline skills and the brain page ([brain.html](brain.html)) all read it by this file. The notes stay Obsidian-compatible: opened as a vault, the brain's folder gets Obsidian's graph view too.
+The shape of the second brain: the team's notes on every repository, shared, and this machine's pipeline work across them, kept local.
 
 ## Layout
 
@@ -20,9 +20,12 @@ The shape of the second brain: the team's notes on every repository, shared, and
     │       ├── milestone.md
     │       ├── NNN-<ticket-slug>.md
     │       └── review.md
-    ├── research/<slug>.md                ← cited findings from `research`
+    ├── research/<slug>.md                ← cited findings from `research`, with `<slug>/<group>.md` beside it when it fans out
     ├── tours/<repo-slug>/                ← onboarding tours from `onboard`
-    └── refactors/<repo-slug>/            ← reports from `improve-and-refactor`
+    ├── refactors/<repo-slug>/            ← reports from `improve-and-refactor`
+    ├── prototypes/<slug>.html            ← logic prototypes from `prototype`
+    ├── snapshots/<repo-slug>/            ← a repository's default branch, checked out while a skill reads it
+    └── explore/<repo-slug>/<area>/       ← explored notes `explore` drafts, only while it runs
 ```
 
 Everything outside `.sdd/` is the team's and is committed. `.sdd/` is this machine's and never leaves it: what it learns reaches the team only as notes.
@@ -37,7 +40,7 @@ The **active brain** is the open folder holding `BRAIN.md`. When several are ope
 
 ## Repositories
 
-A **repo slug** names a repository the same way on every teammate's machine, whatever folder each clone sits in. It is the slug named in the repository's **Second brain** section of `AGENTS.md` or `CLAUDE.md`, when there is one; else the last segment of `git remote get-url origin` without `.git`; else the root folder's name. It is kebab-case, and unique within its brain. A repository registered in two brains has two separate sets of notes, one in each.
+A **repo slug** names a repository the same way on every teammate's machine, whatever folder each clone sits in. It is the slug the repository's **Second brain** section of `AGENTS.md` or `CLAUDE.md` names for this brain, when it names one; else the last segment of `git remote get-url origin` without `.git`; else the root folder's name. It is kebab-case, and unique within its brain. A repository registered in two brains has two separate sets of notes, one in each.
 
 A repository moves through three states, each building on the one before:
 
@@ -51,6 +54,8 @@ A repository moves through three states, each building on the one before:
 
 Read a linked repository that is not open by its path, even though the user may be asked to allow each read. Before changing one, ask the user to run `/add-dir <path>`, and stop until it is open: running the same command again picks up from there.
 
+A **snapshot** reads a linked repository's default branch without touching its clone's working tree, and inside the brain, so no read asks for permission: `git -C <root> fetch --quiet origin` (then `git -C <root> remote set-head origin --auto` when `origin/HEAD` is missing), then `git -C <root> worktree add --detach <brain>/.sdd/snapshots/<slug> origin/HEAD` (the clone's `HEAD` for a `local only` repository), first running `git -C <root> worktree remove --force <brain>/.sdd/snapshots/<slug>` when an earlier run left one there. It writes only to the clone's `.git`, so the repository need only be linked. Remove it with `git -C <root> worktree remove --force <snapshot>` once its reads are done.
+
 `REPO.md` is the repository's card:
 
 ```markdown
@@ -60,6 +65,7 @@ remote: git@github.com:acme/billing-api.git
 commitKeyPattern: "FUNC-\\d+"
 unit: npm run test:unit
 e2e: npm run test:e2e
+explored: a1b2c3d
 ---
 
 Charges customers and emits the invoice events the web app and the ledger consume.
@@ -67,8 +73,9 @@ Charges customers and emits the invoice events the web app and the ledger consum
 
 - `remote`: the URL `git remote get-url origin` prints, or `local only`.
 - `commitKeyPattern`: the regex every commit key must fully match, or `null` when this repository's commits carry no key.
-- `unit` and `e2e`: the commands of its two suites, run from its root, as the `tdd` skill's **Suites** describes them. `e2e` is `none` when the repository has no e2e tests.
-- The body: one paragraph on what the repository does, from its README.
+- `unit` and `e2e`: the commands of its two suites, run from its root. The **e2e suite** is the tests that drive a running app: a browser, a device or a deployed service; `none` when the repository has none. The **unit suite** is everything else: the linter, the typechecker, and the unit and integration tests. The **full suite** is both.
+- `explored`: the short SHA the last `/brain explore` read, absent until the first one.
+- The body: one paragraph on what the repository does, from its README. Once explored, the overview instead: what the repository does and for whom, then each of its `feature` notes as a `[[link]]`.
 
 ## The working repository
 
@@ -77,19 +84,21 @@ The session's primary folder is the brain, so a skill that reads or changes code
 1. The **Repo** line of the milestone the work builds.
 2. The repository the user names, by slug or by a path inside its clone.
 3. The repository whose clone holds the files the conversation is working on.
-4. The only repository open in this session.
+4. The only repository open in this session besides the brain.
 
-Otherwise ask the user, listing the registered repositories. Its **root** is its clone's path, from `.sdd/links.json` or the open folder. Then:
+Otherwise ask the user, listing the registered repositories. Its **root** is its clone's path, from `.sdd/links.json` or the open folder; when it has neither, ask the user to run `/brain link`, or `/add-dir <path>`, and stop. Then:
 
 - Paths a skill gives relative to a repository (`docs/STRUCTURE.md`, `GLOSSARY.md`, `docs/adr/`, `AGENTS.md`, `CLAUDE.md`) are relative to its root. Read and write its files by absolute path.
 - Run every git command as `git -C <root>`, and every suite or script from the root (`cd <root> && <command>`).
 - Its agent file is not loaded into a session started in the brain: read it when a skill names it.
-- Sub-agents start in the brain too. Give each one the root in its brief, and the slug when it needs the brain's notes.
-- A skill that changes the repository needs it open; one that only reads it needs it linked.
+- Sub-agents start in the brain too, with no user: brief each one by [BRIEF.md](BRIEF.md).
 
 ## Notes
 
-One fact per file. Teammates adding notes at the same time never conflict, and the graph shows one node per fact.
+One fact per file. Teammates adding notes at the same time never conflict, and the graph shows one node per fact. A note is one of two kinds:
+
+- **Authored**: what a repository cannot tell by looking, such as the reason behind a choice, a trap, or a contract between two repositories. **Record** in [SKILL.md](SKILL.md) writes it, one confirmed note at a time.
+- **Explored**: what the code does, written for an outsider who never opens it. Only `/brain explore` writes it, by [EXPLORE.md](EXPLORE.md), and its next run rewrites it. Its `explored` line marks it.
 
 ```markdown
 ---
@@ -110,16 +119,44 @@ Related: [[invoice-event-contract]]
 - `description`: one line that stands alone. Recall judges relevance from it without opening the note.
 - `type`: one of the types below.
 - `repos`: in `shared/` only, the slugs the note spans, as `[billing-api, web-app]`. A note in `repos/<slug>/` belongs to that slug.
+- `explored`: on explored notes only, the short SHA of the commit the note was read at.
 
 | type | holds |
 |---|---|
-| `concept` | how a part works, or what a term means in this repository |
+| `feature` | something a user, an operator or another system can do through the repository: who does it, what happens, and its rules. Explored only |
+| `concept` | how a part works, or what a term means in this repository. When the repository's `GLOSSARY.md` defines the term, link it and record only what the glossary lacks |
 | `decision` | a choice and its reason. When the repository keeps ADRs, link the ADR's path and record only what it lacks |
 | `gotcha` | a trap: surprising behaviour, or a past incident and its lesson |
 | `contract` | an interface between repositories (an API, event, queue or shared schema) with its producer and consumers. Lives in `shared/` |
 | `how-to` | a recurring procedure that no script or doc in the repository runs |
 
 The body states the fact first. A `decision` or `gotcha` follows it with **Why:** and **How to apply:** lines. Link every note it builds on or bears on with `[[name]]`: each link is an edge in the graph. A link to a note not written yet draws as a dashed node, marking a note worth writing.
+
+### Explored notes
+
+An explored note speaks the domain's words, so an outsider can read it, and ends on a **Sources** line naming the files it comes from, so a teammate with the code can check it and the next explore knows which changes touch it:
+
+```markdown
+---
+name: billing-api-refunds
+description: A paid invoice can be refunded within 30 days, in full or in part, with finance approving any refund above 500
+type: feature
+explored: a1b2c3d
+---
+
+A customer, or support on their behalf, asks for a refund of a paid invoice, and the money goes back to the card it was paid with.
+
+**Rules:**
+- Only within 30 days of payment.
+- A partial refund never exceeds what is left unrefunded.
+- Above 500, the refund waits for a finance approver.
+
+Related: [[billing-api-invoices]] · [[invoice-event-contract]]
+
+Sources: `src/refunds/refund.service.ts`, `src/refunds/refund-policy.ts`
+```
+
+An explored note is **current** while the repository's default branch still points at its commit, and **behind** once the branch has moved on. `git ls-remote <remote> HEAD` tells which without a clone: compare the SHA it prints with the note's `explored` line, by prefix. With the repository linked, `git -C <root> rev-list --count <explored>..origin/HEAD` after a fetch says by how many commits. When the remote cannot be reached, its state is **unknown**. `git -C <brain> log -1 --format=%cr -- <note>` says when the note was last explored.
 
 ## Specs
 
@@ -128,10 +165,10 @@ Specs live in `.sdd/specs/`, numbered `NNN` in one sequence across every reposit
 | Line | In | Holds |
 |---|---|---|
 | **Repos** | `spec.md` | the slugs the spec changes, each registered |
-| **Key** | `spec.md` | one commit key for every repository, or one `<slug>: <key>` entry per repository when their patterns differ, or `None` |
+| **Key** | `spec.md` | one commit key for every repository when all of **Repos** share one `commitKeyPattern`; otherwise one `<slug>: <key>` entry per repository, `<slug>: None` for one whose pattern is `null`; or `None`. Each key fully matches its repository's pattern |
 | **Base** | `spec.md` | one `<slug>@<branch>` entry per repository: the branch its milestones land on |
 | **Landed** | `spec.md` | one `<slug>@<SHA>` entry per repository, written once every milestone has landed |
 | **Repo** | `milestone.md` | the one slug from **Repos** this milestone builds in, with that repository's branches and suites |
-| **Landed** | `milestone.md` | the SHA of its repository's base once the milestone's squash is on it |
+| **Landed** | `milestone.md` | the SHA its squash became on its repository's base once it landed, or `none` |
 
-A spec is **landed** when its `spec.md` has a **Landed** line. Each repository holds the spec's branches under the spec folder's name: `sdd/<spec-folder>/spec`, and `sdd/<spec-folder>/M<NNN>` for each of its milestones.
+A spec is **landed** when its `spec.md` has a **Landed** line, and **in flight** while it has neither a **Landed** nor an **Abandoned** line. Each repository holds the spec's branches under the spec folder's name: `sdd/<spec-folder>/spec`, and `sdd/<spec-folder>/M<NNN>` for each of its milestones.

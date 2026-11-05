@@ -68,6 +68,26 @@ const OUTFIT: Record<string, Piece[]> = {
     },
     { x: 16, y: 7, colors: { m: STEEL, h: WOOD }, rows: ['mmm', 'mmm', '.h.', '.h.', '.h.', '.h.'] },
   ],
+  // A mechanic's cap and a wrench.
+  fixer: [
+    {
+      x: 2,
+      y: 3,
+      colors: { o: '#F08A24', O: '#B8641A' },
+      rows: ['....oooooooo....', '...oooooooooo...', '...OOOOOOOOOOOO.'],
+    },
+    { x: 16, y: 6, colors: { m: STEEL }, rows: ['m.m', 'mmm', '.m.', '.m.', '.m.'] },
+  ],
+  // A quill behind the ear and a scroll.
+  scribe: [
+    {
+      x: 13,
+      y: 1,
+      colors: { q: '#F5F5F5', Q: '#C8C8C8', n: INK },
+      rows: ['..q', '.qQ', '.q.', 'qQ.', 'n..'],
+    },
+    { x: 0, y: 8, colors: { p: '#EAD9B0', P: '#C8B27E', i: '#7A6A4A' }, rows: ['PPP', 'ppp', 'pii', 'ppp', 'PPP'] },
+  ],
   // Reading glasses and a magnifier.
   reviewer: [
     {
@@ -196,6 +216,10 @@ const ANTENNA: Piece[] = [
 const SWING: Record<string, Partial<Piece>> = {
   // The hammer comes down.
   builder: { rows: ['.h.', '.h.', '.h.', '.h.', 'mmm', 'mmm'] },
+  // The wrench turns.
+  fixer: { rows: ['...', 'm.m', 'mmm', '.m.', '.m.'] },
+  // The scroll writes a line.
+  scribe: { rows: ['PPP', 'pii', 'pii', 'ppp', 'PPP'] },
   // The magnifier slides over the page.
   reviewer: { x: 15, y: 6 },
   // The clipboard fills a line.

@@ -1,7 +1,7 @@
 ---
 name: improve-and-refactor
 description: Scan the codebase for deepening and refactoring opportunities, show them as a visual HTML report, then brainstorm the one you pick into the spec pipeline.
-argument-hint: "[module, area or pain point]"
+argument-hint: "[<repo>] [module, area or pain point]"
 disable-model-invocation: true
 metadata:
   type: process
@@ -14,43 +14,57 @@ Find where the codebase's shape causes **friction**, and propose refactors that 
 
 Every candidate preserves behaviour: a refactor changes the shape, never what the code does. The aim is testability and code an agent can navigate.
 
-Scan the **working repository**, by [FORMAT.md](../brain/FORMAT.md): run every git command as `git -C <root>`, and give the explorer the root. It must be registered in the active brain; when it is not, tell the user to run `/brain setup` and stop.
+Scan the **working repository**, by [FORMAT.md](../brain/FORMAT.md). When the argument names a module, area or pain point but no repository, find which registered repository holds it, from the explored notes' descriptions and **Sources** and the cards' overviews, before falling back to FORMAT.md's rules. It must be linked in the active brain: when it is registered but not linked, tell the user to run `/brain link`; when it is not registered, `/brain setup`; then stop. Run every git command as `git -C <root>`.
 
 ## Process
 
-1. **Scope.** Deepening pays back through future changes, so look where change happens (YAGNI). When the user named a module, area or pain point, take it. Otherwise read a long stretch of `git log --stat` and rank the **hot spots**: the files and areas that keep changing. When changes are scattered with no hot spot, widen to the whole codebase. Done when you can name the areas to scan, each with why.
+1. **Load the vocabulary.** Invoke the `codebase-design` skill, and use its terms exactly in every candidate. Read the repository's [domain docs](../domain-modeling/DOMAIN-DOCS.md): modules are named in the glossary's terms ("the Order intake module"), and the candidates respect the ADRs and `decision` notes. Done when you know the terms, the ADR and `decision`-note decisions that bind the repository, its `gotcha` notes, and each `contract` note naming its slug with the repositories that consume it.
 
-2. **Load the vocabulary.** Invoke the `codebase-design` skill, and use its terms exactly in every candidate. Read the [domain docs](../domain-modeling/DOMAIN-DOCS.md) of the contexts the areas touch: modules are named in the glossary's terms ("the Order intake module"), and the candidates respect the ADRs. Done when you know the terms and the ADR decisions that bind the areas.
+2. **Scope.** Deepening pays back through future changes, so look where **churn** is. When the user named a module, area or pain point, take it. Otherwise rank the **hot spots** by churn over the last six months (`git -C <root> log --since="6 months ago" --name-only --format=`), skipping lockfiles, generated and vendored code, and group them into areas by [AREAS.md](../brain/AREAS.md). Raise an area that a `gotcha` note names, or that holds the **Sources** of a feature note with many rules. When changes are scattered with no hot spot, take every area. Done when you can name the areas to scan, each with why.
 
-3. **Explore.** Dispatch one `alper-brain:explorer` agent in the foreground with the root, the areas, the `codebase-design` vocabulary and principles, the full text of `SMELLS.md`, the glossary, and the ADR decisions (it has no other access to them), and this brief:
+3. **Explore.** Dispatch one `alper-brain:explorer` agent per area, all in one message so they run in parallel, each brief opening with the Context block by [BRIEF.md](../brain/BRIEF.md) (**Docs** the glossary and the absolute paths of `codebase-design`'s SKILL.md and DEEPENING.md and of review-changes' `SMELLS.md`, **Notes** the notes whose **Sources** fall in its area and the `contract` notes naming this slug, **Writes** nothing), with its area's paths, the area list, the ADR decisions, and this brief:
 
-   > Walk these areas and report where you feel friction. Explore by reading, following each concept to where it lives: where understanding one concept means bouncing between many small modules; where an interface is nearly as complex as its implementation; where logic was extracted for testability but the bugs hide in how it is called; where modules leak across their seams; which code is untested, or hard to test through its interface; and every baseline smell. Put each suspected shallow module through the deletion test: does deleting it concentrate complexity, or only move it? Report each candidate with its lens (deepening or smell), files, the problem in one sentence, the refactor in one sentence, the deletion-test result or the smell's name, the dependency categories from `codebase-design`'s DEEPENING.md, how the tests would change, and a strength: **Strong**, **Worth exploring** or **Speculative**. Report every candidate.
+   > Walk this area and report where you feel **friction**. Explore by reading, following each concept to where it lives: where understanding one concept means bouncing between many small modules; where an interface is nearly as complex as its implementation; where logic was extracted for testability but the bugs hide in how it is called; where modules leak across their seams; which code is untested, or hard to test through its interface; and every baseline smell. Put each suspected shallow module through the deletion test: does deleting it concentrate complexity, or only move it? A `gotcha` note on this area marks friction someone has already hit. Report each candidate with:
+   >
+   > - **Lens**: deepening, or the smell's name.
+   > - **Files**.
+   > - **Problem** and **Refactor**: one sentence each.
+   > - **Deletion test**: concentrates or only moves complexity (deepening only).
+   > - **Shape**: the modules involved, which calls which, and where the seam sits before and after.
+   > - **Dependencies**: each with its category from DEEPENING.md.
+   > - **Tests**: how they would change.
+   > - **Contract**: the contract note whose interface the refactor would change, or none.
+   > - **Reaches**: each other area the candidate spans, or none.
+   > - **Strength**: **Strong**, **Worth exploring** or **Speculative**.
+   >
+   > Report every candidate and every field, writing "none" for an empty one.
 
-   Drop a candidate an ADR forbids, unless its friction is real enough to reopen that ADR; keep that one, flagged with the ADR and why. Done when every candidate has every field.
+   Merge candidates that two areas report under **Reaches** into one. Drop a candidate an ADR or a `decision` note forbids, unless its friction is real enough to reopen that decision; keep that one, flagged with the decision and why. Done when every candidate has every field, re-dispatching an explorer whose report is missing one.
 
-4. **Report.** Number the candidates `#1` to `#N`, strongest first; the number is the candidate's handle, so the user picks by it and you refer to it by it from here on. Write the candidates as one self-contained HTML file, the brain's `.sdd/refactors/<slug>/<YYYY-MM-DD-HHmm>.html`, kept with the other pipeline state and out of git. Build it by [HTML-REPORT.md](HTML-REPORT.md). Open it (`start`, `open` or `xdg-open`) and give the user its absolute path. Interfaces wait for step 5: the report names problems and refactors only. List each candidate's number and title in your reply, and ask: "Which of these would you like to explore? Pick by number." Done when the user has picked a candidate, or declined them all.
+4. **Report.** Number the candidates `#1` to `#N`, strongest first; the number is the candidate's handle, so the user picks by it and you refer to it by it from here on. Write the candidates as one self-contained HTML file, the brain's `.sdd/refactors/<repo-slug>/<YYYY-MM-DD-HHmm>.html`, stamped with the branch and `git -C <root> rev-parse --short HEAD`, adding "uncommitted changes" when `git -C <root> status --porcelain` lists any. Build it by [HTML-REPORT.md](HTML-REPORT.md). Open it (`cmd /c start "" "<path>"` on Windows, `open` on macOS, `xdg-open` on Linux) and give the user its absolute path. Interfaces wait for step 5: the report names problems and refactors only. List each candidate's number and title in your reply, and ask: "Which of these would you like to explore? Pick by number." Done when the user has picked a candidate, or declined them all.
 
-5. **Brainstorm the pick.** Invoke the `brainstorm` and `domain-modeling` skills, and run the rounds on the candidate, with each domain-modeling challenge entering the current round as a frontier question.
+5. **Brainstorm the pick.** Invoke the `brainstorm` and `domain-modeling` skills, and run the rounds on the candidate by domain-modeling's **Beside brainstorm**.
 
    - **What**: the behaviour that must stay unchanged, the tests that pin it today and those it lacks, and the scope of the refactor.
    - **How**: the deepened module's interface, where its seam sits, what goes behind it, and how each dependency is tested by its category in DEEPENING.md. When the interface is contested, run `codebase-design`'s DESIGN-IT-TWICE.md.
    - A new module named after a concept missing from `GLOSSARY.md` adds the term as it settles.
-   - When the user rejects the candidate for a reason a future scan would need, offer an ADR: "Want me to record this as an ADR so future scans don't suggest it again?" Skip the offer for passing reasons ("not now").
+   - When the user rejects the candidate for a reason a future scan would need, offer to record it: an ADR when the repository keeps `docs/adr/`, else a `decision` note in the brain by **Record** in the `brain` skill: "Want me to record this so future scans don't suggest it again?" Skip the offer for passing reasons ("not now").
 
    Done when the user confirms the How summary, or rejects the candidate; a rejection skips step 6.
 
-6. **Size the refactor.** Check the confirmed How summary against four tests:
+6. **Size the refactor.** Check the confirmed How summary against five tests:
 
    - **One seam**: the existing tests at one confirmed seam pin the behaviour, or one new test there would.
-   - **Local blast radius**: only callers inside the refactored area change; none elsewhere has to move in the same change.
-   - **No ADR reopened**: the candidate carried no ADR callout.
+   - **Local blast radius**: only callers inside the refactored area change; no caller elsewhere in the repository, and no repository a `contract` note names as a consumer, has to move in the same change.
+   - **No contract crossed**: every interface a `contract` note records for this repository keeps its shape.
+   - **No decision reopened**: the candidate carried no ADR or `decision`-note callout.
    - **One fresh context**: a single builder sub-agent could build it, with no earlier ticket to build on.
 
-   When all four hold, the refactor is **contained**; otherwise it is **staged**. Done when you can name the size and the test that decided it.
+   When all five hold, the refactor is **contained**; otherwise it is **staged**. Done when you can name the size and the test that decided it.
 
 7. **Hand over.** Give the user the size, the deciding test, and the next step, so they can override it:
 
    - **Contained**: `/to-tickets`, straight from this conversation with no spec, cutting one milestone of one ticket, then `/build`.
-   - **Staged**: `/to-spec`, then `/to-tickets` (a refactor whose blast radius spans the codebase is cut by its WIDE-REFACTOR.md, expand–contract), then `/build`.
+   - **Staged**: `/to-spec`, then `/to-tickets`, then `/build`. `/to-tickets` cuts a refactor that crosses a contract by its CONTRACT-CHANGE.md (expand in the producer, migrate each consumer, contract), with the producer and every consumer in the spec's **Repos**, and one whose blast radius spans the repository by its WIDE-REFACTOR.md.
 
-   Done when the user has the next step, or the rejection is recorded.
+   Done when the user has the next step; or, after a rejection, the record offer is answered or skipped for a passing reason, and any record accepted is written.

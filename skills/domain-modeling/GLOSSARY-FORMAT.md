@@ -26,5 +26,5 @@ _Avoid_: Client, buyer, account
 
 - **Be opinionated.** When multiple words exist for the same concept, pick the best one and list the others under `_Avoid_`.
 - **Keep definitions tight.** One or two sentences max. Define what it IS, not what it does.
-- **Only include terms specific to this project's context.** General programming concepts (timeouts, error types, utility patterns) stay out, even when the project uses them extensively.
+- **Only include terms specific to this repository's context.** General programming concepts (timeouts, error types, utility patterns) stay out, even when the repository uses them extensively.
 - **Group terms under subheadings** when natural clusters emerge. If all terms belong to a single cohesive area, a flat list is fine.

@@ -44,6 +44,8 @@ src/
 
 ## Mermaid
 
+Mark what the PR adds or changes by [DIAGRAMS.md](../to-spec/DIAGRAMS.md)'s **Marks**.
+
 ```mermaid
 sequenceDiagram
     participant User

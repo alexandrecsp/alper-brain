@@ -35,7 +35,8 @@ The skills then show up as `/alper-brain:<name>`. Below they are written by thei
 1. **Create or clone a brain.** Run `/brain setup` anywhere. It clones your team's brain or creates one, and tells you to launch Claude in it from then on.
 2. **Register each repository.** In the brain, with a repository open (`/add-dir <path>`), run `/brain setup` again. It writes the repository's card (commit key, unit and e2e commands), settles its layout in `docs/STRUCTURE.md`, adds a short **Second brain** section to its `CLAUDE.md` or `AGENTS.md`, and moves its old `.sdd/` into the brain if it has one.
 3. **Link the rest.** `/brain link` finds this machine's clones of every registered repository.
-4. **Look around.** `/brain status` reports everything in flight, `/brain view` opens the brain page, and `/brain ask <question>` answers questions that cross repositories.
+4. **Explore them.** `/brain explore` writes what each linked repository does into the brain, so teammates who never clone the code can ask about it. `/brain sync` shares the notes.
+5. **Look around.** `/brain status` reports everything in flight, `/brain view` opens the brain page, and `/brain ask <question>` answers questions that cross repositories.
 
 ## The pipeline
 
@@ -46,13 +47,13 @@ The skills then show up as `/alper-brain:<name>`. Below they are written by thei
         │
 /to-tickets  ──────────────  milestones, each in one repository, with tickets
         │
-/build  (every milestone, or one with a milestone id) ┐
-   ├─ branch sdd/<spec>/M<NNN> in the milestone's repository
-   ├─ per ticket: sub-agent → tdd → commit
-   ├─ check the milestone's "Done when"
-   ├─ review-changes → arbiter decides escalations → fix
-   ├─ squash it into sdd/<spec>/spec
-   └─ moving to another repository? land this one first ┘
+/build  (every wave of milestones, or one milestone by id) ┐
+   ├─ moving to another repository? land the last wave first
+   ├─ branch sdd/<spec>/M<NNN> in each milestone's repository
+   ├─ rounds: one builder per milestone, side by side → tdd → commit
+   └─ per milestone, in turn:                                  ┘
+        review-changes → arbiter decides escalations → fix
+        → check the milestone's "Done when" → squash into sdd/<spec>/spec
         │
    then, once every milestone is in
    └─ land the rest → record the spec's landing → offer what was learned as notes
@@ -104,20 +105,22 @@ You review the breakdown (boundaries, granularity, dependencies) until you appro
 
 ### 4. `/build [spec-id] [milestone-id]`
 
-A **spec id** is the spec folder's number (`3` or `s03`), name or path; a **milestone id** is the milestone folder's number (`m01`, `M001` or `1`) or name. `/build s03` builds **every milestone and then lands the spec**; `/build s03 m02` builds **only that milestone**, once the milestones before it are squashed. For each milestone:
+A **spec id** is the spec folder's number (`3` or `s03`), name or path; a **milestone id** is the milestone folder's number (`m01`, `M001` or `1`) or name. `/build s03` builds **every milestone and then lands the spec**; `/build s03 m02` builds **only that milestone**, once the milestones it waits on are squashed.
 
-1. It picks the earliest milestone not yet squashed, or the one you named, and resumes it from its **Phase** line when an earlier build stopped partway. When the build is moving to another repository, it lands the one it is leaving first.
-2. It finds the milestone's repository through the brain's links, asks you to open it when it is not open, and checks out the milestone's own branch there, `sdd/<spec-folder>/M<NNN>`, created from that repository's spec branch, `sdd/<spec-folder>/spec`. The working tree must be clean.
-3. For each ticket, in order, it starts a fresh **builder sub-agent**, pointed at the repository's root. It builds the ticket with `tdd` (red, then green, at the ticket's seams) and commits with `commit`. Then it marks the ticket `done` with its SHA and leaves notes for the next ticket.
-4. It runs `review-changes` over the milestone's whole diff and saves the report as the milestone's `review.md`. Every finding is fixed automatically in one pass by a **fixer**, the builder dispatched on Sonnet rather than Haiku, with no second review. Findings flagged **escalate** (fixes that would contradict an ADR, change an interface that code outside the diff already calls, other repositories included, or need the spec itself changed) go first to an **arbiter** sub-agent on Opus, which decides each one without asking you. The hand-over lists every decision under **Decided for you**, so you can revert any of them.
+A milestone **waits on** the earlier milestones in its repository, and on any milestone one of its tickets depends on. The **wave** is every unsquashed milestone that waits on nothing still open, so milestones in different repositories with nothing between them build side by side: in a contract change, every consumer's migrate builds at once. For each wave:
+
+1. It picks the wave, or the milestone you named, and resumes each milestone from its **Phase** line when an earlier build stopped partway. When the wave moves to another repository, it lands the repositories of the last wave first, asking you once for all of them.
+2. It finds each milestone's repository through the brain's links, asks you once to open any that is not open, and checks out each milestone's own branch, `sdd/<spec-folder>/M<NNN>`, created from that repository's spec branch, `sdd/<spec-folder>/spec`. Each working tree must be clean.
+3. It builds in rounds: each round starts a fresh **builder sub-agent** for the next ticket of every milestone in the wave, all at once, each pointed at its own repository's root. It builds the ticket with `tdd` (red, then green, at the ticket's seams) and commits with `commit`. Then it marks the ticket `done` with its SHA and leaves notes for the next ticket.
+4. Then, for each milestone of the wave in turn, it runs `review-changes` over the milestone's whole diff and saves the report as the milestone's `review.md`. Every finding is fixed automatically in one pass by a **fixer** sub-agent on Sonnet, with no second review. Findings flagged **escalate** (fixes that would contradict an ADR, change an interface that code outside the diff already calls, other repositories included, or need the spec itself changed) go first to an **arbiter** sub-agent on Opus, which decides each one without asking you. The hand-over lists every decision under **Decided for you**, the defaults sub-agents took for want of a user among them, so you can revert any of them. Every sub-agent's brief opens with one **Context** block, defined in `skills/brain/BRIEF.md`: the repository it works in, what it may change, and the notes it reads. After each builder or fixer, the build checks it wrote only there.
 5. It runs the repository's full suite and the milestone's **Done when** check, once, after the fixes.
 6. It squashes the milestone's branch into the spec's branch as one commit, recording its SHA in `milestone.md`.
 
-Before changing any base branch, `/build` asks you. To land a repository, it rebases that repository's spec branch onto its base, runs the full suite (fixing it, in up to two tries, when the base's new commits broke it), and fast-forwards the base, then records **Landed** on each milestone that landed. Once every milestone has landed, the spec gets its **Landed** line, one entry per repository, and the tickets' gotchas and the arbiter's reasons are offered as notes. Everything stays local: nothing is pushed and no PR is opened, so push by hand when you want to. Because progress lives in the ticket files, the **Phase** and **Landed** lines and `review.md`, a build that stops picks up where it left off.
+Before changing any base branch, `/build` asks you. To land a repository, it rebases that repository's spec branch onto its base, runs the full suite (fixing it, in up to two tries, when the base's new commits broke it), and fast-forwards the base, then records **Landed** on each milestone that landed. Once every milestone has landed, the spec gets its **Landed** line, one entry per repository, and the tickets' gotchas and the arbiter's reasons are offered as notes. Everything stays local: nothing is pushed and no PR is opened, so run `/pr <spec-id>` when you want the PRs. Because progress lives in the ticket files, the **Phase** and **Landed** lines and `review.md`, a build that stops picks up where it left off.
 
 #### Branches and landing
 
-Each repository holds the spec's branches under the spec folder's name: `sdd/<spec-folder>/spec`, and `sdd/<spec-folder>/M<NNN>` for each of its milestones, squashed back into the spec branch as one commit (highlighted above). A repository lands each time the build moves from its milestones to another repository's, and once after the last milestone. So for a spec whose milestones run `billing-api`, `web-app`, `billing-api`, the bases take them in that order: `billing-api` lands M001 before `web-app` builds M002, `web-app` lands M002 before M003, and `billing-api` lands M003 last. Each base ends with one commit per milestone, in a straight line, with no merge commit. A spec in one repository lands once, at the end.
+Each repository holds the spec's branches under the spec folder's name: `sdd/<spec-folder>/spec`, and `sdd/<spec-folder>/M<NNN>` for each of its milestones, squashed back into the spec branch as one commit (highlighted above). Repositories land each time the build moves on to a wave in another repository, and once after the last milestone. So for a contract change whose milestones run `billing-api` (expand), `web-app` and `mobile` (migrate), `billing-api` (contract), the bases take them in that order: `billing-api` lands M001 before the migrate wave; `web-app` M002 and `mobile` M003 build side by side and land together; and `billing-api` lands M004 last. Each landed milestone's **Landed** line names its own commit on the base. Each base ends with one commit per milestone, in a straight line, with no merge commit. A spec in one repository lands once, at the end.
 
 Every pipeline branch starts with `sdd/`, so `git branch --list 'sdd/*'` finds them all in a repository. After landing, `/build` offers to delete the spec's branches in each repository.
 
@@ -126,7 +129,7 @@ Every pipeline branch starts with `sdd/`, so `git branch --list 'sdd/*'` finds t
 While `/build` runs, **build watch**, a live pane beside the chat shows the milestone being built, where it stands, and what each sub-agent is doing and spending:
 
 ```
-004 Invoice export › M002 Consume v2
+004 Invoice export › M002 Consume v2 · web-app
 ████████░░░░ 2/3 tickets
 ✔ tickets → ● review → ○ decide → ○ fix → ○ check → ○ squash
 412.0k tokens · agents 380.0k · main session 32.0k · 4 agents
@@ -136,9 +139,9 @@ While `/build` runs, **build watch**, a live pane beside the chat shows the mile
 ```
 
 - **The milestone.** As soon as a sub-agent's brief or a tool call names a path under the brain's `.sdd/specs/<spec>/milestones/<milestone>/`, the pane follows that milestone: each ticket's **Status** and **Commit**, and the **Phase** line as `/build`'s stages (tickets, review, decide, fix, check, squash).
-- **Each sub-agent.** Its role (`builder`, `reviewer`, `arbiter`, `scout`…), the ticket it builds or its job in the phase, elapsed time, steps, tool calls, tokens, model and what it is doing now. Press a row to open that agent's transcript. In VS Code and the desktop app each row starts with a pixel critter dressed for its role.
+- **Each sub-agent.** Its role (`builder`, `fixer`, `reviewer`, `arbiter`, `scout`, `scribe`…), the repository its brief works in, the ticket it builds or its job in the phase, elapsed time, steps, tool calls, tokens, model and what it is doing now. Press a row to open that agent's transcript. In VS Code and the desktop app each row starts with a pixel critter dressed for its role.
 - **What the milestone cost.** Tokens per ticket, the sub-agents' total and the main session's own requests, saved per milestone so the totals carry across `/build` calls and sessions.
-- **A status line** under the prompt, such as `⚙ M002 2/3 tickets · review · 1 agent running · 412.0k tok`.
+- **A status line** under the prompt, such as `⚙ M002 web-app 2/3 tickets · review · 1 agent running · 412.0k tok`.
 
 Open it with `/build-watch`; it also opens by itself when a sub-agent starts or a milestone is picked up. It only reads `.sdd/`. `hooks/register.tsx` is the module, `hooks/register.test.tsx` its tests (`claude plugin test .`), and `types/index.d.ts` the state it keeps.
 
@@ -150,14 +153,15 @@ Everything about the brain runs through `/brain`, and its first argument picks w
 |---|---|
 | `/brain setup` | Clones or creates a brain, then registers a repository in it: its card, its layout, its agent-file section, and its old `.sdd/` moved over. Run it once per brain on each machine, then once per repository. |
 | `/brain link` | Finds this machine's clone of each registered repository and records where it is. Linking opens nothing. |
-| `/brain status` | Every repository (unlinked, linked or open, dirty, unpushed) and every in-flight spec with its state, risks first: blocked or failed builds, specs waiting on a dependency, and contract changes whose consumers the spec leaves out. |
+| `/brain explore [<repo>]` | Reads a repository's default branch, one scribe sub-agent per area in parallel, and writes what it does as notes a product owner or a newcomer can read without the code: a `feature` note per capability with its rules, `concept` notes for its flows and data, and an overview in its card. Each note is stamped with the commit it was read at. Without a repository, it explores every linked one whose notes are missing or behind. A rerun reads only the areas that changed. |
+| `/brain status` | Every repository (unlinked, linked or open, dirty, unpushed, and whether its explored notes are behind) and every in-flight spec with its state, risks first: blocked or failed builds, specs waiting on a dependency, and contract changes whose consumers the spec leaves out. |
 | `/brain ask <question>` | Answers a question that crosses repositories: recalls the notes, sends one scout per repository in parallel, answers with citations from each, and offers what the notes lacked as new notes. Asking is how an empty brain fills up. |
 | `/brain view` | Opens the brain page: every brain you add, each with its **Specs** (milestones, tickets, reviews and diagrams, live) and its **Notes** (a graph of every note and `[[link]]`, clustered round repository hubs, or a list). Needs Chrome or Edge. |
 | `/brain recall` | Reads the notes bearing on the current work. Skills do this on their own. |
 | `/brain remember <fact>` | Proposes a note and commits it once you confirm. |
 | `/brain sync` | Pulls with rebase, merges any note two people changed, then pushes. Nothing is pushed until you run it. |
 
-Each note holds one fact: frontmatter with `name`, a one-line `description` and a `type` (`concept`, `decision`, `gotcha`, `contract`, `how-to`), then the fact, linked to related notes with `[[name]]`. Obsidian can open the brain as a vault.
+Each note holds one fact: frontmatter with `name`, a one-line `description` and a `type` (`feature`, `concept`, `decision`, `gotcha`, `contract`, `how-to`), then the fact, linked to related notes with `[[name]]`. A note is **authored**, holding what the code cannot tell you (a reason, a trap, a contract), or **explored**, holding what the code does, for teammates who never open it. Explored notes carry the commit they were read at, so `/brain ask` and `/brain status` can say when they fall behind. Teammates who don't code need to clone only the brain. Obsidian can open the brain as a vault.
 
 The pipeline uses the brain throughout. Every skill that reads the glossary and ADRs also reads the brain's notes on the repositories it works in. A `contract` note records which repositories consume an interface: a change to it becomes a question in `brainstorm`, a confirmed item in `to-spec`, an overlap in the in-flight check, an **escalate** flag in `review-changes`, and a one-way door in `pr`, with those repositories in its blast radius. Knowledge flows back as proposals you pick from: `diagnose` offers the root cause as a gotcha, landing a spec offers the tickets' gotchas and the arbiter's reasons, `onboard` offers undocumented dependencies on other repositories as contracts, `research` offers its verified answer, and `/brain ask` offers whatever the notes lacked.
 
@@ -167,19 +171,19 @@ The pipeline uses the brain throughout. Every skill that reads the glossary and 
 |---|---|
 | `tdd` | Red then green, one vertical slice at a time, with tests only at confirmed seams. Runs the suites the repository's card names. |
 | `commit` | `<KEY>: <Present-tense title>` plus one to three bullets. Reads the key from the spec, or the repository's card. |
-| `review-changes` | Reviews a diff in two separate sub-agents. **Standards** checks repo docs, glossary, ADRs and the smell baseline. **Spec** checks for missing requirements, scope creep and requirements built wrong. Saves the report as `review.md` in the milestone's folder, or the spec's when it reviews the whole spec. |
-| `pr` | Writes a PR's title and body: a visual **Summary**, before-and-after **Evidence** checked against the spec's claims, and a **Merge Danger** call (one-way or two-way door, blast radius). It opens or updates the PR only when you ask. |
+| `review-changes` | Reviews a diff in separate sub-agents. **Standards** checks repo docs, glossary, ADRs and the smell baseline. **Spec** checks for missing requirements, scope creep and requirements built wrong. **Consumers**, when the diff changes a contract, sends a scout into each linked consumer repository and escalates every call site the change breaks. A whole spec gets one Standards reviewer per repository and one Spec reviewer across them all. Saves the report as `review.md` in the milestone's folder, or the spec's when it reviews the whole spec. |
+| `pr` | Writes a PR's title and body: a visual **Summary**, before-and-after **Evidence** checked against the spec's claims, and a **Merge Danger** call (one-way or two-way door, blast radius from the contract notes and a scout per consumer). A spec across repositories gets one PR per landing, cross-linked under **Merge Order** in the order they must merge and deploy. It opens or updates the PRs only when you ask. |
 | `domain-modeling` | Maintains each repository's `GLOSSARY.md` and ADRs, including multi-context repos with `GLOSSARY-MAP.md`. |
 | `design-patterns` | A catalogue of patterns and when to choose each one. Each choice is recorded as Pattern, Where and Why. |
 | `project-structure` | One hexagonal layout for every language: `domain/` (entities, value objects, ports), `application/` (use cases, services, DTOs), `infrastructure/` (driving, driven, config). Covers role-suffixed names for TypeScript, Python and Java, and frontend, backend and full-stack apps. The repo's `docs/STRUCTURE.md` overrides it. |
 | `codebase-design` | Vocabulary for deep modules: module, interface, seam, adapter, depth. |
 | `writing-for-agents` | How to write skills, `CLAUDE.md` and `AGENTS.md`. Used when editing this repo. |
 | `diagnose` | Diagnoses a hard bug or performance regression. It first builds a tight loop that goes red on the bug, then minimises the repro, ranks falsifiable hypotheses, and instruments one variable at a time. It fixes with a regression test at a correct seam, or records that no such seam exists. |
-| `brain` | The hub, behind one command: `setup`, `link`, `status`, `ask`, `view`, `recall`, `remember` and `sync`. On its own, it reads a repository's notes before work and proposes a note when it learns something the repository doesn't record. It syncs only when you ask. |
+| `brain` | The hub, behind one command: `setup`, `link`, `explore`, `status`, `ask`, `view`, `recall`, `remember` and `sync`. On its own, it reads a repository's notes before work and proposes a note when it learns something the repository doesn't record. It syncs only when you ask. |
 | `research` | Researches a question against primary sources in a background sub-agent. Saves the cited findings to the brain's `.sdd/research/<slug>.md`. |
-| `prototype` | Builds a throwaway prototype that answers one design question: a shareable HTML demo for logic, or switchable variants for UI, each drafted in parallel by its own designer sub-agent. Keeps it on a `prototype/<slug>` branch and records the verdict. |
+| `prototype` | Builds a throwaway prototype that answers one design question: a shareable HTML demo for logic, or switchable variants for UI, each drafted in parallel by its own designer sub-agent. Keeps a UI prototype on a `prototype/<slug>` branch and a logic one in the brain's `.sdd/prototypes/`, and records the verdict in the spec and as a brain decision. |
 | `improve-and-refactor` | Scans hot spots for deepening and smell refactors, shows them as an HTML report saved to the brain's `.sdd/refactors/<slug>/`, and brainstorms the one you pick. A contained refactor goes straight to `/to-tickets` and `/build`; a larger one starts at `/to-spec`. |
-| `onboard` | Explores a whole repository, one scout per area in parallel, then traces the two or three journeys that cross the most areas. Writes an onboarding tour for a newcomer to the brain's `.sdd/tours/<slug>/`: a context map, the journeys, a card per area, where things live, the vocabulary and the commands. Then offers to record the terms and decisions it found undocumented. |
+| `onboard` | Tours one repository for a newcomer who will code in it, one scout per area in parallel, starting from the brain's notes on it, then traces the two or three journeys that cross the most areas, following them into linked neighbours. Writes the tour to the brain's `.sdd/tours/<slug>/`: a context map with the neighbouring repositories, the journeys, a card per area, where things live, the vocabulary and the commands. Then offers to record the terms, decisions and contracts it found undocumented. |
 
 The pipeline skills (`brainstorm-with-docs`, `to-spec`, `to-tickets`, `build`), `improve-and-refactor`, `onboard` and `pr` only run when you type their command. The others can also be invoked by the agent when it needs them.
 
