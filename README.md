@@ -121,6 +121,27 @@ Each repository holds the spec's branches under the spec folder's name: `sdd/<sp
 
 Every pipeline branch starts with `sdd/`, so `git branch --list 'sdd/*'` finds them all in a repository. After landing, `/build` offers to delete the spec's branches in each repository.
 
+## The build pane
+
+While `/build` runs, **build watch**, a live pane beside the chat shows the milestone being built, where it stands, and what each sub-agent is doing and spending:
+
+```
+004 Invoice export › M002 Consume v2
+████████░░░░ 2/3 tickets
+✔ tickets → ● review → ○ decide → ○ fix → ○ check → ○ squash
+412.0k tokens · agents 380.0k · main session 32.0k · 4 agents
+  ✔ 001 Read rows                 61.0k tok · 4m10s · a1b2c3d
+  ◐ 002 Map columns               22.3k tok · 1m15s
+      ↳ Edit src/columns.ts
+```
+
+- **The milestone.** As soon as a sub-agent's brief or a tool call names a path under the brain's `.sdd/specs/<spec>/milestones/<milestone>/`, the pane follows that milestone: each ticket's **Status** and **Commit**, and the **Phase** line as `/build`'s stages (tickets, review, decide, fix, check, squash).
+- **Each sub-agent.** Its role (`builder`, `reviewer`, `arbiter`, `scout`…), the ticket it builds or its job in the phase, elapsed time, steps, tool calls, tokens, model and what it is doing now. Press a row to open that agent's transcript. In VS Code and the desktop app each row starts with a pixel critter dressed for its role.
+- **What the milestone cost.** Tokens per ticket, the sub-agents' total and the main session's own requests, saved per milestone so the totals carry across `/build` calls and sessions.
+- **A status line** under the prompt, such as `⚙ M002 2/3 tickets · review · 1 agent running · 412.0k tok`.
+
+Open it with `/build-watch`; it also opens by itself when a sub-agent starts or a milestone is picked up. It only reads `.sdd/`. `hooks/register.tsx` is the module, `hooks/register.test.tsx` its tests (`claude plugin test .`), and `types/index.d.ts` the state it keeps.
+
 ## The brain
 
 Everything about the brain runs through `/brain`, and its first argument picks what it does:
@@ -164,7 +185,7 @@ The pipeline skills (`brainstorm-with-docs`, `to-spec`, `to-tickets`, `build`), 
 
 ## Moving from alper-skills
 
-Install alper-brain in place of alper-skills, then run `/brain setup` in a brain with each repository open. Setup moves the repository's `.sdd/` into the brain's: each spec keeps its folder name unless its number is taken (then it is renumbered, and its branches renamed), gains its **Repos** and **Repo** lines, and its research, tours and refactor reports come along. The commit key from `.sdd/settings.json` moves to the repository's card, and the **Spec workflow** section of its agent file becomes a **Second brain** section. The dashboard and the graph page are now the one brain page, `/brain view`.
+Install alper-brain in place of alper-skills, then run `/brain setup` in a brain with each repository open. Setup moves the repository's `.sdd/` into the brain's: each spec keeps its folder name unless its number is taken (then it is renumbered, and its branches renamed), gains its **Repos** and **Repo** lines, and its research, tours and refactor reports come along. The commit key from `.sdd/settings.json` moves to the repository's card, and the **Spec workflow** section of its agent file becomes a **Second brain** section. The dashboard and the graph page are now the one brain page, `/brain view`. The alper-flow mod is built in as the build pane, now opened with `/build-watch`: uninstall `alper-flow@alper-mods`.
 
 ## Repository layout
 
@@ -172,5 +193,7 @@ Install alper-brain in place of alper-skills, then run `/brain setup` in a brain
 .claude-plugin/   plugin.json and marketplace.json
 skills/<name>/    SKILL.md plus any reference files it points to
 agents/           the sub-agents the skills dispatch, each pinned to a model
+hooks/            the build pane: hooks.json names register.tsx, the hooks module
+types/            the build pane's state contract
 docs/DESIGN.md    why the brain became the hub
 ```

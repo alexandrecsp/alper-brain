@@ -1,7 +1,7 @@
 {
   "name": "alper-brain",
-  "version": "1.0.0",
-  "description": "Alper's spec-driven skills, worked from a second brain: the team's notes across every repository, and specs that build across several of them, test-first.",
+  "version": "1.1.0",
+  "description": "Alper's spec-driven skills, worked from a second brain: the team's notes across every repository, specs that build across several of them test-first, and a live pane for each build.",
   "author": {
     "name": "Alexandre",
     "email": "alexandresp9@gmail.com"
@@ -16,5 +16,6 @@
     "code-review",
     "domain-modeling"
   ],
-  "skills": "./skills/"
+  "skills": "./skills/",
+  "types": "./types/index.d.ts"
 }
