@@ -41,7 +41,7 @@ Open with the **module map**, by [DIAGRAMS.md](DIAGRAMS.md). Then the implementa
 - Technical clarifications from the developer
 - Architectural decisions
 - Schema changes
-- API contracts, naming every other repository that consumes them
+- API contracts, each naming every other repository that consumes it and, for a changed one, pinning its new shape precisely enough for a consumer to fake it: the route, event, queue message or schema, each field with its type and whether it is optional, and the shape it replaces
 - Specific interactions
 
 Describe modules and interfaces by name and behaviour; file paths and code snippets go stale.

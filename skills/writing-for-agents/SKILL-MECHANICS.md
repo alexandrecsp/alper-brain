@@ -6,7 +6,7 @@ The skill-specific branch of [`writing-for-agents`](SKILL.md): what changes when
 
 - `name`: the folder's name, and what the user types after the slash.
 - `description` and `disable-model-invocation`: see Invocation.
-- `argument-hint`: only when the skill takes arguments, written as the user types them (`"[spec-id] [milestone-id]"`).
+- `argument-hint`: only when the skill takes arguments, written as the user types them (`"[spec-id]"`).
 - `metadata.type`: `process` when the skill has steps, `reference` when it is all reference, by the content types in `SKILL.md`'s Information hierarchy.
 
 ## Invocation

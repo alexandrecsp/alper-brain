@@ -8,7 +8,7 @@ import { BuildView } from './components/BuildView'
 import { TranscriptView } from './components/TranscriptView'
 import type { Draw } from './components/ui'
 import { NO_TOKENS, addUsage, describe, pathArgs, tokens, total, usageTotal } from './format'
-import { STAGES, field, findRef, heading, jobOf, keyOf, repoField, repoOf, shortSha, stageOf } from './sdd'
+import { STAGES, awaitingOf, field, findRef, heading, jobOf, keyOf, repoField, repoOf, shortSha, stageOf, waitsOnUser } from './sdd'
 import { STATUS_LINE_GLYPH, roleOf } from './theme'
 
 const PANE = 'build-watch'
@@ -55,7 +55,7 @@ let ticks = 0
 // Reads one milestone as its files stand; null when its folder is gone.
 const loadBuild = async (
   $: EngineInterface,
-  ref: { root: string; spec: string; milestone: string },
+  ref: { root: string; spec: string; track?: string; milestone: string },
 ): Promise<Build | null> => {
   const dir = keyOf(ref)
   const entries = await $.fs.list(dir).catch(() => undefined)
@@ -83,21 +83,24 @@ const loadBuild = async (
     root: ref.root,
     spec: ref.spec,
     specTitle: heading(specMd).replace(/^Spec:\s*/i, '') || ref.spec,
+    track: ref.track,
     milestone: ref.milestone,
     milestoneTitle: heading(milestoneMd).replace(/^Milestone\s+\d+:\s*/i, '') || ref.milestone,
-    repo: repoField(milestoneMd),
+    repo: ref.track ?? repoField(milestoneMd),
     phase: field(milestoneMd, 'Phase').toLowerCase() || 'none',
     squash: shortSha(field(milestoneMd, 'Squash')),
+    awaiting: awaitingOf(await $.fs.read(`${dir}/review.md`).catch(() => '')),
     tickets,
   }
 }
 
 // Adds the milestone `ref` points into to those the pane follows, or reads it
 // again when it already is; a new one brings its saved spending along. A
-// milestone of another spec starts the list afresh, so a wave shows together.
+// milestone of another spec starts the list afresh, so the tracks building
+// side by side show together, ordered by track, then by number.
 const follow = async (
   $: EngineInterface,
-  ref: { root: string; spec: string; milestone: string },
+  ref: { root: string; spec: string; track?: string; milestone: string },
   focused = true,
 ) => {
   const loaded = await loadBuild($, ref)
@@ -109,7 +112,7 @@ const follow = async (
     isNew = !all.some(b => b.key === loaded.key)
     const kept = all.filter(b => b.key !== loaded.key && b.root === loaded.root && b.spec === loaded.spec)
 
-    return [...kept, loaded].sort((a, b) => a.milestone.localeCompare(b.milestone))
+    return [...kept, loaded].sort((a, b) => a.key.localeCompare(b.key))
   })
   if (!isNew) return
 
@@ -222,7 +225,7 @@ const refreshStatus = async ($: EngineInterface) => {
   let text: string | undefined
   if (building.length === 1 && building[0] !== undefined) {
     const current = building[0]
-    const stage = STAGES[stageOf(current.phase, current.squash)] ?? 'done'
+    const stage = waitsOnUser(current, list) ? 'decide waits on you' : (STAGES[stageOf(current.phase, current.squash)] ?? 'done')
     text = `${STATUS_LINE_GLYPH} ${label(current)} tickets · ${stage} · ${agents} · ${tokens(cost)} tok`
   } else if (building.length > 1) {
     text = `${STATUS_LINE_GLYPH} ${building.map(label).join(' · ')} · ${agents} · ${tokens(cost)} tok`
@@ -418,7 +421,7 @@ export const register: Register = on => {
     const list = await read($, runs)
     const followed = await read($, builds)
     const spent = await read($, ledgers)
-    // The milestones being built, a wave of them side by side; once all are
+    // The milestones being built, one per track, side by side; once all are
     // squashed, the last one stays up to show it.
     const building = followed.filter(isBuilding)
     const shown = building.length > 0 ? building : followed.slice(-1)

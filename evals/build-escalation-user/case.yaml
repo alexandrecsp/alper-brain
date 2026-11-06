@@ -1,0 +1,12 @@
+schema_version: "1.1"
+name: build-escalation-user
+description: When the user decides escalations, /build asks them for the escalated finding's answer instead of dispatching the arbiter.
+tags: [build, escalation]
+runs: 2
+expected_outcome: The reply asks the user to answer ST1 with its three options, and no arbiter runs.
+context:
+  scaffold_script: fixture.sh
+execution:
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill, Bash, Edit, Write, Agent]

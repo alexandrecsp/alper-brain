@@ -1,7 +1,7 @@
 import type { AgentRun, Build, Ledger } from '../../types'
 import { bar, elapsed, oneLine, tokens } from '../format'
 import { PROGRESS_HEIGHT, progress } from '../personas'
-import { STAGES, stageOf } from '../sdd'
+import { STAGES, stageOf, waitsOnUser } from '../sdd'
 import { color, glyph, stageTone, ticketTone } from '../theme'
 import type { Draw } from './ui'
 
@@ -12,6 +12,8 @@ export const BuildView = ({ ui: { Box, Text }, Svg, at }: Draw, { build, spent, 
   const done = build.tickets.filter(t => t.status === 'done').length
   const share = done / Math.max(1, build.tickets.length)
   const stage = stageOf(build.phase, build.squash)
+  // Escalations the user decides stop the track at decide until the next /build asks them.
+  const waiting = waitsOnUser(build, running)
   const cost = spent === null ? 0 : spent.agentTokens + spent.mainTokens
 
   return (
@@ -57,8 +59,15 @@ export const BuildView = ({ ui: { Box, Text }, Svg, at }: Draw, { build, spent, 
       </Box>
       <Text>
         {STAGES.map((name, i) => {
-          const label = i === stage && build.phase === 'failed' ? 'check failed' : name
-          const tone = stageTone(i, stage, build.phase)
+          const label =
+            i === stage && build.phase === 'failed'
+              ? 'check failed'
+              : i === stage && build.phase === 'waits'
+                ? 'check waits'
+                : i === stage && waiting
+                  ? 'decide waits on you'
+                  : name
+          const tone = i === stage && waiting ? 'blocked' : stageTone(i, stage, build.phase)
 
           return (
             <Text color={color(tone)} dimColor={tone === 'idle'}>

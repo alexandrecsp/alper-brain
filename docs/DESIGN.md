@@ -2,6 +2,8 @@
 
 **Status:** built as alper-brain 1.0.0. Drafted 2026-11-04; this records the reasoning behind the design. Where it and the skills disagree, the skills win.
 
+**Built differently since:** the dashboard and `brain graph` became one page, `/brain view`; `setup-repository` folded into `/brain setup`; alper-flow became the build pane, `/build-watch`; and the per-milestone **Repo** line gave way to one track of milestones per repository, by [TRACKS.md](TRACKS.md). Read the tables below as the plan they were.
+
 Today alper works one repository at a time. Each repo keeps its pipeline state in `.sdd/`, which is local to one machine and kept out of git. The second brain is optional, and holds notes only. This proposal makes the brain the **hub** of the whole ecosystem. The team's knowledge is shared through it, your own pipeline work sits in one ignored `.sdd/` inside it, and `/brain` becomes the one command that sees every repository at once.
 
 ## Why
@@ -71,7 +73,7 @@ The ecosystem command is `/brain`, extended, rather than a new command. The brai
 
 `setup`, `recall`, `remember` and `sync` stay, and `view` replaces `graph`. See [SKILL.md](../skills/brain/SKILL.md).
 
-The pipeline commands (`/brainstorm`, `/to-spec`, `/to-tickets`, `/build`, `/pr`, `/dashboard`) keep their names. What changes is where they look: specs are in the brain's `.sdd/`, and repos are found through the links. So you run them from the brain, whichever repo the work is in.
+The pipeline commands (`/brainstorm`, `/to-spec`, `/to-tickets`, `/build`, `/pr`) keep their names. What changes is where they look: specs are in the brain's `.sdd/`, and repos are found through the links. So you run them from the brain, whichever repo the work is in.
 
 ## Cross-repo specs
 

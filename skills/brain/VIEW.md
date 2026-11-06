@@ -7,7 +7,7 @@ The `view` branch of [`brain`](SKILL.md): open the brain page, [brain.html](brai
 2. **Hand over.** Give the user the URL and the active brain's path, when one is open, and say:
    - The page needs Chrome or Edge. When the default browser is another one, paste the URL into Chrome or Edge.
    - To list a brain, click **Add brain** and pick its folder, the one holding `BRAIN.md`. Each knowledge base is one brain on the list.
-   - A brain opens on its **Specs**: every spec across its repositories, with their milestones, tickets, reviews and diagrams, live while you view it. **Notes** draws every note as a node and every `[[link]]` as an edge, clustered around repository hubs; a node's shape gives its type, a dashed node is a note not written yet, and clicking a node opens it.
+   - A brain opens on its **Specs**: every spec across its repositories, with their milestones, tickets, reviews and diagrams, live while you view it. **Map** shows what each repository is being built into: the repositories on a ring, each ringed by its milestones' status, the specs in flight at the centre, and each milestone between the two; click a hub or a spec to focus it. **Notes** draws every note as a node and every `[[link]]` as an edge, clustered around repository hubs; a node's shape gives its type, a dashed node is a note not written yet, and clicking a node opens it.
    - After a browser restart, click **Reconnect** on the brain's card.
 
    Done when the user has the URL.

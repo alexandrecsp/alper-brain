@@ -1,6 +1,6 @@
 # PR series
 
-A spec with more than one landing opens a **series**: one PR per landing, merged in milestone order. That is the order [CONTRACT-CHANGE.md](../to-tickets/CONTRACT-CHANGE.md) cut them in (the producer's expand, each consumer's migrate, the producer's contract), so every repository keeps working with the others as each PR merges and deploys.
+A spec with more than one landing opens a **series**: one PR per landing, merged in the order of the **Landings** line of `spec.md`. That is the order [CONTRACT-CHANGE.md](../to-tickets/CONTRACT-CHANGE.md) cut them in (the producer's expand, each consumer's migrate, the producer's contract), so every repository keeps working with the others as each PR merges and deploys.
 
 - **Stacked within a repository.** A repository's later landing builds on its earlier one, so its PR's base is the earlier landing's head branch, and it opens as a draft (`gh pr create --draft`). GitHub retargets it onto the repository's base when the earlier PR merges and its branch is deleted.
 - **Merge Order.** Every body in the series ends with the same section, marking its own PR **This PR**:

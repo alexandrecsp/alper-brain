@@ -46,12 +46,16 @@ export type Build = {
   root: string
   spec: string
   specTitle: string
+  /** The track folder the milestone sits in, its repository's slug; undefined in the flat layout. */
+  track?: string
   milestone: string
   milestoneTitle: string
-  /** The slug on the milestone's **Repo** line: the repository it builds in. */
+  /** The repository it builds in: its track, else a flat-layout milestone's **Repo** line. */
   repo: string | null
   phase: string
   squash: string | null
+  /** The review's escalated findings still without an Answer, by sdd.ts's awaitingOf. */
+  awaiting: number
   tickets: Ticket[]
 }
 
@@ -71,7 +75,7 @@ declare module 'claude-code' {
     'alper-brain': {
       runs: Shaped<AgentRun[]>
       now: number
-      /** The milestones the pane follows: one, or a wave of them, all of one spec. */
+      /** The milestones the pane follows: one, or one per track, all of one spec. */
       builds: Shaped<Build[]>
       /** What each followed milestone has spent, by its key. */
       ledgers: Shaped<Record<string, Ledger>>

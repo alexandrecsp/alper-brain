@@ -17,11 +17,12 @@ const PANE = {
 // The engine hands a hook Windows paths with backslashes.
 const slash = (path: string) => path.replace(/\\/g, '/')
 
-const DIR = 'C:/repo/.sdd/specs/003-invoice-export/milestones/001-parse-invoices'
+// A spec's milestones sit in one folder per repository, its track; the folder names the repository.
+const DIR = 'C:/repo/.sdd/specs/003-invoice-export/milestones/billing-api/001-parse-invoices'
 
 const files: Record<string, string> = {
   'C:/repo/.sdd/specs/003-invoice-export/spec.md': '# Spec: Invoice export\n\n**Key:** None\n',
-  [`${DIR}/milestone.md`]: '# Milestone 001: Parse invoices\n\n**Repo:** billing-api\n\n**Phase:** none\n\n**Squash:** none\n',
+  [`${DIR}/milestone.md`]: '# Milestone 001: Parse invoices\n\n**Phase:** none\n\n**Squash:** none\n',
   [`${DIR}/001-read-rows.md`]: '# Ticket 001: Read rows\n\n**Status:** done\n\n**Commit:** a1b2c3d4\n',
   [`${DIR}/002-map-columns.md`]: '# Ticket 002: Map columns\n\n**Status:** doing\n\n**Commit:** none\n',
   [`${DIR}/003-check-totals.md`]: '# Ticket 003: Check totals\n\n**Status:** todo\n\n**Commit:** none\n',
@@ -165,12 +166,42 @@ test('the decide phase shows as the stage the milestone is at, and its arbiter a
   await ui.unmount()
 })
 
-test('a wave shows each of its milestones, each builder under its own', async ($, on) => {
-  const DIR2 = 'C:/repo/.sdd/specs/003-invoice-export/milestones/002-show-totals'
+test('a decide the user owns shows as waiting on them, once no arbiter runs and an escalation has no answer', async ($, on) => {
+  const waiting: Record<string, string> = {
+    ...files,
+    [`${DIR}/milestone.md`]: '# Milestone 001: Parse invoices\n\n**Phase:** decide\n\n**Squash:** none\n',
+    [`${DIR}/review.md`]:
+      '# Review: Parse invoices\n\n## Standards\n\nST1. parse.ts: rounds early. Judgement call, **escalate**.\n**Answer:** fix it as proposed — decided by the user\n\nST2. parse.ts: renames a field the web app reads. Judgement call, **escalate**.\n\nST3. parse.ts: long function. Hard violation.\n',
+  }
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 1_000_000 }))
+  on('store.get', () => ({ value: undefined }))
+  on('store.set', () => ({ value: undefined }))
+  on('fs.list', (_, e) => ({
+    value: Object.keys(waiting)
+      .filter(path => path.startsWith(`${slash(e.path)}/`))
+      .map(path => ({ name: path.slice(slash(e.path).length + 1), kind: 'file' as const, size: 1, mtimeMs: 1, isLink: false })),
+  }))
+  on('fs.read', (_, e) => ({ value: waiting[slash(e.path)] ?? '' }))
+  on('agent.list', () => ({ value: [] }))
+  on('turn.start', (_, e) => ({ turnId: e.turnId }))
+  on('tool.call', () => ({ result: {} }))
+
+  await $.tool.call({ tool: 'Read', file_path: `${DIR}/milestone.md` })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  // ST1 has its answer and ST3 is no escalation, so only ST2 holds the build.
+  expect(await ui.find({ type: 'Text', text: /🚧 decide waits on you/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test("each track's milestone shows under its own repository, though both are numbered 001", async ($, on) => {
+  const DIR2 = 'C:/repo/.sdd/specs/003-invoice-export/milestones/web-app/001-show-totals'
   const wave: Record<string, string> = {
     ...files,
-    [`${DIR2}/milestone.md`]: '# Milestone 002: Show totals\n\n**Repo:** web-app\n\n**Phase:** none\n\n**Squash:** none\n',
-    [`${DIR2}/004-totals-page.md`]: '# Ticket 004: Totals page\n\n**Status:** doing\n\n**Commit:** none\n',
+    [`${DIR2}/milestone.md`]: '# Milestone 001: Show totals\n\n**Phase:** none\n\n**Squash:** none\n',
+    [`${DIR2}/001-totals-page.md`]: '# Ticket 001: Totals page\n\n**Status:** doing\n\n**Commit:** none\n',
   }
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('ui.status', () => ({ value: undefined }))
@@ -186,40 +217,44 @@ test('a wave shows each of its milestones, each builder under its own', async ($
   on('agent.list', () => ({
     value: [
       { id: 'w1', type: 'alper-brain:builder', description: 'Build ticket 002', status: 'running' },
-      { id: 'w2', type: 'alper-brain:builder', description: 'Build ticket 004', status: 'running' },
+      { id: 'w2', type: 'alper-brain:builder', description: 'Build ticket 001', status: 'running' },
     ],
   }))
   on('turn.start', (_, e) => ({ turnId: e.turnId }))
   on('tool.call', () => ({ result: {} }))
 
-  // The round's builders start side by side, one per milestone of the wave.
+  // The tracks' builders run side by side, one per repository.
   await $.turn.start({
     text: `## Context\n- **Works in:** billing-api at C:/work/billing-api (open), changes it\n\nBuild this ticket: ${DIR}/002-map-columns.md`,
     turnId: 'tw1',
     agentId: 'w1',
   })
   await $.turn.start({
-    text: `## Context\n- **Works in:** web-app at C:/work/web-app (open), changes it\n\nBuild this ticket: ${DIR2}/004-totals-page.md`,
+    text: `## Context\n- **Works in:** web-app at C:/work/web-app (open), changes it\n\nBuild this ticket: ${DIR2}/001-totals-page.md`,
     turnId: 'tw2',
     agentId: 'w2',
   })
 
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
   expect(await ui.find({ type: 'Text', text: /M001 Parse invoices/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /M002 Show totals/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /M001 Show totals/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^· billing-api$/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /^· web-app$/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /002 Map columns/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /004 Totals page/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /001 Totals page/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /builder T002 · billing-api/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /builder T004 · web-app/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /builder T001 · web-app/ })).toBeDefined()
   await ui.unmount()
 })
 
-test('the fixer shows as fixing in the fix phase, dressed as its own role', async ($, on) => {
+test('the fixer shows as fixing in the fix phase, in a milestone still in the flat layout', async ($, on) => {
+  // A spec ticketed before tracks keeps its milestones straight under milestones/, each naming its repository on a Repo line.
+  const FLAT = 'C:/repo/.sdd/specs/002-old-export/milestones/001-parse-invoices'
   const fixing: Record<string, string> = {
-    ...files,
-    [`${DIR}/milestone.md`]: '# Milestone 001: Parse invoices\n\n**Repo:** billing-api\n\n**Phase:** fix\n\n**Squash:** none\n',
-    [`${DIR}/review.md`]: '# Review\n',
+    'C:/repo/.sdd/specs/002-old-export/spec.md': '# Spec: Old export\n\n**Key:** None\n',
+    [`${FLAT}/milestone.md`]: '# Milestone 001: Parse invoices\n\n**Repo:** billing-api\n\n**Phase:** fix\n\n**Squash:** none\n',
+    [`${FLAT}/001-read-rows.md`]: '# Ticket 001: Read rows\n\n**Status:** done\n\n**Commit:** a1b2c3d4\n',
+    [`${FLAT}/review.md`]: '# Review\n',
   }
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('ui.status', () => ({ value: undefined }))
@@ -238,16 +273,48 @@ test('the fixer shows as fixing in the fix phase, dressed as its own role', asyn
   on('turn.start', (_, e) => ({ turnId: e.turnId }))
   on('tool.call', () => ({ result: {} }))
 
-  await $.tool.call({ tool: 'Read', file_path: `${DIR}/milestone.md` })
+  await $.tool.call({ tool: 'Read', file_path: `${FLAT}/milestone.md` })
   await $.turn.start({
-    text: `## Context\n- **Works in:** billing-api at C:/work/billing-api (open), changes it\n\nFix the findings in this review: ${DIR}/review.md`,
+    text: `## Context\n- **Works in:** billing-api at C:/work/billing-api (open), changes it\n\nFix the findings in this review: ${FLAT}/review.md`,
     turnId: 't3',
     agentId: 'a3',
   })
 
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
   expect(await ui.find({ type: 'Text', text: /fix: Fix the review findings/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /M001 Parse invoices/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^· billing-api$/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /fixer\s+· billing-api/ })).toBeDefined()
   expect(await ui.find({ type: 'Svg', alt: 'fixer, running' })).toBeDefined()
+  await ui.unmount()
+})
+
+test("a migrate waiting on its producer's expand shows at the check stage, waiting", async ($, on) => {
+  const DIR3 = 'C:/repo/.sdd/specs/003-invoice-export/milestones/web-app/001-show-totals'
+  const waiting: Record<string, string> = {
+    ...files,
+    [`${DIR3}/milestone.md`]: '# Milestone 001: Show totals\n\n**Lands after:** billing-api/001\n\n**Phase:** waits\n\n**Squash:** none\n',
+    [`${DIR3}/001-totals-page.md`]: '# Ticket 001: Totals page\n\n**Status:** done\n\n**Commit:** b2c3d4e5\n',
+  }
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 1_000_000 }))
+  on('store.get', () => ({ value: undefined }))
+  on('store.set', () => ({ value: undefined }))
+  on('fs.list', (_, e) => ({
+    value: Object.keys(waiting)
+      .filter(path => path.startsWith(`${slash(e.path)}/`))
+      .map(path => ({ name: path.slice(slash(e.path).length + 1), kind: 'file' as const, size: 1, mtimeMs: 1, isLink: false })),
+  }))
+  on('fs.read', (_, e) => ({ value: waiting[slash(e.path)] ?? '' }))
+  on('agent.list', () => ({ value: [] }))
+  on('tool.call', () => ({ result: {} }))
+
+  // The main session writing the Phase line is how the pane hears the milestone left the closing queue.
+  await $.tool.call({ tool: 'Edit', file_path: `${DIR3}/milestone.md`, old_string: 'check', new_string: 'waits' })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: /✅ fix/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /check waits/ })).toBeDefined()
   await ui.unmount()
 })

@@ -59,6 +59,49 @@
   #noteCanvas .nnode.hover .note-label { display: inline; }
   #doc .wikilink { text-decoration: none; border-bottom: 1px solid currentColor; }
   #doc .wikilink.ghost { border-bottom-style: dashed; opacity: .7; }
+  /* The map: repositories on a ring, the specs at its centre, each milestone between the spec it serves and the
+     repository it builds in. A --s-* token per status colours the milestone, its line and its repository's ring. */
+  :root { --s-landed: #10b981; --s-done: #34d399; --s-landing: #14b8a6; --s-active: #f59e0b; --s-attention: #ef4444; --s-blocked: #f43f5e;
+    --s-waiting: #8b5cf6; --s-ready: #0ea5e9; --s-draft: #a1a1aa; --s-abandoned: #d4d4d8; --core: #18181b; --core-text: #fafafa; }
+  @media (prefers-color-scheme: dark) {
+    :root { --s-draft: #71717a; --s-abandoned: #3f3f46; --core: #f4f4f5; --core-text: #18181b; }
+  }
+  #mapCanvas svg { cursor: grab; }
+  #mapCanvas svg:active { cursor: grabbing; }
+  #mapCanvas .mlink { fill: none; stroke: var(--nedge); stroke-opacity: .3; stroke-width: 1.25; transition: opacity .2s; }
+  #mapCanvas .mlink.part { stroke-dasharray: 2 3; }
+  #mapCanvas .mlink.build { stroke: var(--c); stroke-opacity: .7; stroke-width: 2.25; }
+  #mapCanvas .mlink.build.flow { stroke-opacity: 1; stroke-dasharray: 7 5; animation: flow .9s linear infinite; }
+  @keyframes flow { to { stroke-dashoffset: -12; } }
+  #mapCanvas .mlink.planned { stroke-dasharray: 1 6; stroke-linecap: round; stroke-width: 2.5; stroke-opacity: .45; }
+  #mapCanvas .mlink.order, #mapCanvas .mlink.dep { stroke: var(--s-waiting); stroke-opacity: .75; stroke-width: 1.5; }
+  #mapCanvas .mlink.order { stroke-dasharray: 5 4; }
+  #mapCanvas .arrow { fill: var(--s-waiting); }
+  #mapCanvas .mnode { cursor: pointer; transition: opacity .2s; }
+  #mapCanvas .pop { animation: pop .55s cubic-bezier(.2, 1.5, .4, 1) backwards; transform-box: fill-box; transform-origin: center; }
+  @keyframes pop { from { transform: scale(0); opacity: 0; } }
+  #mapCanvas .halo { fill: var(--c); pointer-events: none; transform-box: fill-box; transform-origin: center; animation: halo 1.8s ease-out infinite; }
+  @keyframes halo { from { transform: scale(1); opacity: .5; } to { transform: scale(2.5); opacity: 0; } }
+  #mapCanvas .halo.wide { animation-name: halo-wide; animation-duration: 2.4s; }
+  @keyframes halo-wide { from { transform: scale(1); opacity: .35; } to { transform: scale(1.45); opacity: 0; } }
+  #mapCanvas .label { fill: var(--label); font-size: 11px; paint-order: stroke; stroke: var(--surface); stroke-width: 3.5px; stroke-linejoin: round; pointer-events: none; }
+  #mapCanvas .repo .core { fill: var(--core); stroke: var(--surface); stroke-width: 3; transition: stroke .2s; }
+  #mapCanvas .repo .count { fill: var(--core-text); font-size: 17px; font-weight: 700; pointer-events: none; }
+  #mapCanvas .repo .sub { fill: var(--core-text); opacity: .55; font-size: 7.5px; letter-spacing: .12em; pointer-events: none; }
+  #mapCanvas .repo .label { fill: currentColor; font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  #mapCanvas .repo .now { fill: var(--s-active); font-size: 10.5px; font-weight: 600; }
+  #mapCanvas .repo .idle-ring { fill: none; stroke: var(--member); stroke-width: 2; stroke-dasharray: 2 4; }
+  #mapCanvas .spec .core { fill: var(--surface); stroke: var(--c); stroke-width: 2; }
+  #mapCanvas .spec .track { fill: none; stroke: var(--member); stroke-width: 4; }
+  #mapCanvas .spec .num { fill: currentColor; font: 700 11px ui-monospace, SFMono-Regular, Menlo, monospace; pointer-events: none; }
+  #mapCanvas .spec .label { font-size: 11.5px; font-weight: 500; fill: currentColor; }
+  #mapCanvas .milestone .dot { fill: var(--c); stroke: var(--surface); stroke-width: 2; }
+  #mapCanvas .milestone .label { display: none; font-size: 10px; }
+  #mapCanvas .milestone.hover .label, #mapCanvas.zoomed .milestone .label { display: inline; }
+  #mapCanvas .picked .core, #mapCanvas .picked .dot { stroke: var(--accent); stroke-width: 3.5; }
+  #mapCanvas .match .core, #mapCanvas .match .dot { stroke: var(--accent); stroke-width: 3; }
+  #mapCanvas .dim .mnode:not(.hot), #mapCanvas .dim .mlink:not(.hot) { opacity: .1; }
+  @media (prefers-reduced-motion: reduce) { #mapCanvas .halo, #mapCanvas .mlink.flow, #mapCanvas .pop { animation: none; } }
 </style>
 </head>
 <body class="bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 antialiased">
@@ -71,6 +114,7 @@
     <div id="crumbs" class="flex min-w-0 items-center gap-2 text-sm"></div>
     <nav id="sections" class="hidden ml-2 inline-flex rounded-md border border-zinc-200 dark:border-zinc-800 p-0.5 text-sm">
       <button data-section="specs" class="px-3 py-1 rounded">Specs</button>
+      <button data-section="map" class="px-3 py-1 rounded" title="What each repository is being built into">Map</button>
       <button data-section="notes" class="px-3 py-1 rounded">Notes</button>
     </nav>
     <nav id="views" class="hidden ml-2 inline-flex rounded-md border border-zinc-200 dark:border-zinc-800 p-0.5 text-sm">
@@ -133,14 +177,15 @@ const store = {
 };
 
 // The route lives in the hash: #/ is the brain list, #/b/<brain> a brain's specs, #/b/<brain>/spec/<id> one spec,
-// and #/b/<brain>/notes its notes.
+// #/b/<brain>/notes its notes, and #/b/<brain>/map its map of what each repository is being built into.
 const route = () => {
-  const m = /^#\/b\/([^/]+)(?:\/(notes)|\/spec\/(.+))?$/.exec(location.hash);
-  return m ? { repo: m[1], notes: !!m[2], spec: m[3] ? decodeURIComponent(m[3]) : null } : { repo: null, notes: false, spec: null };
+  const m = /^#\/b\/([^/]+)(?:\/(notes|map)|\/spec\/(.+))?$/.exec(location.hash);
+  return m ? { repo: m[1], section: m[2] || 'specs', spec: m[3] ? decodeURIComponent(m[3]) : null } : { repo: null, section: 'specs', spec: null };
 };
 const goRepo = (id) => { location.hash = id ? '#/b/' + id : '#/'; };
 const go = (id) => { location.hash = '#/b/' + state.repo.id + (id ? '/spec/' + encodeURIComponent(id) : ''); };
 const goNotes = () => { location.hash = '#/b/' + state.repo.id + '/notes'; };
+const goMap = () => { location.hash = '#/b/' + state.repo.id + '/map'; };
 
 // Each entry of repos is a brain the user added. The open brain's spec files, specs, notes and name are copied into
 // files, specs, notes and root, so every view reads them as one brain's.
@@ -279,12 +324,12 @@ async function reconnect(repo) {
 }
 
 async function applyRoute(read = true) {
-  const { repo, spec, notes } = route();
+  const { repo, spec, section } = route();
   const brain = state.repos.find((r) => r.id === repo) || null;
-  if (brain !== state.repo) gPos.clear();
+  if (brain !== state.repo) { gPos.clear(); mPos.clear(); mv.sel = null; }
   state.repo = brain;
   state.specId = spec;
-  state.section = notes ? 'notes' : 'specs';
+  state.section = section;
   closeDoc();
   sync();
   render();
@@ -357,10 +402,17 @@ function parse(files) {
       s.abandoned = field(text, 'Abandoned') || null;
     } else if (p.length === 2 && p[1] === 'review.md') {
       s.review = path;
-    } else if (p.length === 4 && p[1] === 'milestones' && numOf(p[2])) {
-      if (!s.milestones.has(p[2])) s.milestones.set(p[2], { id: p[2], num: numOf(p[2]), title: unslug(p[2]), repo: null, path: null, review: null, delivers: '', phase: null, squash: null, landed: null, tickets: [] });
-      const m = s.milestones.get(p[2]);
-      if (p[3] === 'milestone.md') {
+    } else if (p[1] === 'milestones' && (p.length === 4 ? numOf(p[2]) : p.length === 5 && !numOf(p[2]) && numOf(p[3]))) {
+      // A spec's milestones sit in one folder per repository, its track, numbered within it. A spec ticketed before
+      // tracks has them straight under milestones/, numbered across the spec, each naming its repository on a Repo line.
+      const track = p.length === 5 ? p[2] : null;
+      const [dir, file] = track ? [p[3], p[4]] : [p[2], p[3]];
+      const id = track ? `${track}/${dir}` : dir;
+      // In a track, a ticket's id is <slug>/NNN, unique across the spec; a Depends on names one in its own track by NNN alone.
+      const qualify = (n) => (track ? `${track}/${n}` : n);
+      if (!s.milestones.has(id)) s.milestones.set(id, { id, track, num: numOf(dir), title: unslug(dir), repo: track, path: null, review: null, delivers: '', phase: null, squash: null, landed: null, landsAfter: [], after: [], awaiting: 0, tickets: [] });
+      const m = s.milestones.get(id);
+      if (file === 'milestone.md') {
         m.path = path;
         m.title = (heading(text) || m.title).replace(/^Milestone\s+\d+:\s*/i, '');
         m.delivers = excerpt(field(text, 'Delivers') || '');
@@ -368,20 +420,26 @@ function parse(files) {
         m.squash = /^[0-9a-f]{7,40}/i.test(squash) ? squash.slice(0, 7) : null;
         m.phase = (field(text, 'Phase') || '').replace(/`/g, '').toLowerCase();
         const repo = (field(text, 'Repo') || '').replace(/`/g, '').trim();
-        m.repo = /^none$/i.test(repo) ? null : repo || null;
+        if (!track) m.repo = /^none$/i.test(repo) ? null : repo || null;
         const landed = (field(text, 'Landed') || '').replace(/`/g, '');
         m.landed = /^[0-9a-f]{7,40}/i.test(landed) ? landed.slice(0, 7) : null;
-      } else if (p[3] === 'review.md') {
+        const after = field(text, 'Lands after') || '';
+        m.landsAfter = /^none/i.test(after) ? [] : after.match(/[\w.-]+\/\d+/g) || [];
+      } else if (file === 'review.md') {
         m.review = path;
-      } else if (numOf(p[3])) {
+        m.awaiting = awaitingOf(text);
+      } else if (numOf(file)) {
         const deps = field(text, 'Depends on') || '';
         const commit = field(text, 'Commit') || '';
         m.tickets.push({
-          num: numOf(p[3]),
+          num: qualify(numOf(file)),
           path,
-          title: (heading(text) || unslug(p[3])).replace(/^Ticket\s+\d+:\s*/i, ''),
+          title: (heading(text) || unslug(file)).replace(/^Ticket\s+\d+:\s*/i, ''),
           status: (field(text, 'Status') || 'todo').toLowerCase().replace(/`/g, ''),
-          deps: /^none/i.test(deps) ? [] : (deps.match(/\d+/g) || []).map((d) => d.padStart(3, '0')),
+          deps: /^none/i.test(deps) ? [] : (deps.match(/(?:[\w.-]+\/)?\d+/g) || []).map((d) => {
+            const [slug, n] = d.includes('/') ? d.split('/') : [null, d];
+            return slug ? `${slug}/${n.padStart(3, '0')}` : qualify(n.padStart(3, '0'));
+          }),
           commit: /^[0-9a-f]{7,40}/i.test(commit) ? commit.slice(0, 7) : null,
           milestone: m,
           spec: s,
@@ -391,8 +449,15 @@ function parse(files) {
   }
   return [...specs.values()]
     .map((s) => {
-      s.milestones = [...s.milestones.values()].sort((a, b) => a.num.localeCompare(b.num));
+      // Tracks in the order of the spec's Repos line, each in number order.
+      const trackOrder = (m) => (m.track && s.repos.includes(m.track) ? s.repos.indexOf(m.track) : m.track ? s.repos.length : -1);
+      s.milestones = [...s.milestones.values()].sort((a, b) => trackOrder(a) - trackOrder(b) || (a.track || '').localeCompare(b.track || '') || a.num.localeCompare(b.num));
       s.milestones.forEach((m) => m.tickets.sort((a, b) => a.num.localeCompare(b.num)));
+      // A Lands after entry is <slug>/NNN: milestone NNN of that repository's track.
+      s.milestones.forEach((m) => (m.after = m.landsAfter.map((id) => {
+        const [slug, n] = id.split('/');
+        return s.milestones.find((x) => x.track === slug && x.num === n.padStart(3, '0'));
+      }).filter(Boolean)));
       s.tickets = s.milestones.flatMap((m) => m.tickets);
       s.status = specStatus(s.tickets);
       if (s.milestones.some((m) => milestoneStatus(m) === 'attention')) s.status = 'attention';
@@ -439,7 +504,10 @@ const cardTone = (s) =>
   : isDoing(s) ? 'doing border-amber-500'
   : s === 'blocked' ? 'border-red-400 dark:border-red-700'
   : 'border-zinc-200 dark:border-zinc-800';
-const num = (n) => `<span class="font-mono text-xs text-zinc-400">#${esc(n)}</span>`;
+// A ticket's number within its track, shown where its milestone already names the track.
+const num = (n) => `<span class="font-mono text-xs text-zinc-400">#${esc(String(n).split('/').pop())}</span>`;
+// A milestone's name: its number, after its track's slug when it sits in one.
+const mName = (m) => (m.track ? `${m.track} M${m.num}` : `M${m.num}`);
 // A repository's slug, as specs and milestones name the repositories they build in.
 const repoChip = (r) => `<span class="whitespace-nowrap rounded border border-zinc-200 dark:border-zinc-700 px-1.5 py-0.5 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">${esc(r)}</span>`;
 
@@ -477,6 +545,7 @@ function render() {
     return crumbs(null);
   }
   if (state.section === 'notes') return notesView();
+  if (state.section === 'map') return mapView();
   if (!state.specs.length) {
     empty('No specs yet. Run <code>/to-spec</code> to write one.');
     crumbs(null);
@@ -554,7 +623,7 @@ const fill = (m, h) => {
 
 // One segment per milestone, as wide as its ticket count.
 const segments = (s) => `<div class="flex gap-1">${s.milestones.map((m) =>
-  `<div title="M${esc(m.num)} · ${esc(m.title)} — ${doneOf(m.tickets)}/${m.tickets.length}" style="flex:${Math.max(1, m.tickets.length)} 1 0">${fill(m, 'h-1.5')}</div>`).join('')}</div>`;
+  `<div title="${esc(mName(m))} · ${esc(m.title)} — ${doneOf(m.tickets)}/${m.tickets.length}" style="flex:${Math.max(1, m.tickets.length)} 1 0">${fill(m, 'h-1.5')}</div>`).join('')}</div>`;
 
 // One icon per ticket status: a check when done, a pulsing ring while in progress, a bang when blocked, a dashed ring before.
 const statusIcon = (s, size = 'h-5 w-5') =>
@@ -564,17 +633,25 @@ const statusIcon = (s, size = 'h-5 w-5') =>
   : `<span class="${size} shrink-0 rounded-full border-2 border-dashed border-zinc-300 dark:border-zinc-600"></span>`;
 
 // /build's closing steps after the last ticket, from milestone.md's Phase line; a Squash commit ends them.
-// failed is a check /build gave up fixing: it waits on the user; the others run on their own.
-const PHASE_LABEL = { check: 'Checking', failed: 'Check failed', review: 'In review', decide: 'Deciding escalations', fix: 'Fixing review', squash: 'Squashing' };
-const waitsOnUser = (m) => m.phase === 'failed';
+// ask is decide's word in builds from before the arbiter.
+const PHASE_LABEL = { check: 'Checking', failed: 'Check failed', waits: 'Waiting on its expand', review: 'In review', decide: 'Deciding escalations', ask: 'Deciding escalations', fix: 'Fixing review', squash: 'Squashing' };
+// How many of a review.md's findings are flagged escalate with no Answer line yet; a finding runs from its ID
+// (ST1, SP2, CN3) to the next. The same rule as hooks/sdd.ts's awaitingOf.
+const awaitingOf = (md) => md.split(/^(?=\s*(?:[-*]\s+|#{1,4}\s+)?(?:\*\*)?(?:ST|SP|CN)\d+\b)/m).slice(1)
+  .filter((f) => /\bescalate\b/i.test(f) && !/\*\*Answer:\*\*/.test(f)).length;
+// failed is a check /build gave up fixing; a decide with unanswered escalations is the user deciding them. Both wait
+// on the user; the other phases run on their own. The page cannot see a running arbiter, so for the minute one
+// decides, its milestone shows as waiting too.
+const decidesWithUser = (m) => (m.phase === 'decide' || m.phase === 'ask') && m.awaiting > 0;
+const waitsOnUser = (m) => m.phase === 'failed' || decidesWithUser(m);
 const isClosing = (m) => !m.squash && PHASE_LABEL[m.phase] && m.tickets.length && m.tickets.every((t) => t.status === 'done');
 const milestoneStatus = (m) => (isClosing(m) ? (waitsOnUser(m) ? 'attention' : 'active') : specStatus(m.tickets));
-const milestoneLabel = (m) => (isClosing(m) ? PHASE_LABEL[m.phase] : STATUS[milestoneStatus(m)].label);
+const milestoneLabel = (m) => (isClosing(m) ? (decidesWithUser(m) ? 'Waiting on your answers' : PHASE_LABEL[m.phase]) : STATUS[milestoneStatus(m)].label);
 const milestonePill = (m) => `<span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS[milestoneStatus(m)].tone}">${esc(milestoneLabel(m))}</span>`;
 // A closing milestone's step, with its spec's number when shown outside the spec.
 const closingRow = (m, s) => `
   <p class="flex min-w-0 items-center gap-2 px-2 py-1 text-xs">
-    ${milestonePill(m)}<span class="font-mono text-zinc-400">${s ? `${esc(s.num)} · ` : ''}M${esc(m.num)}</span><span class="min-w-0 truncate text-zinc-500">${esc(m.title)}</span>
+    ${milestonePill(m)}<span class="font-mono text-zinc-400">${s ? `${esc(s.num)} · ` : ''}${esc(mName(m))}</span><span class="min-w-0 truncate text-zinc-500">${esc(m.title)}</span>
   </p>`;
 const closingOf = (specs) => specs.flatMap((s) => s.milestones.filter(isClosing).map((m) => ({ s, m })));
 // The specs still meant to be built: an abandoned spec's tickets never count towards progress or work in flight.
@@ -694,7 +771,7 @@ function card(s) {
     : s.status === 'waiting' ? `<p class="truncate text-xs text-violet-600 dark:text-violet-400">Waiting on ${s.waiting.map((d) => `<span class="font-mono">${esc(numOf(d.id))}</span>`).join(', ')}</p>`
     : s.status === 'draft' ? `<p class="text-xs text-zinc-500">Run <code class="font-mono">/to-tickets</code> to plan the build.</p>`
     : s.status === 'done' ? `<p class="text-xs text-emerald-600 dark:text-emerald-400">✓ All ${plural(s.milestones.length, 'milestone')} complete</p>`
-    : next ? `<p class="truncate text-xs text-zinc-500">Next up · <span class="font-mono text-zinc-400">M${esc(next.num)}</span> ${esc(next.title)}</p>` : '';
+    : next ? `<p class="truncate text-xs text-zinc-500">Next up · <span class="font-mono text-zinc-400">${esc(mName(next))}</span> ${esc(next.title)}</p>` : '';
 
   return `
     <article data-spec="${esc(s.id)}" tabindex="0" class="group relative flex cursor-pointer flex-col overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 p-5 outline-none transition hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-lg hover:shadow-zinc-900/5 focus-visible:ring-2 focus-visible:ring-emerald-500 dark:hover:border-zinc-700 dark:hover:shadow-black/40">
@@ -731,11 +808,11 @@ function wireTicketRefs(root) {
 }
 
 const depChips = (t) => t.deps.length
-  ? `<span class="inline-flex items-center gap-1 text-xs text-zinc-400" title="Depends on">←${t.deps.map((d) => `<span class="rounded bg-zinc-100 dark:bg-zinc-800 px-1 font-mono text-zinc-500">${esc(d)}</span>`).join('')}</span>` : '';
+  ? `<span class="inline-flex items-center gap-1 text-xs text-zinc-400" title="Depends on">←${t.deps.map((d) => `<span class="rounded bg-zinc-100 dark:bg-zinc-800 px-1 font-mono text-zinc-500">${esc(t.milestone.track && d.startsWith(`${t.milestone.track}/`) ? d.slice(t.milestone.track.length + 1) : d)}</span>`).join('')}</span>` : '';
 const commitChip = (t) => t.commit
   ? `<span class="inline-flex items-center gap-1 rounded border border-zinc-200 dark:border-zinc-800 px-1.5 font-mono text-xs text-zinc-500" title="Commit">
       <svg class="h-3 w-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M1 8h4.5M10.5 8H15"/></svg>${esc(t.commit)}</span>` : '';
-const milestoneChip = (m) => `<span class="truncate rounded bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">M${esc(m.num)} · ${esc(m.title)}</span>`;
+const milestoneChip = (m) => `<span class="truncate rounded bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">${esc(mName(m))} · ${esc(m.title)}</span>`;
 
 function list(spec) {
   return `<div class="space-y-5">${spec.milestones.map((m) => `
@@ -987,7 +1064,7 @@ function graph(spec) {
       return `
       <button data-milestone="${esc(m.id)}" class="group absolute scroll-m-16 scroll-mt-32 flex ${v ? 'items-center' : 'items-start justify-center'}" style="${box}">
         <span class="flex max-w-full ${v ? 'flex-col items-start gap-1 rounded-lg px-3 py-2' : 'items-center gap-2 rounded-full px-3 py-1'} border border-zinc-200 dark:border-zinc-700 bg-white/90 dark:bg-zinc-900/90 text-left text-sm shadow-sm group-hover:border-zinc-400 dark:group-hover:border-zinc-500">
-          <span class="flex shrink-0 items-center gap-1.5">${ring(pctOf(m.tickets), 14, 2.5)}<span class="font-mono text-xs text-zinc-400">M${esc(m.num)}</span></span>
+          <span class="flex shrink-0 items-center gap-1.5">${ring(pctOf(m.tickets), 14, 2.5)}<span class="font-mono text-xs text-zinc-400">${esc(mName(m))}</span></span>
           <span class="${v ? 'line-clamp-2' : 'truncate'} font-medium">${esc(m.title)}</span>
         </span>
       </button>`;
@@ -1246,7 +1323,7 @@ function specPanel(spec) {
     ${spec.milestones.length ? `<div>${caps('Milestones')}<div class="-mx-2 space-y-0.5">${spec.milestones.map((m) => `
       <button data-milestone="${esc(m.id)}" class="group block w-full rounded-md px-2 py-1.5 text-left hover:bg-zinc-100 dark:hover:bg-zinc-900">
         <div class="flex items-center gap-2 text-xs">
-          <span class="font-mono text-zinc-400">M${esc(m.num)}</span>
+          <span class="font-mono text-zinc-400">${esc(mName(m))}</span>
           <span class="min-w-0 flex-1 truncate text-zinc-700 group-hover:underline dark:text-zinc-200">${esc(m.title)}</span>
           ${m.repo && spec.repos.length > 1 ? repoChip(m.repo) : ''}
           ${isClosing(m) ? milestonePill(m) : `<span class="tabular-nums text-zinc-500">${doneOf(m.tickets)}/${m.tickets.length}</span>`}
@@ -1289,7 +1366,7 @@ function resolve(ref) {
     const st = milestoneStatus(m);
     return {
       label: 'Milestone', path: m.path, accent: 'bg-gradient-to-r ' + STATUS[st].accent, title: m.title,
-      kicker: `<span class="font-mono">Milestone M${esc(m.num)}</span>${sep}<span class="truncate">${esc(spec.title)}</span>`,
+      kicker: `<span class="font-mono">Milestone ${esc(mName(m))}</span>${sep}<span class="truncate">${esc(spec.title)}</span>`,
       badges: milestonePill(m) + (m.repo ? repoChip(m.repo) : '') + count(m.tickets)
         + (m.squash ? `<span class="rounded-md border border-zinc-200 dark:border-zinc-700 px-1.5 font-mono text-xs text-zinc-500" title="Squash">${esc(m.squash)}</span>` : '')
         + (m.landed ? `<span class="text-xs text-emerald-600 dark:text-emerald-400" title="Landed as ${esc(m.landed)}">Landed</span>` : ''),
@@ -1301,7 +1378,7 @@ function resolve(ref) {
     return {
       label: 'Review', path: m ? m.review : spec.review, accent: 'bg-gradient-to-r ' + STATUS[m ? milestoneStatus(m) : spec.status].accent,
       title: `Review of ${m ? m.title : spec.title}`,
-      kicker: m ? `<span class="font-mono">Milestone M${esc(m.num)}</span>${sep}<span class="truncate">${esc(spec.title)}</span>` : `<span class="font-mono">Spec ${esc(spec.num)}</span>`,
+      kicker: m ? `<span class="font-mono">Milestone ${esc(mName(m))}</span>${sep}<span class="truncate">${esc(spec.title)}</span>` : `<span class="font-mono">Spec ${esc(spec.num)}</span>`,
       badges: m ? milestonePill(m) : '',
     };
   }
@@ -1869,12 +1946,494 @@ function notesView() {
   renderNotes();
 }
 
+// ---------- map ----------
+
+// The Map section shows what each repository is being built into. Each repository is a hub on a ring, ringed by one
+// segment per milestone it builds; the specs sit at the centre; each milestone hangs between the spec it serves and
+// the repository it builds in, and its line into the repository moves while work runs there. Violet arrows are
+// order: a milestone that lands after another, a spec built after another.
+const mv = { scope: store.get('mapScope') === 'all' ? 'all' : 'flight', sel: null, query: '' };
+// Positions survive a redraw, as in the notes graph; a repository dragged off its place on the ring stays there.
+const mPos = new Map();
+// The map fits the window until the user pans or zooms it; Fit hands it back.
+let mSvg, mRoot, mZoom, mSim, mNodes, mLinks, mFit = false, mFitSlow = false, mUserZoom = false;
+let mRelated = () => null;
+
+// A milestone on the map: landed on its base, squashed and waiting to land, or its status everywhere else on the page.
+const mStatus = (m) => (m.landed ? 'landed' : m.squash ? 'landing' : milestoneStatus(m));
+const mLabel = (m) => ({ landed: 'Landed', landing: 'Ready to land' }[mStatus(m)] || milestoneLabel(m));
+// Work runs on a milestone while one of its tickets is doing, or while /build closes it without waiting on the user.
+const isLive = (m) => !m.landed && !m.squash && (m.tickets.some((t) => isDoing(t.status)) || (isClosing(m) && !waitsOnUser(m)));
+const tone = (s) => `var(--s-${s})`;
+// A repository's ring takes settled work first, so it fills clockwise as milestones land.
+const RING_ORDER = ['landed', 'landing', 'done', 'active', 'attention', 'blocked', 'ready', 'waiting', 'draft', 'abandoned'];
+const byRing = (work) => [...work].sort((a, b) => RING_ORDER.indexOf(mStatus(a.m)) - RING_ORDER.indexOf(mStatus(b.m)));
+const clip = (t, n) => (t.length > n ? t.slice(0, n - 1) + '…' : t);
+const REPO_R = 30;
+const specR = (s) => 17 + Math.sqrt(s.tickets.length) * 2.2;
+const radiusOf = (d) => (d.kind === 'repo' ? REPO_R + 12 : d.kind === 'spec' ? specR(d.spec) + 6 : 9);
+const mapSpecs = () => state.specs.filter((s) => mv.scope === 'all' || (!s.abandoned && !s.landed));
+// The first paragraph of a repository's card, below its front matter.
+const repoBlurb = (slug) => {
+  const t = state.repo?.noteFiles?.get(`repos/${slug}/REPO.md`);
+  return t ? excerpt(t.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*\r?\n?/, '').replace(WIKI, (_, n, alias) => (alias || n).trim())) : '';
+};
+
+// Every repository the brain registers or a shown spec names, with the milestones it builds and what they are doing.
+function mapWork() {
+  const specs = mapSpecs();
+  const slugs = new Set(state.notes?.repos || []);
+  specs.forEach((s) => { s.repos.forEach((r) => slugs.add(r)); s.milestones.forEach((m) => m.repo && slugs.add(m.repo)); });
+  const repos = [...slugs].sort().map((slug) => {
+    const work = specs.flatMap((s) => s.milestones.filter((m) => m.repo === slug).map((m) => ({ s, m })));
+    return {
+      slug, work,
+      open: work.filter(({ m }) => !m.landed),
+      live: work.filter(({ m }) => isLive(m)),
+      stuck: work.filter(({ m }) => ['attention', 'blocked'].includes(mStatus(m))),
+      doing: work.flatMap(({ m }) => m.tickets.filter((t) => isDoing(t.status))),
+      planned: specs.filter((s) => s.repos.includes(slug) && !s.milestones.some((m) => m.repo === slug)),
+    };
+  });
+  return { specs, repos };
+}
+
+function mapData() {
+  const { specs, repos } = mapWork();
+  const nodes = repos.map((r, i) => ({ id: 'r:' + r.slug, kind: 'repo', repo: r, i, n: repos.length }));
+  const edges = [];
+  const mid = (s, m) => `m:${s.id}|${m.id}`;
+  for (const s of specs) nodes.push({ id: 's:' + s.id, kind: 'spec', spec: s });
+  for (const s of specs) {
+    for (const d of s.deps) if (d.spec && specs.includes(d.spec)) edges.push({ source: 's:' + d.spec.id, target: 's:' + s.id, kind: 'dep' });
+    for (const m of s.milestones) {
+      const st = mStatus(m);
+      nodes.push({ id: mid(s, m), kind: 'milestone', spec: s, m, status: st, live: isLive(m) });
+      edges.push({ source: 's:' + s.id, target: mid(s, m), kind: 'part' });
+      if (m.repo) edges.push({ source: mid(s, m), target: 'r:' + m.repo, kind: 'build', status: st, live: isLive(m) });
+      m.after.forEach((a) => edges.push({ source: mid(s, a), target: mid(s, m), kind: 'order' }));
+    }
+    for (const r of repos) if (r.planned.includes(s)) edges.push({ source: 's:' + s.id, target: 'r:' + r.slug, kind: 'planned' });
+  }
+  return { nodes, edges, specs, repos };
+}
+
+function mLight(set) {
+  if (!mRoot) return;
+  mRoot.classed('dim', !!set);
+  mNodes.classed('hot', (n) => !!set && set.has(n.id));
+  mLinks.classed('hot', (e) => !!set && set.has(e.source.id) && set.has(e.target.id));
+}
+
+// Fits the map to the canvas, from the nodes' own positions so labels and the entrance animation never skew it.
+function fitMap(ms = 0) {
+  // The canvas goes with the Map section; its resize observer can still fire once after another section replaces it.
+  const host = $('mapCanvas');
+  if (!mSim || !host) return;
+  const { width, height } = host.getBoundingClientRect();
+  const ns = mSim.nodes();
+  if (!width || !ns.length) return;
+  const pad = (d) => radiusOf(d) + (d.kind === 'milestone' ? 10 : d.kind === 'repo' ? 84 : 46);
+  const x0 = d3.min(ns, (d) => d.x - pad(d)), x1 = d3.max(ns, (d) => d.x + pad(d));
+  const y0 = d3.min(ns, (d) => d.y - pad(d)), y1 = d3.max(ns, (d) => d.y + pad(d));
+  const k = Math.min(1.4, 0.92 * Math.min(width / (x1 - x0), height / (y1 - y0)));
+  const t = d3.zoomIdentity.translate(width / 2 - (k * (x0 + x1)) / 2, height / 2 - (k * (y0 + y1)) / 2).scale(k);
+  (ms ? mSvg.transition().duration(ms).ease(d3.easeCubicOut) : mSvg).call(mZoom.transform, t);
+}
+
+function drawMap() {
+  const host = $('mapCanvas');
+  if (!mSvg) {
+    mSvg = d3.select(host).append('svg').attr('class', 'h-full w-full');
+    mSvg.append('defs').append('marker').attr('id', 'mArrow').attr('viewBox', '0 -5 10 10').attr('refX', 8).attr('markerWidth', 7).attr('markerHeight', 7).attr('orient', 'auto')
+      .append('path').attr('class', 'arrow').attr('d', 'M0,-4L10,0L0,4Z');
+    mRoot = mSvg.append('g');
+    mZoom = d3.zoom().scaleExtent([0.2, 3]).on('zoom', (e) => {
+      mRoot.attr('transform', e.transform);
+      host.classList.toggle('zoomed', e.transform.k > 1.35);
+      if (e.sourceEvent) mUserZoom = true;
+    });
+    mSvg.call(mZoom).on('dblclick.zoom', null);
+    mSvg.on('click', (e) => { if (e.target === mSvg.node()) pickMap(null); });
+    mFit = false;
+    mUserZoom = false;
+    // The canvas settles its size after the page's styles load, and again with the window: refit each time.
+    new ResizeObserver(() => { if (!mUserZoom) fitMap(); }).observe(host);
+  }
+  if (mSim) {
+    mSim.stop();
+    mSim.nodes().forEach((d) => mPos.set(d.id, { x: d.x, y: d.y, fixed: d.dragged }));
+  }
+
+  const { nodes, edges, specs, repos } = mapData();
+  $('mapEmpty').classList.toggle('hidden', nodes.length > 0);
+  const R = Math.max(240, 130 + repos.length * 40);
+  const byId = new Map(nodes.map((d) => [d.id, d]));
+  let fresh = 0;
+  for (const d of nodes) {
+    const p = mPos.get(d.id);
+    if (!p) fresh++;
+    if (d.kind === 'repo') {
+      // Repositories hold their places on the ring, the first at the top, so the picture keeps its shape across reloads.
+      const a = -Math.PI / 2 + (d.i * 2 * Math.PI) / d.n;
+      const at = p?.fixed ? p : d.n === 1 ? { x: 0, y: R * 0.6 } : { x: R * Math.cos(a), y: R * Math.sin(a) };
+      d.x = d.fx = at.x;
+      d.y = d.fy = at.y;
+      d.dragged = !!p?.fixed;
+    } else if (p) {
+      d.x = p.x;
+      d.y = p.y;
+    } else {
+      // A new milestone starts most of the way out to its repository, a new spec near the centre.
+      const r = d.kind === 'milestone' && byId.get('r:' + d.m.repo);
+      d.x = (r ? r.x * 0.62 : 0) + (Math.random() - 0.5) * 50;
+      d.y = (r ? r.y * 0.62 : 0) + (Math.random() - 0.5) * 50;
+    }
+  }
+  const adj = new Map(nodes.map((d) => [d.id, new Set([d.id])]));
+  for (const e of edges) { adj.get(e.source)?.add(e.target); adj.get(e.target)?.add(e.source); }
+  // A repository or spec lights up with everything one milestone away from it on either side.
+  mRelated = (d) => {
+    const set = new Set(adj.get(d.id));
+    if (d.kind !== 'milestone') for (const id of [...set]) {
+      const n = byId.get(id);
+      if (n?.kind === 'milestone') { set.add('s:' + n.spec.id); if (n.m.repo) set.add('r:' + n.m.repo); }
+    }
+    return set;
+  };
+
+  mRoot.selectAll('*').remove();
+  mLinks = mRoot.append('g').selectAll('path').data(edges).join('path')
+    .attr('class', (e) => `mlink ${e.kind}${e.live ? ' flow' : ''}`)
+    .style('--c', (e) => (e.status ? tone(e.status) : null))
+    .attr('marker-end', (e) => (e.kind === 'order' || e.kind === 'dep' ? 'url(#mArrow)' : null));
+  mNodes = mRoot.append('g').selectAll('g').data(nodes).join('g').attr('class', (d) => `mnode ${d.kind}`);
+  mNodes.append('circle').attr('r', radiusOf).attr('fill', 'transparent');
+  const body = mNodes.append('g').attr('class', fresh ? 'pop' : null).style('animation-delay', (d, i) => (fresh ? `${Math.min(i * 16, 1100)}ms` : null));
+
+  const repoG = body.filter((d) => d.kind === 'repo');
+  repoG.filter((d) => d.repo.live.length).append('circle').attr('class', 'halo wide').attr('r', REPO_R + 11).style('--c', tone('active'));
+  const pie = d3.pie().value((w) => Math.max(1, w.m.tickets.length)).sort(null).padAngle(0.05);
+  const seg = d3.arc().innerRadius(REPO_R + 4).outerRadius(REPO_R + 11).cornerRadius(2);
+  repoG.each(function (d) {
+    const g = d3.select(this);
+    if (!d.repo.work.length) g.append('circle').attr('class', 'idle-ring').attr('r', REPO_R + 7);
+    g.selectAll('path.seg').data(pie(byRing(d.repo.work))).join('path').attr('class', 'seg').attr('d', seg).style('fill', (p) => tone(mStatus(p.data.m)));
+  });
+  repoG.append('circle').attr('class', 'core').attr('r', REPO_R);
+  repoG.append('text').attr('class', 'count').attr('text-anchor', 'middle').attr('dy', 3).text((d) => d.repo.open.length);
+  repoG.append('text').attr('class', 'sub').attr('text-anchor', 'middle').attr('dy', 14).text('IN FLIGHT');
+  repoG.append('text').attr('class', 'label name').text((d) => d.repo.slug);
+  repoG.filter((d) => d.repo.doing.length).append('text').attr('class', 'label now').text((d) => `◐ ${plural(d.repo.doing.length, 'ticket')} building`);
+
+  const specG = body.filter((d) => d.kind === 'spec').style('--c', (d) => tone(d.spec.status));
+  specG.append('circle').attr('class', 'core').attr('r', (d) => specR(d.spec));
+  specG.append('circle').attr('class', 'track').attr('r', (d) => specR(d.spec) - 6);
+  specG.each(function (d) {
+    const ts = d.spec.tickets, n = ts.length || 1, r = specR(d.spec) - 6;
+    const done = (doneOf(ts) / n) * 2 * Math.PI, busy = (ts.filter((t) => isDoing(t.status)).length / n) * 2 * Math.PI;
+    const arc = d3.arc().innerRadius(r - 2).outerRadius(r + 2).cornerRadius(2);
+    const g = d3.select(this);
+    if (done) g.append('path').attr('d', arc({ startAngle: 0, endAngle: done })).style('fill', tone('landed'));
+    if (busy) g.append('path').attr('d', arc({ startAngle: done, endAngle: done + busy })).style('fill', tone('active'));
+  });
+  specG.append('text').attr('class', 'num').attr('text-anchor', 'middle').attr('dy', 4).text((d) => d.spec.num);
+  specG.append('text').attr('class', 'label').attr('text-anchor', 'middle').attr('dy', (d) => specR(d.spec) + 16).text((d) => clip(d.spec.title, 30));
+
+  const msG = body.filter((d) => d.kind === 'milestone').style('--c', (d) => tone(d.status));
+  msG.filter((d) => d.live).append('circle').attr('class', 'halo').attr('r', 7);
+  msG.append('circle').attr('class', 'dot').attr('r', 7);
+  msG.append('text').attr('class', 'label').attr('text-anchor', 'middle').attr('dy', -13).text((d) => `${mName(d.m)} · ${clip(d.m.title, 26)}`);
+
+  mNodes
+    .on('mouseenter', (ev, d) => { mLight(mRelated(d)); d3.select(ev.currentTarget).classed('hover', true); mapTip(ev, d); })
+    .on('mousemove', moveTip)
+    .on('mouseleave', (ev) => {
+      d3.select(ev.currentTarget).classed('hover', false);
+      const p = byId.get(mv.sel);
+      mLight(p ? mRelated(p) : null);
+      $('noteTip').classList.add('hidden');
+    })
+    .on('click', (ev, d) => {
+      ev.stopPropagation();
+      if (d.kind === 'milestone') openMilestone(d.spec, d.m);
+      else pickMap(mv.sel === d.id ? null : d.id);
+    })
+    .on('dblclick', (ev, d) => { if (d.kind === 'spec') go(d.spec.id); })
+    .call(d3.drag()
+      .on('start', (ev, d) => { if (!ev.active) mSim.alphaTarget(0.15).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag', (ev, d) => { d.fx = ev.x; d.fy = ev.y; if (d.kind === 'repo') d.dragged = true; })
+      .on('end', (ev, d) => { if (!ev.active) mSim.alphaTarget(0); if (d.kind !== 'repo') { d.fx = null; d.fy = null; } }));
+
+  // Lines run edge to edge, not centre to centre; order arrows bend, so two of them between neighbours stay apart.
+  const ticked = () => {
+    mLinks.attr('d', (e) => {
+      const s = e.source, t = e.target, dx = t.x - s.x, dy = t.y - s.y, len = Math.hypot(dx, dy) || 1;
+      const ux = dx / len, uy = dy / len, arrow = e.kind === 'order' || e.kind === 'dep';
+      const x1 = s.x + ux * (radiusOf(s) - 6), y1 = s.y + uy * (radiusOf(s) - 6);
+      const x2 = t.x - ux * (radiusOf(t) - (arrow ? 1 : 6)), y2 = t.y - uy * (radiusOf(t) - (arrow ? 1 : 6));
+      if (!arrow) return `M${x1},${y1}L${x2},${y2}`;
+      const bend = 0.2 * len;
+      return `M${x1},${y1}Q${(x1 + x2) / 2 - uy * bend},${(y1 + y2) / 2 + ux * bend} ${x2},${y2}`;
+    });
+    mNodes.attr('transform', (d) => `translate(${d.x},${d.y})`);
+    // A repository's name sits on the ring's outer side, away from the milestones that gather on its inner side.
+    repoG.each(function (d) {
+      const len = Math.hypot(d.x, d.y), ux = len ? d.x / len : 0, uy = len ? d.y / len : 1;
+      const anchor = Math.abs(ux) < 0.4 ? 'middle' : ux > 0 ? 'start' : 'end';
+      const x = ux * (REPO_R + 18), y = uy * (REPO_R + 18) + (uy > 0.4 ? 12 : uy < -0.4 ? -4 : 4);
+      const g = d3.select(this);
+      g.select('.name').attr('x', x).attr('y', y).attr('text-anchor', anchor);
+      g.select('.now').attr('x', x).attr('y', y + (uy < -0.4 ? -15 : 15)).attr('text-anchor', anchor);
+    });
+  };
+  const ring = specs.length > 1 ? Math.min(R * 0.32, 30 + specs.length * 16) : 0;
+  mSim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(edges).id((d) => d.id)
+      .distance((e) => ({ part: R * 0.4, build: 64, planned: R * 0.8, order: 40, dep: 110 }[e.kind]))
+      .strength((e) => ({ part: 0.1, build: 0.6, planned: 0.01, order: 0.04, dep: 0.04 }[e.kind])))
+    .force('charge', d3.forceManyBody().strength((d) => (d.kind === 'spec' ? -480 : d.kind === 'repo' ? -260 : -70)))
+    .force('collide', d3.forceCollide((d) => radiusOf(d) + (d.kind === 'spec' ? 26 : 5)))
+    .force('radial', d3.forceRadial((d) => (d.kind === 'spec' ? ring : R * 0.66), 0, 0).strength((d) => (d.kind === 'spec' ? 0.3 : d.kind === 'milestone' ? 0.03 : 0)))
+    .on('tick', ticked);
+  // A first layout settles before it is shown, so the map arrives in place rather than shaking into it.
+  mSim.stop();
+  if (fresh) for (let i = 0; i < 320; i++) mSim.tick();
+  mSim.alpha(fresh ? 0.04 : 0.08).restart();
+  ticked();
+  if (!mFit || mFitSlow) { fitMap(mFitSlow ? 650 : 0); mFit = true; mFitSlow = false; }
+  mapMarks();
+}
+
+// Rings the search matches and the picked hub, and lights what the pick touches.
+function mapMarks() {
+  if (!mNodes || !$('map')) return;
+  const q = mv.query.trim().toLowerCase();
+  const text = (d) => (d.kind === 'repo' ? d.repo.slug : d.kind === 'spec' ? `${d.spec.num} ${d.spec.title}` : `${d.spec.num} ${mName(d.m)} ${d.m.title} ${d.m.tickets.map((t) => t.title).join(' ')}`);
+  mNodes.classed('picked', (d) => d.id === mv.sel).classed('match', (d) => !!q && text(d).toLowerCase().includes(q));
+  const p = mSim?.nodes().find((n) => n.id === mv.sel);
+  mLight(p ? mRelated(p) : null);
+}
+
+function pickMap(id) {
+  mv.sel = id || null;
+  mapMarks();
+  mapPanel();
+}
+
+function mapTip(ev, d) {
+  const tip = $('noteTip');
+  const sub = (t) => `<div class="mt-0.5 text-zinc-500">${t}</div>`;
+  if (d.kind === 'repo') {
+    const r = d.repo, blurb = repoBlurb(r.slug);
+    tip.innerHTML = `<div class="font-mono font-semibold">${esc(r.slug)}</div>`
+      + sub(`${r.open.length} in flight · ${r.work.length - r.open.length} landed${r.doing.length ? ` · ${plural(r.doing.length, 'ticket')} building` : ''}`)
+      + (blurb ? `<div class="mt-1 text-zinc-600 dark:text-zinc-300">${esc(clip(blurb, 170))}</div>` : '');
+  } else if (d.kind === 'spec') {
+    const s = d.spec;
+    tip.innerHTML = `<div class="font-semibold"><span class="font-mono text-zinc-400">${esc(s.num)}</span> ${esc(s.title)}</div>`
+      + sub(`${STATUS[s.status].label} · ${doneOf(s.tickets)}/${plural(s.tickets.length, 'ticket')} done`)
+      + sub(s.repos.length ? s.repos.map(esc).join(', ') : 'No repositories yet')
+      + '<div class="mt-1 text-zinc-400">Click to focus · double-click to open</div>';
+  } else {
+    const m = d.m, doing = m.tickets.filter((t) => isDoing(t.status));
+    tip.innerHTML = `<div class="font-semibold"><span class="font-mono text-zinc-400">${esc(d.spec.num)} · ${esc(mName(m))}</span> ${esc(m.title)}</div>`
+      + sub(`${esc(mLabel(m))} · ${doneOf(m.tickets)}/${plural(m.tickets.length, 'ticket')} done`)
+      + doing.map((t) => `<div class="mt-1 text-amber-600 dark:text-amber-400">◐ ${esc(t.title)}</div>`).join('')
+      + (m.after.length ? sub(`Lands after ${m.after.map((a) => esc(mName(a))).join(', ')}`) : '');
+  }
+  tip.classList.remove('hidden');
+  moveTip(ev);
+}
+
+// ----- the map's panel: every repository at a glance, or the one repository or spec picked -----
+
+const mCaps = (t) => `<p class="mb-2 text-[11px] font-medium uppercase tracking-widest text-zinc-400">${t}</p>`;
+const mTile = (label, value, tone = '') => `<div class="rounded-lg border border-zinc-200 dark:border-zinc-800 px-3 py-2"><dt class="text-[11px] text-zinc-500">${label}</dt><dd class="text-lg font-semibold tabular-nums tracking-tight ${tone}">${value}</dd></div>`;
+const AMBER = 'text-amber-600 dark:text-amber-400', RED = 'text-red-600 dark:text-red-400', GREEN = 'text-emerald-600 dark:text-emerald-400';
+const segBar = (work) => `<div class="flex gap-0.5">${work.length ? byRing(work).map(({ s, m }) =>
+  `<div class="h-1.5 rounded-full ${isLive(m) ? 'animate-pulse' : ''}" title="${esc(s.num)} · ${esc(mName(m))} ${esc(m.title)} — ${esc(mLabel(m))}" style="flex:${Math.max(1, m.tickets.length)} 1 0;background:${tone(mStatus(m))}"></div>`).join('')
+  : '<div class="h-1.5 flex-1 rounded-full bg-zinc-100 dark:bg-zinc-800"></div>'}</div>`;
+const mBack = '<button data-map-pick="" class="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">← Every repository</button>';
+const LEGEND = [['landed', 'Landed'], ['landing', 'Ready to land'], ['active', 'Building'], ['attention', 'Needs you'], ['ready', 'Ready to build'], ['waiting', 'Waiting'], ['draft', 'Needs tickets']];
+const mLegend = () => `<div>${mCaps('Key')}
+  <div class="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-zinc-600 dark:text-zinc-300">
+    ${LEGEND.map(([k, l]) => `<span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full" style="background:${tone(k)}"></span>${l}</span>`).join('')}
+    <span class="col-span-2 mt-1 flex items-center gap-2"><svg width="28" height="8" class="shrink-0"><line x1="0" y1="4" x2="28" y2="4" stroke="var(--s-active)" stroke-width="2" stroke-dasharray="7 5"/></svg>work running in that repository</span>
+    <span class="col-span-2 flex items-center gap-2"><svg width="28" height="8" class="shrink-0"><line x1="0" y1="4" x2="21" y2="4" stroke="var(--s-waiting)" stroke-width="1.5" stroke-dasharray="5 4"/><path d="M20,0L28,4L20,8Z" fill="var(--s-waiting)"/></svg>lands, or builds, after</span>
+    <span class="col-span-2 flex items-center gap-2"><svg width="28" height="8" class="shrink-0"><line x1="2" y1="4" x2="26" y2="4" stroke="var(--nedge)" stroke-width="2.5" stroke-dasharray="1 6" stroke-linecap="round"/></svg>named by a spec, not ticketed yet</span>
+  </div></div>`;
+
+function msRow(s, m, withTrack) {
+  const live = m.tickets.filter((t) => isDoing(t.status) || t.status === 'blocked');
+  return `<div class="px-3 py-2">
+    <button data-map-milestone="${esc(s.id)}|${esc(m.id)}" class="flex w-full min-w-0 items-center gap-2 text-left text-sm">
+      <span class="h-2.5 w-2.5 shrink-0 rounded-full ${isLive(m) ? 'animate-pulse' : ''}" style="background:${tone(mStatus(m))}"></span>
+      <span class="shrink-0 font-mono text-xs text-zinc-400">${esc(withTrack ? mName(m) : 'M' + m.num)}</span><span class="min-w-0 flex-1 truncate hover:underline">${esc(m.title)}</span>
+      <span class="shrink-0 text-xs text-zinc-500">${esc(mLabel(m))}</span>
+    </button>
+    <div class="mt-1.5 pl-[18px]">${fill(m, 'h-1')}</div>
+    ${m.after.length ? `<p class="mt-1 pl-[18px] text-[11px] text-violet-600 dark:text-violet-400">Lands after ${m.after.map((a) => esc(mName(a))).join(', ')}</p>` : ''}
+    ${live.length ? `<div class="mt-1">${live.map((t) => ticketChip(t)).join('')}</div>` : ''}
+  </div>`;
+}
+
+const specHead = (s) => `<button data-map-spec="${esc(s.id)}" class="flex w-full min-w-0 items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 px-3 py-2 text-left hover:bg-zinc-50 dark:hover:bg-zinc-900/60">
+  <span class="font-mono text-xs text-zinc-400">${esc(s.num)}</span><span class="min-w-0 flex-1 truncate text-sm font-medium">${esc(s.title)}</span>
+  <span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS[s.status].tone}">${STATUS[s.status].label}</span></button>`;
+const box = (inner) => `<section class="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">${inner}</section>`;
+
+function repoRow(r) {
+  const now = r.stuck[0] || r.live[0] || r.open[0];
+  const line = now
+    ? `<span class="shrink-0 font-mono text-zinc-400">${esc(now.s.num)} · M${esc(now.m.num)}</span><span class="min-w-0 truncate">${esc(now.m.title)}</span><span class="ml-auto shrink-0 text-zinc-500">${esc(mLabel(now.m))}</span>`
+    : r.planned.length ? `<span class="text-zinc-500">Named by ${r.planned.map((s) => esc(s.num)).join(', ')}, not ticketed yet</span>`
+    : '<span class="text-zinc-400">Nothing in flight</span>';
+  return `<button data-map-pick="r:${esc(r.slug)}" class="block w-full rounded-lg px-2 py-2 text-left hover:bg-zinc-100 dark:hover:bg-zinc-900">
+    <div class="flex items-center gap-2"><span class="font-mono text-sm font-medium">${esc(r.slug)}</span>${r.live.length ? '<span class="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>' : ''}${r.stuck.length ? '<span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>' : ''}<span class="ml-auto text-xs tabular-nums text-zinc-500">${r.open.length} in flight</span></div>
+    <div class="mt-1.5">${segBar(r.work)}</div>
+    <div class="mt-1.5 flex min-w-0 items-center gap-1.5 text-xs">${line}</div>
+  </button>`;
+}
+
+function mapOverview(specs, repos) {
+  const doing = repos.reduce((n, r) => n + r.doing.length, 0), stuck = repos.reduce((n, r) => n + r.stuck.length, 0);
+  // What waits on the user comes first, then work running, then the rest.
+  const order = [...repos].sort((a, b) => b.stuck.length - a.stuck.length || b.live.length - a.live.length || b.open.length - a.open.length || a.slug.localeCompare(b.slug));
+  return `<div class="space-y-6 p-5">
+    <div><h2 class="text-base font-semibold tracking-tight">What each repository is being built into</h2>
+      <p class="mt-1 text-xs text-zinc-500">${mv.scope === 'all' ? 'Every spec' : 'The specs in flight'}, by the repositories their milestones build in. Click a hub or a row to focus it, a milestone to open it.</p></div>
+    <dl class="grid grid-cols-3 gap-2">${mTile('Specs', specs.length)}${mTile('Building', doing, doing ? AMBER : '')}${mTile('Needs you', stuck, stuck ? RED : '')}</dl>
+    <div>${mCaps('Repositories')}<div class="-mx-2 space-y-0.5">${order.map(repoRow).join('') || '<p class="px-2 text-sm text-zinc-500">No repositories registered yet.</p>'}</div></div>
+    ${mLegend()}
+  </div>`;
+}
+
+function repoPanel(r) {
+  const blurb = repoBlurb(r.slug);
+  const notes = state.notes ? [...state.notes.notes.values()].filter((n) => n.repos.includes(r.slug)).length : 0;
+  const bySpec = new Map();
+  r.work.forEach(({ s, m }) => bySpec.set(s, [...(bySpec.get(s) || []), m]));
+  const landed = r.work.filter(({ m }) => m.landed).length;
+  return `<div class="space-y-5 p-5">
+    ${mBack}
+    <div>
+      <div class="flex items-center gap-3"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-bold" style="background:var(--core);color:var(--core-text)">${r.open.length}</span>
+        <h2 class="min-w-0 truncate font-mono text-lg font-semibold tracking-tight">${esc(r.slug)}</h2></div>
+      ${blurb ? `<p class="mt-3 text-sm text-zinc-600 dark:text-zinc-300">${esc(blurb)}</p>` : ''}
+    </div>
+    <dl class="grid grid-cols-3 gap-2">${mTile('In flight', r.open.length)}${mTile('Building', r.doing.length, r.doing.length ? AMBER : '')}${mTile('Landed', landed, landed ? GREEN : '')}</dl>
+    ${segBar(r.work)}
+    ${[...bySpec].map(([s, ms]) => box(specHead(s) + `<div class="divide-y divide-zinc-100 dark:divide-zinc-800/70">${ms.map((m) => msRow(s, m, false)).join('')}</div>`)).join('')}
+    ${!r.work.length && !r.planned.length ? '<p class="text-sm text-zinc-500">No spec builds here yet.</p>' : ''}
+    ${r.planned.length ? `<div>${mCaps('Named, not ticketed yet')}${box(r.planned.map(specHead).join(''))}</div>` : ''}
+    <button data-map-notes="${esc(r.slug)}" class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900">${plural(notes, 'note')} on ${esc(r.slug)} →</button>
+  </div>`;
+}
+
+function mapSpecPanel(s) {
+  const tracks = new Map();
+  s.milestones.forEach((m) => tracks.set(m.repo || 'no repository', [...(tracks.get(m.repo || 'no repository') || []), m]));
+  const pct = pctOf(s.tickets);
+  return `<div class="space-y-5 p-5">
+    ${mBack}
+    <div>
+      <p class="font-mono text-xs text-zinc-400">${esc(s.num)}</p>
+      <h2 class="text-lg font-semibold leading-snug tracking-tight">${esc(s.title)}</h2>
+      <div class="mt-3 flex items-center gap-3">${ring(pct, 44, 4, `<span class="text-[10px] font-semibold tabular-nums">${pct}%</span>`)}
+        <div class="text-xs text-zinc-500"><span class="rounded-full px-2 py-0.5 font-medium ${STATUS[s.status].tone}">${STATUS[s.status].label}</span>
+          <p class="mt-1.5">${doneOf(s.tickets)}/${plural(s.tickets.length, 'ticket')} done, across ${plural(s.repos.length, 'repository', 'repositories')}</p></div></div>
+      ${s.summary ? `<p class="mt-3 text-sm text-zinc-600 dark:text-zinc-300">${esc(s.summary)}</p>` : ''}
+    </div>
+    ${s.waiting.length ? `<p class="rounded-lg bg-violet-50 px-3 py-2 text-xs text-violet-800 dark:bg-violet-950/50 dark:text-violet-300">Builds after ${s.waiting.map((d) => esc(d.id)).join(', ')}, not landed yet.</p>` : ''}
+    ${[...tracks].map(([repo, ms]) => `<div>${mCaps(`<button data-map-pick="r:${esc(repo)}" class="font-mono normal-case tracking-normal hover:text-zinc-900 dark:hover:text-zinc-100">${esc(repo)} →</button>`)}${box(`<div class="divide-y divide-zinc-100 dark:divide-zinc-800/70">${ms.map((m) => msRow(s, m, false)).join('')}</div>`)}</div>`).join('')}
+    ${!s.milestones.length ? `<p class="text-sm text-zinc-500">No tickets yet: <code class="font-mono">/to-tickets ${esc(s.num)}</code> cuts its tracks.</p>` : ''}
+    <button data-map-spec="${esc(s.id)}" class="w-full rounded-md bg-zinc-900 px-3 py-1.5 text-sm text-white hover:opacity-90 dark:bg-zinc-100 dark:text-zinc-900">Open the spec →</button>
+  </div>`;
+}
+
+function mapPanel() {
+  const { specs, repos } = mapWork();
+  const r = mv.sel?.startsWith('r:') && repos.find((x) => 'r:' + x.slug === mv.sel);
+  const s = mv.sel?.startsWith('s:') && specs.find((x) => 's:' + x.id === mv.sel);
+  if (mv.sel && !r && !s) mv.sel = null;
+  const root = $('inspect');
+  root.innerHTML = r ? repoPanel(r) : s ? mapSpecPanel(s) : mapOverview(specs, repos);
+  root.querySelectorAll('[data-map-pick]').forEach((el) => (el.onclick = () => pickMap(el.dataset.mapPick)));
+  root.querySelectorAll('[data-map-spec]').forEach((el) => (el.onclick = () => go(el.dataset.mapSpec)));
+  root.querySelectorAll('[data-map-milestone]').forEach((el) => (el.onclick = () => {
+    const [sid, mid] = el.dataset.mapMilestone.split('|');
+    const spec = state.specs.find((x) => x.id === sid);
+    const m = spec?.milestones.find((x) => x.id === mid);
+    if (m) openMilestone(spec, m);
+  }));
+  root.querySelectorAll('[data-map-notes]').forEach((el) => (el.onclick = () => {
+    nv.repo = el.dataset.mapNotes;
+    store.set('noteRepo', nv.repo);
+    goNotes();
+  }));
+  wireTicketRefs(root);
+}
+
+function renderMap() {
+  const { specs, repos } = mapWork();
+  document.querySelectorAll('#mapScope [data-scope]').forEach((b) => (b.className = 'px-3 py-1 rounded ' + (b.dataset.scope === mv.scope ? 'bg-zinc-100 dark:bg-zinc-800 font-medium' : 'text-zinc-500')));
+  const ms = specs.reduce((n, s) => n + s.milestones.length, 0), doing = repos.reduce((n, r) => n + r.doing.length, 0);
+  $('mapStats').textContent = `${plural(specs.length, 'spec')} · ${plural(repos.length, 'repo')} · ${plural(ms, 'milestone')} · ${doing} building now`;
+  drawMap();
+  mapPanel();
+}
+
+// The Map section: built once per visit, then redrawn in place, so the map keeps its zoom across live reloads.
+function mapView() {
+  crumbs(null);
+  sections();
+  $('views').classList.add('hidden');
+  $('side').className = 'hidden';
+  $('inspect').className = `${PANEL} w-[360px] border-l bg-white dark:bg-zinc-950`;
+  if (!$('map')) {
+    $('main').innerHTML = `<div id="map" class="-mx-6 -my-6 flex h-[calc(100vh-3.5rem)] flex-col">
+      <div class="flex flex-wrap items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 px-4 py-2 text-sm">
+        <span id="mapScope" class="inline-flex rounded-md border border-zinc-200 dark:border-zinc-800 p-0.5">
+          <button data-scope="flight" class="px-3 py-1 rounded">In flight</button>
+          <button data-scope="all" class="px-3 py-1 rounded">All specs</button>
+        </span>
+        <input id="mapSearch" type="search" placeholder="Find a spec, milestone or ticket" class="w-64 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-2.5 py-1 outline-none focus:border-emerald-500">
+        <button id="mapFit" class="rounded-md border border-zinc-200 dark:border-zinc-800 px-2.5 py-1 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900" title="Fit the map to the window">Fit</button>
+        <div id="mapStats" class="ml-auto font-mono text-xs text-zinc-500"></div>
+      </div>
+      <div class="relative min-h-0 flex-1">
+        <div id="mapCanvas" class="dots absolute inset-0"></div>
+        <div id="mapEmpty" class="hidden pointer-events-none absolute inset-0 grid place-items-center text-sm text-zinc-500">No repositories or specs yet. <code class="ml-1">/brain setup</code>&nbsp;registers the first repository.</div>
+      </div>
+    </div>`;
+    mSvg = null;
+    mSim?.stop();
+    mSim = null;
+    $('mapSearch').value = mv.query;
+    $('mapSearch').oninput = (e) => { mv.query = e.target.value; mapMarks(); };
+    $('mapSearch').onkeydown = (e) => {
+      if (e.key !== 'Enter') return;
+      const d = mNodes?.filter('.match').node()?.__data__;
+      if (d) mSvg.transition().duration(500).call(mZoom.translateTo, d.x, d.y);
+    };
+    $('mapFit').onclick = () => { mUserZoom = false; fitMap(500); };
+    document.querySelectorAll('#mapScope [data-scope]').forEach((b) => (b.onclick = () => {
+      mv.scope = b.dataset.scope;
+      store.set('mapScope', mv.scope);
+      mFitSlow = true;
+      renderMap();
+    }));
+  }
+  renderMap();
+}
+
 // ---------- wiring ----------
 
 $('open').onclick = addRepo;
 $('reload').onclick = refresh;
 $('brand').onclick = () => goRepo(null);
-document.querySelectorAll('#sections [data-section]').forEach((b) => (b.onclick = () => (b.dataset.section === 'notes' ? goNotes() : go(null))));
+document.querySelectorAll('#sections [data-section]').forEach((b) => (b.onclick = () => ({ notes: goNotes, map: goMap }[b.dataset.section] || (() => go(null)))()));
 // A [[link]] in an open note, a linked note's chip, or a row of the notes list opens that note.
 document.addEventListener('click', (e) => {
   const a = e.target.closest('#doc [data-note], #noteList [data-note]');
@@ -1884,7 +2443,7 @@ document.addEventListener('click', (e) => {
 });
 window.addEventListener('hashchange', () => applyRoute());
 document.addEventListener('keydown', (e) => {
-  const box = $('search') || $('noteSearch');
+  const box = $('search') || $('noteSearch') || $('mapSearch');
   if (e.key === '/' && box && document.activeElement !== box && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName)) {
     e.preventDefault();
     box.focus();

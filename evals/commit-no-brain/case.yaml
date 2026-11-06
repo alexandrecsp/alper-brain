@@ -1,0 +1,11 @@
+schema_version: "1.1"
+name: commit-no-brain
+description: The commit skill works in a plain repository with no brain open, instead of stopping to ask for one.
+tags: [commit, no-brain]
+runs: 3
+expected_outcome: One commit with a present-tense, third-person title such as "Renames getUser to fetchUser", and no request to launch in a brain.
+context:
+  scaffold_script: fixture.sh
+execution:
+  max_turns: 15
+  allowed_tools: [Read, Glob, Grep, Skill, Bash]

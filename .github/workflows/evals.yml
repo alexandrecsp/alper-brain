@@ -1,0 +1,61 @@
+# Runs the skills' evals (evals/README.md) on native Linux, where Claude Code's sandbox runs on bubblewrap.
+# Needs the repository secret ANTHROPIC_API_KEY, so it runs only on demand, from the Actions tab. Each run is capped
+# at $10. To run it on pull requests too, add a pull_request trigger with paths for skills/build, skills/commit,
+# skills/brain/BRIEF.md, skills/brain/FORMAT.md and evals.
+name: Evals
+
+on:
+  workflow_dispatch:
+    inputs:
+      case:
+        description: Case name or glob, such as build-*; empty runs every case
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evals-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  evals:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install the sandbox's tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q bubblewrap socat
+          # Ubuntu 24.04 blocks the unprivileged user namespaces bubblewrap builds the sandbox from.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      # Pinned, so a run's score moves only when the plugin does; bump it on purpose.
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code@2.1.318
+
+      - name: Run the evals
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CASE: ${{ inputs.case }}
+        run: |
+          claude plugin eval . --scaffold --trust-plugin --allow-tools Bash Edit Write Agent \
+            --runs 1 --ablation none -j 3 --no-publish --max-cost-usd 10 \
+            ${CASE:+--case "$CASE"} --json eval-result.json --report eval-report.html
+
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: |
+            eval-result.json
+            eval-report.html
+          if-no-files-found: ignore
