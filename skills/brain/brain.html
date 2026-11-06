@@ -1979,10 +1979,11 @@ const repoBlurb = (slug) => {
   return t ? excerpt(t.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*\r?\n?/, '').replace(WIKI, (_, n, alias) => (alias || n).trim())) : '';
 };
 
-// Every repository the brain registers or a shown spec names, with the milestones it builds and what they are doing.
+// The repositories the shown specs name or build in, with the milestones each builds and what they are doing; with
+// every spec shown, every repository the brain registers too.
 function mapWork() {
   const specs = mapSpecs();
-  const slugs = new Set(state.notes?.repos || []);
+  const slugs = new Set(mv.scope === 'all' ? state.notes?.repos || [] : []);
   specs.forEach((s) => { s.repos.forEach((r) => slugs.add(r)); s.milestones.forEach((m) => m.repo && slugs.add(m.repo)); });
   const repos = [...slugs].sort().map((slug) => {
     const work = specs.flatMap((s) => s.milestones.filter((m) => m.repo === slug).map((m) => ({ s, m })));
@@ -2067,6 +2068,9 @@ function drawMap() {
 
   const { nodes, edges, specs, repos } = mapData();
   $('mapEmpty').classList.toggle('hidden', nodes.length > 0);
+  $('mapEmpty').innerHTML = mv.scope === 'all'
+    ? 'No repositories or specs yet. <code class="ml-1">/brain setup</code>&nbsp;registers the first repository.'
+    : 'No spec in flight. All specs shows every repository.';
   const R = Math.max(240, 130 + repos.length * 40);
   const byId = new Map(nodes.map((d) => [d.id, d]));
   let fresh = 0;
@@ -2304,7 +2308,7 @@ function mapOverview(specs, repos) {
     <div><h2 class="text-base font-semibold tracking-tight">What each repository is being built into</h2>
       <p class="mt-1 text-xs text-zinc-500">${mv.scope === 'all' ? 'Every spec' : 'The specs in flight'}, by the repositories their milestones build in. Click a hub or a row to focus it, a milestone to open it.</p></div>
     <dl class="grid grid-cols-3 gap-2">${mTile('Specs', specs.length)}${mTile('Building', doing, doing ? AMBER : '')}${mTile('Needs you', stuck, stuck ? RED : '')}</dl>
-    <div>${mCaps('Repositories')}<div class="-mx-2 space-y-0.5">${order.map(repoRow).join('') || '<p class="px-2 text-sm text-zinc-500">No repositories registered yet.</p>'}</div></div>
+    <div>${mCaps('Repositories')}<div class="-mx-2 space-y-0.5">${order.map(repoRow).join('') || `<p class="px-2 text-sm text-zinc-500">${mv.scope === 'all' ? 'No repositories registered yet.' : 'No spec in flight.'}</p>`}</div></div>
     ${mLegend()}
   </div>`;
 }
