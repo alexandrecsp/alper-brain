@@ -33,6 +33,10 @@ Rules:
 
 The **Works in** line's `<slug> at <root>` form is fixed: the build pane reads it to show each agent's repository. A sub-agent's **Needs the user** items reach the user through the dispatching skill's hand-over, beside its own decisions.
 
+## Fanning out
+
+A **fan-out** dispatches one sub-agent per area, repository or group. Run at most the **cap** at once, the `parallelAgents` setting by [FORMAT.md](FORMAT.md)'s **Settings**: dispatch a foreground fan-out in **waves** of the cap, each wave in one message, sending the next once every report of the one before has arrived; a background fan-out starts the next agent as each one reports. A fan-out no larger than the cap is one wave.
+
 ## After a sub-agent that changes a repository reports
 
 Before acting on its report, check where it wrote: `git -C <root> rev-parse --abbrev-ref HEAD` is the brief's **Branch**, each commit it names exists there (`git -C <root> cat-file -e <sha>^{commit}`), `git -C <root> status --porcelain` is empty, and the brain's `HEAD` and `git -C <brain> status --porcelain -- . ':!.sdd'` are as they were before the dispatch. When a check fails, treat the agent as blocked, with what the check found.

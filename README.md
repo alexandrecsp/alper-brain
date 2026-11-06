@@ -20,6 +20,7 @@ The skills then show up as `/alper-brain:<name>`. Below they are written by thei
 ├── shared/                        notes spanning several (contracts between repositories)
 └── .sdd/                          this machine's pipeline work, ignored by git
     ├── links.json                 where each repository is cloned here
+    ├── config.json                this machine's limits, such as how many tracks build at once
     └── specs/                     specs, milestones, tickets and reviews, across repositories
 ```
 
@@ -108,7 +109,7 @@ You review the breakdown (boundaries, granularity, dependencies) until you appro
 
 A **spec id** is the spec folder's number (`3` or `s03`), name or path. `/build s03` builds **every milestone and then lands the spec**.
 
-Each track works on one milestone and one ticket at a time, and the tracks run side by side. A milestone is ready once the earlier milestones of its track are squashed, and any milestone of another track one of its tickets depends on. The build is one **event loop** in your session, the only place that can start sub-agents:
+Each track works on one milestone and one ticket at a time, and the tracks run side by side, at most 5 at a time unless `parallelAgents` in the brain's `.sdd/config.json` says otherwise. A milestone is ready once the earlier milestones of its track are squashed, and any milestone of another track one of its tickets depends on. The build is one **event loop** in your session, the only place that can start sub-agents:
 
 1. It finds each track's repository through the brain's links and asks you, in one message, to open any that is not open and clean any dirty tree, how to land: each track **as it goes**, or **at the end** after one more yes; and who decides escalated findings: the **arbiter**, or you. It resumes each milestone from its **Phase** line when an earlier build stopped partway.
 2. It checks out each milestone's own branch, `sdd/<spec-folder>/M<NNN>`, created from that repository's spec branch, `sdd/<spec-folder>/spec`, and starts a fresh **builder sub-agent** in the background for the track's next ticket. The builder builds the ticket with `tdd` (red, then green, at the ticket's seams), commits with `commit`, marks the ticket `done` with its SHA and leaves notes for the next ticket. As each builder reports, the loop starts that track's next ticket at once, so a slow repository never holds the others back.

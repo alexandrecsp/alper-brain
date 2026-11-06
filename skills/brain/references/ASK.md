@@ -6,7 +6,7 @@ The `ask` branch of [`brain`](../SKILL.md): answer a question that crosses repos
 
 2. **Pick the repositories** the question reaches, by RECALL.md's **Pick the repositories**, from the notes read in step 1. Done when every registered repository is in or out, each with a one-line reason.
 
-3. **Scout.** Take a snapshot of each linked repository picked, by FORMAT.md. Dispatch one `alper-brain:scout` agent per snapshot, all in one message so they run in parallel, each brief opening with the Context block by [BRIEF.md](BRIEF.md) (**Works in** the snapshot, read only, **Notes** the paths of the notes read, **Writes** nothing), with the repository's slug, the other picked slugs, the question and this brief:
+3. **Scout.** Take a snapshot of each linked repository picked, by FORMAT.md. Dispatch one `alper-brain:scout` agent per snapshot, in waves by BRIEF.md's **Fanning out**, each brief opening with the Context block by [BRIEF.md](BRIEF.md) (**Works in** the snapshot, read only, **Notes** the paths of the notes read, **Writes** nothing), with the repository's slug, the other picked slugs, the question and this brief:
 
    > Answer this question for this repository only. Read the code, docs and git history it needs, and check every file, function or flag the notes name. Report every field, writing "none" for an empty one:
    >

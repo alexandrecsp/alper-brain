@@ -14,6 +14,7 @@ The shape of the second brain: the team's notes on every repository, shared, and
 ├── shared/<name>.md                      ← notes spanning several repositories
 └── .sdd/                                 ← this machine's pipeline work, ignored by git
     ├── links.json                        ← where this machine's clones of the repositories are
+    ├── config.json                       ← this machine's limits on the pipeline, by **Settings**
     ├── specs/NNN-<slug>/                 ← work planned or in flight, in one repository or several
     │   ├── spec.md
     │   └── milestones/<repo-slug>/       ← one track per repository the spec changes
@@ -162,6 +163,14 @@ Sources: `src/refunds/refund.service.ts`, `src/refunds/refund-policy.ts`
 ```
 
 An explored note is **current** while the repository's default branch still points at its commit, and **behind** once the branch has moved on. `git ls-remote <remote> HEAD` tells which without a clone: compare the SHA it prints with the note's `explored` line, by prefix. With the repository linked, `git -C <root> rev-list --count <explored>..origin/HEAD` after a fetch says by how many commits. When the remote cannot be reached, its state is **unknown**. `git -C <brain> log -1 --format=%cr -- <note>` says when the note was last explored.
+
+## Settings
+
+`.sdd/config.json` in the active brain holds this machine's limits on the pipeline, as one JSON object: `{ "parallelAgents": 3 }`. A setting takes its default when it is missing, when it holds a value its row does not allow, or when the file is missing or does not parse as a JSON object; say so when the file does not parse. To set one, write the value its row allows into that key, keeping the other keys and creating the file when it is missing. When the file does not parse, show the user and leave it untouched. When the value asked for is not one its row allows, say what the row allows and write nothing.
+
+| Setting | Default | Holds |
+|---|---|---|
+| `parallelAgents` | `5` | the most sub-agents a fan-out runs at once, by BRIEF.md's **Fanning out**, and the most tracks `build` keeps a background builder or fixer running in: a positive whole number |
 
 ## Specs
 
