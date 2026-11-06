@@ -32,11 +32,11 @@ const sectionsOf = (path) => {
   return sections.get(path)
 }
 
-// A file named bare ("LAND.md") resolves beside the referring file, else to the one file of that name.
+// A file named bare ("LAND.md") resolves beside the referring file or in its references/ folder, else to the one file of that name.
 const resolveFile = (from, name, link) => {
   if (link) return resolve(dirname(from), link)
-  const beside = join(dirname(from), name)
-  if (existsSync(beside)) return beside
+  const beside = [join(dirname(from), name), join(dirname(from), 'references', name)].find(existsSync)
+  if (beside) return beside
   const all = byName.get(name) ?? []
   return all.length === 1 ? all[0] : null
 }

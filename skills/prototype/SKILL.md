@@ -12,14 +12,14 @@ A prototype is **throwaway** code that answers one question. The question decide
 
 Name the question from the user's prompt and the code around it, then its branch:
 
-- **"Does this logic or state model feel right?"** → [LOGIC.md](LOGIC.md): one shareable HTML file with free-play buttons and guided walkthroughs that push a pure state module through the cases that are hard to reason about on paper.
-- **"What should this look like?"** → [UI.md](UI.md): several structurally different variants on one route, switched by a `?variant=` search param and a floating bar.
+- **"Does this logic or state model feel right?"** → [LOGIC.md](references/LOGIC.md): one shareable HTML file with free-play buttons and guided walkthroughs that push a pure state module through the cases that are hard to reason about on paper.
+- **"What should this look like?"** → [UI.md](references/UI.md): several structurally different variants on one route, switched by a `?variant=` search param and a floating bar.
 
 When the question is unclear, ask the user; when they are away, follow the code around it (a backend module or a contract → logic, a page or component → UI) and state that assumption at the top of the prototype. Done when you hold the question in one sentence, and its branch.
 
 ## Where it lives
 
-- **A logic prototype** lives in the active brain, at `.sdd/prototypes/<slug>.html` ([FORMAT.md](../brain/FORMAT.md)), with `<slug>` the question in kebab-case. It changes no repository, so it needs none open, and it can model a contract between several. Read the code it models by each repository's root; linked is enough.
+- **A logic prototype** lives in the active brain, at `.sdd/prototypes/<slug>.html` ([FORMAT.md](../brain/references/FORMAT.md)), with `<slug>` the question in kebab-case. It changes no repository, so it needs none open, and it can model a contract between several. Read the code it models by each repository's root; linked is enough.
 - **A UI prototype** lives in the **working repository** that serves the page, by FORMAT.md's rules; inside a spec, the **Repos** entry that owns the page. It must be open. Check its tree is clean (`git -C <root> status --porcelain` prints nothing; otherwise ask the user to commit or stash, and stop), then create and check out `prototype/<slug>` from its base: the spec's **Base** entry for that slug, else the branch checked out. Write every prototype file on that branch, by absolute path under the root.
 
 Done when you hold the prototype's path, and for a UI prototype its branch is checked out on a clean tree.

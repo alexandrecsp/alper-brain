@@ -6,19 +6,19 @@ metadata:
   type: process
 ---
 
-The **second brain** is a git repository holding the team's notes on many repositories, cloned on each teammate's machine and shared by pull and push, with this machine's pipeline work kept beside them in an ignored `.sdd/`. The user works from it: Claude is launched in the brain's folder, with the repositories the work needs open beside it. [FORMAT.md](FORMAT.md) gives its layout, the active brain, the repo slug, **registered**, **linked** and **open**, the working repository, the note format and the spec lines. The brain is everything a teammate knows about the repositories, readable without cloning them, so a product owner or a newcomer can ask it too. **Authored** and **explored** notes are defined in FORMAT.md; the user's personal preferences belong in your own memory.
+The **second brain** is a git repository holding the team's notes on many repositories, cloned on each teammate's machine and shared by pull and push, with this machine's pipeline work kept beside them in an ignored `.sdd/`. The user works from it: Claude is launched in the brain's folder, with the repositories the work needs open beside it. [FORMAT.md](references/FORMAT.md) gives its layout, the active brain, the repo slug, **registered**, **linked** and **open**, the working repository, the note format and the spec lines. The brain is everything a teammate knows about the repositories, readable without cloning them, so a product owner or a newcomer can ask it too. **Authored** and **explored** notes are defined in FORMAT.md; the user's personal preferences belong in your own memory.
 
 The first argument picks the branch:
 
 | Argument | Follow |
 |---|---|
-| `setup` | [SETUP.md](SETUP.md) |
-| `link` | [LINK.md](LINK.md) |
-| `explore [<repo>]` | [EXPLORE.md](EXPLORE.md) |
-| `status` | [STATUS.md](STATUS.md) |
-| `ask <question>` | [ASK.md](ASK.md) |
-| `view` | [VIEW.md](VIEW.md) |
-| `recall` | [RECALL.md](RECALL.md) |
+| `setup` | [SETUP.md](references/SETUP.md) |
+| `link` | [LINK.md](references/LINK.md) |
+| `explore [<repo>]` | [EXPLORE.md](references/EXPLORE.md) |
+| `status` | [STATUS.md](references/STATUS.md) |
+| `ask <question>` | [ASK.md](references/ASK.md) |
+| `view` | [VIEW.md](references/VIEW.md) |
+| `recall` | [RECALL.md](references/RECALL.md) |
 | `remember <fact>` | **Record** below |
 | `sync` | **Sync** below |
 

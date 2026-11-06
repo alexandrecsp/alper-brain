@@ -12,7 +12,7 @@ Each pattern name below is used exactly as written: the name alone carries its s
 - **Weigh every module the design builds or changes, and every contract between repositories it changes** (the module map's nodes and the arrows crossing its subgraphs). Each ends with a pattern and its Why, or with none needed.
 - **Choose a pattern only for a problem the code has.** Name that problem as the pattern's "Why". Code that has no such problem gets no pattern; an unneeded pattern is Speculative Generality.
 - **The layout's patterns come with it.** The repository's `docs/STRUCTURE.md`, or `project-structure` when it has none, already places Ports and Adapters, a Repository per aggregate, Dependency Injection at the composition root, and an adapter per driven port. Give them a row only where the design departs from the layout.
-- **Prefer what is already in play.** For each problem, find the pattern its repository already uses for the same problem in the area touched, read by the repository's root ([FORMAT.md](../brain/FORMAT.md)), and in the brain's `decision` notes on it; choose the same one. Across repositories, what is in play is what the contract's `contract` note and its producer already use. Done when each problem names the pattern in play, or that none is.
+- **Prefer what is already in play.** For each problem, find the pattern its repository already uses for the same problem in the area touched, read by the repository's root ([FORMAT.md](../brain/references/FORMAT.md)), and in the brain's `decision` notes on it; choose the same one. Across repositories, what is in play is what the contract's `contract` note and its producer already use. Done when each problem names the pattern in play, or that none is.
 - **A pattern from outside this catalogue** may be chosen when a well-known source names it. Give it the same "Why".
 
 ## Recording
@@ -47,7 +47,7 @@ A spec's rows stay on this machine. A choice the next change must repeat outlive
 - **Domain Event**: one part of the domain must react to something that happened in another part of the same repository, without a direct call. When the reacting part is in another repository, the event is a contract: see **Across repositories**.
 - **Result type**: expected failures must be returned as values the caller handles, not thrown.
 
-**Across repositories**: each sits on a contract, so its `contract` note names the choice, and a change to the contract is cut by `to-tickets`' [CONTRACT-CHANGE.md](../to-tickets/CONTRACT-CHANGE.md).
+**Across repositories**: each sits on a contract, so its `contract` note names the choice, and a change to the contract is cut by `to-tickets`' [CONTRACT-CHANGE.md](../to-tickets/references/CONTRACT-CHANGE.md).
 - **Transactional Outbox**: a repository must commit its own change and publish the event or call another repository relies on, and neither may happen without the other.
 - **Idempotent Consumer**: a consumer can receive the same message twice (at-least-once delivery, retries, an outbox relay). Key it on the id the contract note names.
 - **Tolerant Reader**: a consumer must keep working through the producer's expand step: it reads only the fields it uses and ignores the rest. Choose it where a consumer would break on a field it does not use.

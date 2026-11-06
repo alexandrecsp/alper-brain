@@ -9,7 +9,7 @@ Design **deep modules**: a lot of behaviour behind a small interface, placed at 
 
 ## Vocabulary
 
-Use these terms exactly, for architecture. Name the modules themselves in the glossary's terms, from the [domain docs](../domain-modeling/DOMAIN-DOCS.md) of the repository that holds each one ("the Order intake module"). Each term lists the words it replaces, so translate those when you meet them.
+Use these terms exactly, for architecture. Name the modules themselves in the glossary's terms, from the [domain docs](../domain-modeling/references/DOMAIN-DOCS.md) of the repository that holds each one ("the Order intake module"). Each term lists the words it replaces, so translate those when you meet them.
 
 **Module**: anything with an interface and an implementation. Deliberately scale-agnostic: a function, class, package, tier-spanning slice, or a whole repository as other repositories see it. _Replaces_: unit, component, service.
 
@@ -29,7 +29,7 @@ Use these terms exactly, for architecture. Name the modules themselves in the gl
 
 **Locality**: what maintainers get from depth. Change, bugs, knowledge, and verification concentrate in one place: fix once, fixed everywhere.
 
-**Contract**: an interface at a seam between repositories (an API, event, queue or shared schema), recorded as a `contract` note in the brain ([FORMAT.md](../brain/FORMAT.md)). The **producer** is the repository whose module sits behind the seam. The **consumers** are callers in other repositories, and they count among the module's callers for leverage and for the deletion test.
+**Contract**: an interface at a seam between repositories (an API, event, queue or shared schema), recorded as a `contract` note in the brain ([FORMAT.md](../brain/references/FORMAT.md)). The **producer** is the repository whose module sits behind the seam. The **consumers** are callers in other repositories, and they count among the module's callers for leverage and for the deletion test.
 
 ## Principles
 
@@ -37,7 +37,7 @@ Use these terms exactly, for architecture. Name the modules themselves in the gl
 - **The deletion test.** Imagine deleting the module. If complexity vanishes, it was a pass-through. If complexity reappears across N callers, it was earning its keep.
 - **The interface is the test surface.** Callers and tests cross the same seam. A test that needs to reach past the interface says the module is the wrong shape.
 - **One adapter means a hypothetical seam; two adapters mean a real one.** Introduce a seam only where something actually varies across it (typically production and test).
-- **A contract is the costliest interface to change.** Its consumers land and deploy on their own schedules, so any change to what crosses the wire ships expand–contract across repositories ([CONTRACT-CHANGE.md](../to-tickets/CONTRACT-CHANGE.md)). Name its consumers from the brain's contract notes before shaping it, and prefer a design every current consumer already tolerates.
+- **A contract is the costliest interface to change.** Its consumers land and deploy on their own schedules, so any change to what crosses the wire ships expand–contract across repositories ([CONTRACT-CHANGE.md](../to-tickets/references/CONTRACT-CHANGE.md)). Name its consumers from the brain's contract notes before shaping it, and prefer a design every current consumer already tolerates.
 
 When shaping an interface, ask: can it have fewer methods, simpler parameters, more complexity hidden inside?
 
@@ -76,5 +76,5 @@ When shaping an interface, ask: can it have fewer methods, simpler parameters, m
 
 ## Going deeper
 
-- **Classifying a module's dependencies** to decide how each crosses its seam and is tested, as when deepening shallow modules or placing a seam with a remote dependency: [DEEPENING.md](DEEPENING.md).
-- **When an interface is contested, or is a contract other repositories consume**, design it twice with parallel architect sub-agents: [DESIGN-IT-TWICE.md](DESIGN-IT-TWICE.md).
+- **Classifying a module's dependencies** to decide how each crosses its seam and is tested, as when deepening shallow modules or placing a seam with a remote dependency: [DEEPENING.md](references/DEEPENING.md).
+- **When an interface is contested, or is a contract other repositories consume**, design it twice with parallel architect sub-agents: [DESIGN-IT-TWICE.md](references/DESIGN-IT-TWICE.md).

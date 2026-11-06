@@ -11,15 +11,15 @@ Each claim below was checked against the skills as they stand.
 | What blocks | Where | What it costs |
 |---|---|---|
 | **The number implies an order** | [to-tickets](../skills/to-tickets/SKILL.md) step 2 numbers milestones across the spec, while **Waves** ([build](../skills/build/SKILL.md) l.22) orders only within a repository and by **Depends on** | `M002` builds beside `M001`, so the number misleads the reader. A repository's branches can also start at `sdd/<spec>/M002`, with no `M001` in that repository |
-| **Landing on a repository switch** | build step 1; [LAND.md](../skills/build/LAND.md) intro | Each time a wave moves on to another repository, the build stops, rebases, runs suites and asks the user |
+| **Landing on a repository switch** | build step 1; [LAND.md](../skills/build/references/LAND.md) intro | Each time a wave moves on to another repository, the build stops, rebases, runs suites and asks the user |
 | **Synchronized rounds** | build step 4: "Start the next round once every builder of this one has reported" | The slowest track sets the pace for every track |
-| **Contract order as a build dependency** | [CONTRACT-CHANGE.md](../skills/to-tickets/CONTRACT-CHANGE.md): "each migrate's first ticket names the expand's last ticket" | No consumer starts until the producer's expand is squashed |
+| **Contract order as a build dependency** | [CONTRACT-CHANGE.md](../skills/to-tickets/references/CONTRACT-CHANGE.md): "each migrate's first ticket names the expand's last ticket" | No consumer starts until the producer's expand is squashed |
 | **Serial closing** | Waves: "the review's sub-agents run from this session"; review-changes step 4 runs them in the foreground | A sub-agent cannot dispatch sub-agents. This one stays (see **Building**) |
 
 Three corrections to the first analysis:
 
-1. **Today the consumer's stub comes from the producer's code, not from the spec.** [CONTRACTS.md](../skills/tdd/CONTRACTS.md) builds each fake "from the producer's code at the commit this milestone builds against", and that is why the migrate waits on the expand. Building in parallel means the fake comes from the spec instead. Checking the fake against the real producer then moves from the migrate's first ticket to the migrate's close. That check needs a gate, described in **Contract changes**.
-2. **The spec does not fix the contract's shape yet.** [SPEC-TEMPLATE.md](../skills/to-spec/SPEC-TEMPLATE.md) asks only for "API contracts, naming every other repository that consumes them", which is not enough to build a fake from. Building a consumer from a stub requires the spec to pin the shape.
+1. **Today the consumer's stub comes from the producer's code, not from the spec.** [CONTRACTS.md](../skills/tdd/references/CONTRACTS.md) builds each fake "from the producer's code at the commit this milestone builds against", and that is why the migrate waits on the expand. Building in parallel means the fake comes from the spec instead. Checking the fake against the real producer then moves from the migrate's first ticket to the migrate's close. That check needs a gate, described in **Contract changes**.
+2. **The spec does not fix the contract's shape yet.** [SPEC-TEMPLATE.md](../skills/to-spec/references/SPEC-TEMPLATE.md) asks only for "API contracts, naming every other repository that consumes them", which is not enough to build a fake from. Building a consumer from a stub requires the spec to pin the shape.
 3. **Parallel tracks make one existing read unsafe.** CONTRACTS.md reads the producer's code "by absolute path from the producer's root", which is that repository's working tree. While the producer's own track is building, that tree sits on whatever milestone branch is checked out. Every read of another track's code must go through `git -C <root> show <ref>:<path>`, never through the working tree.
 
 ## The model
@@ -87,7 +87,7 @@ A milestone is **landable** when all three hold: it is squashed, every earlier m
 - **When it lands.** A track lands only while it is **idle**, between a squash and its next milestone's branch. That keeps a rebase of `sdd/<spec>/spec` from happening under a milestone that is mid-build. In practice, the moment is right after each squash, or at the track's next squash if a gate was still closed.
 - **A prefix, not the whole spec branch.** A gate can hold one milestone back while later ones in the same track are already squashed, for example a contract waiting on its consumers. LAND then fast-forwards the base to the rebased commit of the last landable milestone instead of to the branch tip. Since the rebase rewrites the SHAs, LAND writes each milestone's rebased commit back into its **Squash** line, found by its unique subject among the spec branch's own commits; a fix made while readying a landing is folded into the last squash. A milestone has landed once its **Squash** commit is on its base, and that same commit is its **Landed**, so a call resumed after its merge records exactly what the first would have.
 - **One question per call.** At the start of each `/build` call, ask once whether to land each track **as it goes** or **hold every landing for the end**. Without that, every landing would stop the event loop to ask for approval while builders are still running.
-- **Recording the order.** Each landing appends to a new `**Landings:**` line in `spec.md`, for example `billing-api 001; web-app 001; billing-api 002`. This line is the only record of the order the bases actually took, so [pr](../skills/pr/SKILL.md)'s landings and [SERIES.md](../skills/pr/SERIES.md)'s Merge Order read it in place of "milestone order".
+- **Recording the order.** Each landing appends to a new `**Landings:**` line in `spec.md`, for example `billing-api 001; web-app 001; billing-api 002`. This line is the only record of the order the bases actually took, so [pr](../skills/pr/SKILL.md)'s landings and [SERIES.md](../skills/pr/references/SERIES.md)'s Merge Order read it in place of "milestone order".
 
 ## Contract changes
 
@@ -129,19 +129,19 @@ Write the skill by `writing-for-agents`, as CLAUDE.md requires.
 | File | Change |
 |---|---|
 | `to-tickets/SKILL.md` | Step 2 cuts tracks and drops "keep a repository's milestones together". Step 3 numbers tickets per track. Step 4's quiz shows tracks and the landing order instead of waves. Step 5 uses the new layout and the new `/build` ids |
-| `to-tickets/TEMPLATES.md` | Drop **Repo**, add **Lands after**. A ticket's **Milestone** and **Depends on** take `NNN` or `<slug>/NNN` |
-| `to-tickets/CONTRACT-CHANGE.md` | Order held by **Lands after**, build in parallel against the pinned shape, the contract check gate, the fallback |
-| `to-spec/SPEC-TEMPLATE.md`, `to-spec/SKILL.md` | API contracts pin the shape; step 6's Done when checks it |
-| `tdd/CONTRACTS.md` | The consumer's fake comes from the spec's shape, and is checked against the producer at close; read the producer only through `git show` |
+| `to-tickets/references/TEMPLATES.md` | Drop **Repo**, add **Lands after**. A ticket's **Milestone** and **Depends on** take `NNN` or `<slug>/NNN` |
+| `to-tickets/references/CONTRACT-CHANGE.md` | Order held by **Lands after**, build in parallel against the pinned shape, the contract check gate, the fallback |
+| `to-spec/references/SPEC-TEMPLATE.md`, `to-spec/SKILL.md` | API contracts pin the shape; step 6's Done when checks it |
+| `tdd/references/CONTRACTS.md` | The consumer's fake comes from the spec's shape, and is checked against the producer at close; read the producer only through `git show` |
 | `build/SKILL.md` | **Waves** becomes tracks and an event loop. Background builders, the closing queue, blocking per track, the `waits` phase, drain points, and Needs-the-user items written to Notes |
-| `build/LAND.md` | Landable, idle tracks, landing a prefix, one question per call, the **Landings** line |
-| `brain/FORMAT.md` | Layout, ids, **Lands after**, **Landings**; the **Repo** line removed |
-| `brain/SETUP.md` l.36, `review-changes/SKILL.md` | A milestone is found by repository and `NNN` |
-| `brain/STATUS.md` | `building` names each track's current milestone instead of the wave |
-| `brain/MIGRATE.md` | A new step for ticketed specs: move milestones into `<slug>/`, renumber them and their tickets per track, rewrite **Depends on**, rename `sdd/<spec>/M<NNN>` branches, and write **Landings** from the old order. A migrated spec keeps its cross-repo Depends-on edges for contract order: they are stricter than **Lands after**, never wrong |
+| `build/references/LAND.md` | Landable, idle tracks, landing a prefix, one question per call, the **Landings** line |
+| `brain/references/FORMAT.md` | Layout, ids, **Lands after**, **Landings**; the **Repo** line removed |
+| `brain/references/SETUP.md` l.36, `review-changes/SKILL.md` | A milestone is found by repository and `NNN` |
+| `brain/references/STATUS.md` | `building` names each track's current milestone instead of the wave |
+| `brain/references/MIGRATE.md` | A new step for ticketed specs: move milestones into `<slug>/`, renumber them and their tickets per track, rewrite **Depends on**, rename `sdd/<spec>/M<NNN>` branches, and write **Landings** from the old order. A migrated spec keeps its cross-repo Depends-on edges for contract order: they are stricter than **Lands after**, never wrong |
 | `brain/brain.html` | The path parser (`p.length === 4`) gains the repository segment; milestones are keyed by `repo/NNN`; tracks can draw as swimlanes |
 | `hooks/sdd.ts`, `hooks/register.tsx`, `register.test.tsx` | `SDD_PATH` and `SddRef` gain `repo`; `keyOf` and the label use it; `repoField` reads the path; `STAGES` and `stageOf` learn `waits` |
-| `pr/SKILL.md`, `pr/SERIES.md` | Landings and Merge Order come from **Landings** |
+| `pr/SKILL.md`, `pr/references/SERIES.md` | Landings and Merge Order come from **Landings** |
 | `skills/handoff/` (new) | See above |
 | `README.md`, `docs/DESIGN.md` | The cross-repo section points here |
 

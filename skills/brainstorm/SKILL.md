@@ -31,19 +31,19 @@ Leave no assumption unspoken: any choice you would otherwise make silently becom
 
 Each round of answers reshapes the tree: settled decisions unblock the questions that hung off them, and new answers can sprout new branches. Recompute the frontier and ask the next round.
 
-Write every round in the format of [ROUND-FORMAT.md](ROUND-FORMAT.md).
+Write every round in the format of [ROUND-FORMAT.md](references/ROUND-FORMAT.md).
 
 ### Facts and Decisions
 
-Finding _facts_ is your job; the user only ever answers _decisions_. When a frontier question needs a fact from the environment (codebase, docs, tools), dispatch an `alper-brain:scout` agent to find it, its brief opening with the Context block by [BRIEF.md](../brain/BRIEF.md): one scout per repository the round's facts sit in, in one message, each answering every fact for its repository with its `path:line`, or "not found" with where it looked. A fact one known file answers, read inline. When the fact is owned outside the repositories (a library, API, standard or tool), invoke the `research` skill for it instead; its answer arrives in the background like a scout's. Keep the round moving: a running exploration is an unsettled prerequisite, so only the questions downstream of it wait for the sub-agent to report; ask the rest of the frontier now.
+Finding _facts_ is your job; the user only ever answers _decisions_. When a frontier question needs a fact from the environment (codebase, docs, tools), dispatch an `alper-brain:scout` agent to find it, its brief opening with the Context block by [BRIEF.md](../brain/references/BRIEF.md): one scout per repository the round's facts sit in, in one message, each answering every fact for its repository with its `path:line`, or "not found" with where it looked. A fact one known file answers, read inline. When the fact is owned outside the repositories (a library, API, standard or tool), invoke the `research` skill for it instead; its answer arrives in the background like a scout's. Keep the round moving: a running exploration is an unsettled prerequisite, so only the questions downstream of it wait for the sub-agent to report; ask the rest of the frontier now.
 
 ### Second brain
 
-Follow [RECALL.md](../brain/RECALL.md) alongside `What · Round 1`, picking every repository the topic reaches by its **Pick the repositories**: a design can span several, and its notes are facts, so you look them up rather than ask. Each in-or-out call the notes leave open enters the round as a scope question. Each changed contract enters the `What` as a scope question (do its consumers change with it, or does the interface stay compatible?), and its mechanism is parked for the `How`, by [CONTRACT-CHANGE.md](../to-tickets/CONTRACT-CHANGE.md): expand–contract, additive only, or the old shape kept. A repository that is registered but not linked is designed from its notes alone, its explored notes standing in for its code, with the hint `/brain link`.
+Follow [RECALL.md](../brain/references/RECALL.md) alongside `What · Round 1`, picking every repository the topic reaches by its **Pick the repositories**: a design can span several, and its notes are facts, so you look them up rather than ask. Each in-or-out call the notes leave open enters the round as a scope question. Each changed contract enters the `What` as a scope question (do its consumers change with it, or does the interface stay compatible?), and its mechanism is parked for the `How`, by [CONTRACT-CHANGE.md](../to-tickets/references/CONTRACT-CHANGE.md): expand–contract, additive only, or the old shape kept. A repository that is registered but not linked is designed from its notes alone, its explored notes standing in for its code, with the hint `/brain link`.
 
 ### In-flight specs
 
-When the brain's `.sdd/specs/` holds specs, other specs may be planned or mid-build in the modules or contracts this design touches, in any repository. Follow [IN-FLIGHT.md](../to-spec/IN-FLIGHT.md) alongside `What · Round 1`, and again when the `How` opens, since the `How` names new modules. Each overlap with an in-flight spec enters the next round as a frontier question: build on its planned state, or revise it separately.
+When the brain's `.sdd/specs/` holds specs, other specs may be planned or mid-build in the modules or contracts this design touches, in any repository. Follow [IN-FLIGHT.md](../to-spec/references/IN-FLIGHT.md) alongside `What · Round 1`, and again when the `How` opens, since the `How` names new modules. Each overlap with an in-flight spec enters the next round as a frontier question: build on its planned state, or revise it separately.
 
 ## Done
 

@@ -11,9 +11,9 @@ Actively build and sharpen the domain model as you design: challenge terms, inve
 
 ## Where it lives
 
-Each repository the topic touches is its own context, with its own glossary and ADRs. Read the [domain docs](DOMAIN-DOCS.md) of every one of them before the first challenge: their glossaries are what you challenge against, and their notes are what you check terms and decisions against. Write each settled fact where DOMAIN-DOCS.md's table puts it.
+Each repository the topic touches is its own context, with its own glossary and ADRs. Read the [domain docs](references/DOMAIN-DOCS.md) of every one of them before the first challenge: their glossaries are what you challenge against, and their notes are what you check terms and decisions against. Write each settled fact where DOMAIN-DOCS.md's table puts it.
 
-Create files lazily: a `GLOSSARY.md` or a `docs/adr/` folder only when its first entry is written. When a `GLOSSARY-MAP.md` sits at a repository's root, it holds several contexts: follow [CONTEXTS.md](CONTEXTS.md).
+Create files lazily: a `GLOSSARY.md` or a `docs/adr/` folder only when its first entry is written. When a `GLOSSARY-MAP.md` sits at a repository's root, it holds several contexts: follow [CONTEXTS.md](references/CONTEXTS.md).
 
 ## During the session
 
@@ -35,11 +35,11 @@ When domain relationships are being discussed, stress-test them with specific sc
 
 When the user states how something works, check whether the code of each repository it involves agrees, and surface a contradiction: "Your code cancels entire Orders, but you just said partial cancellation is possible. Which is right?"
 
-Beside `brainstorm`, the check is a fact: its **Facts and Decisions** sends it to a scout, and the round moves on. On your own, read one repository's code yourself. For a claim spanning several linked repositories, dispatch one `alper-brain:scout` per repository in one message, each brief opening with the Context block by [BRIEF.md](../brain/BRIEF.md), with the claim. Read glossaries yourself: they are short, and a challenge quotes them exactly.
+Beside `brainstorm`, the check is a fact: its **Facts and Decisions** sends it to a scout, and the round moves on. On your own, read one repository's code yourself. For a claim spanning several linked repositories, dispatch one `alper-brain:scout` per repository in one message, each brief opening with the Context block by [BRIEF.md](../brain/references/BRIEF.md), with the claim. Read glossaries yourself: they are short, and a challenge quotes them exactly.
 
 ### Write it down as it settles
 
-When a term settles, write it where [DOMAIN-DOCS.md](DOMAIN-DOCS.md) puts it, in [GLOSSARY-FORMAT.md](GLOSSARY-FORMAT.md)'s format. A glossary or ADR in a repository needs that repository **open** ([FORMAT.md](../brain/FORMAT.md)). When it is only linked, add the entry to a **pending** list and keep the session moving. When it is only registered, the term rides on to the spec. A brain note needs only the brain: write it through **Record** in the [brain skill](../brain/SKILL.md).
+When a term settles, write it where [DOMAIN-DOCS.md](references/DOMAIN-DOCS.md) puts it, in [GLOSSARY-FORMAT.md](references/GLOSSARY-FORMAT.md)'s format. A glossary or ADR in a repository needs that repository **open** ([FORMAT.md](../brain/references/FORMAT.md)). When it is only linked, add the entry to a **pending** list and keep the session moving. When it is only registered, the term rides on to the spec. A brain note needs only the brain: write it through **Record** in the [brain skill](../brain/SKILL.md).
 
 A glossary holds terms and their definitions only: an implementation decision is an ADR or part of the spec. When a settled term contradicts a brain note you read, propose that note's fix through **Record** when it is authored; an explored note catches up at the next `/brain explore`.
 
@@ -51,7 +51,7 @@ Only offer to create an ADR when all three are true:
 2. **Surprising without context**: a future reader will wonder "why did they do it this way?"
 3. **The result of a real trade-off**: there were genuine alternatives and you picked one for specific reasons
 
-Weigh each candidate against **What qualifies** in [ADR-FORMAT.md](ADR-FORMAT.md) before offering, and write the accepted ones in its format, where [DOMAIN-DOCS.md](DOMAIN-DOCS.md) puts them: a decision that binds several repositories passes the same tests, and becomes a brain `decision` note.
+Weigh each candidate against **What qualifies** in [ADR-FORMAT.md](references/ADR-FORMAT.md) before offering, and write the accepted ones in its format, where [DOMAIN-DOCS.md](references/DOMAIN-DOCS.md) puts them: a decision that binds several repositories passes the same tests, and becomes a brain `decision` note.
 
 ## Beside brainstorm
 

@@ -7,9 +7,9 @@ metadata:
 
 Reference for writing any document an agent consumes: a skill, an `AGENTS.md` / `CLAUDE.md`, a doc reached by a pointer. The packaging differs; the writing does not: the same levers make each one predictable, since the agent takes the same _process_ every run rather than producing the same output.
 
-When the document you're writing is a skill, read [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md) for frontmatter, invocation choice, and router skills. When it is an agent definition (`agents/*.md`) or a **brief** a step hands a sub-agent, read [`AGENT-MECHANICS.md`](AGENT-MECHANICS.md).
+When the document you're writing is a skill, read [`SKILL-MECHANICS.md`](references/SKILL-MECHANICS.md) for frontmatter, invocation choice, and router skills. When it is an agent definition (`agents/*.md`) or a **brief** a step hands a sub-agent, read [`AGENT-MECHANICS.md`](references/AGENT-MECHANICS.md).
 
-Review a document against this reference by [`REVIEW.md`](REVIEW.md), in a fresh sub-agent. A review is done when every section of this file, and of each mechanics file whose branch applies, has a finding or `holds` for every part of the document.
+Review a document against this reference by [`REVIEW.md`](references/REVIEW.md), in a fresh sub-agent. A review is done when every section of this file, and of each mechanics file whose branch applies, has a finding or `holds` for every part of the document.
 
 ## Context pointers
 
@@ -36,7 +36,7 @@ A document is built from two content types: **steps** (the ordered actions the a
 
 1. **In-file step** is the primary tier: what the agent does, in order.
 2. **In-file reference** is consulted on demand. Often a legitimately flat peer-set (every rule of a review on one rung), which is a fine arrangement, not a smell.
-3. **Disclosed reference** is pushed out into a separate file, reached by a context pointer, loaded only when the pointer fires. It ranges from a sibling file in the same folder to fully external reference that lives anywhere, which any document can point at.
+3. **Disclosed reference** is pushed out into a separate file, reached by a context pointer, loaded only when the pointer fires. It ranges from a file in the skill's own `references/` folder to fully external reference that lives anywhere, which any document can point at.
 
 Push too little down and the top bloats; push too much and you hide material the agent actually needs. That tension is the whole decision.
 
@@ -48,7 +48,7 @@ Push too little down and the top bloats; push too much and you hide material the
 
 ## Steps and completion criteria
 
-Every step ends on a **completion criterion**, written `Done when <condition>`: the condition that tells the agent the work is done. A brief handed to a sub-agent ends on one too: the report it returns (see [`AGENT-MECHANICS.md`](AGENT-MECHANICS.md)). Two properties make it a lever:
+Every step ends on a **completion criterion**, written `Done when <condition>`: the condition that tells the agent the work is done. A brief handed to a sub-agent ends on one too: the report it returns (see [`AGENT-MECHANICS.md`](references/AGENT-MECHANICS.md)). Two properties make it a lever:
 
 - **Clarity**: can the agent tell done from not-done? A vague bound ("understanding reached") invites **premature completion**: ending the step before it is genuinely done, attention slipping to _being done_. The visible steps still ahead (the **post-completion steps**) supply the pull; the criterion's clarity is the resistance. Defend in order: **sharpen the bound first** (local and cheap); only if it is irreducibly fuzzy _and_ you observe the rush, hide the later steps by splitting the sequence. Hiding only works across a real context boundary (a hand-off or a subagent dispatch; an inline call leaves the later steps in context and clears nothing).
 - **Demand**: how much it requires. "Every modified model accounted for" forces thorough work where "produce a change list" does not. Demand drives **legwork** (the digging the agent does within the work, latent in the wording rather than written as its own step), and it is not step-bound: "every rule applied" binds a body of flat reference just as "every step done" binds a sequence, which is how an all-reference document still carries an exhaustiveness bar.
@@ -60,8 +60,8 @@ The strongest criteria are both checkable and exhaustive.
 Splitting one document into two spends one of the two loads, so split only when the cut earns it:
 
 - **By sequence**: split a run of steps where the post-completion steps tempt the agent to rush the one in front of it. Keeping them out of view drives more legwork on the current task. Beware the reverse: merging two sequences puts the second's steps in view while the agent works the first, inviting premature completion.
-- **By context**: hand a step to a sub-agent when the parent's context would spoil it: later steps in view (one builder per ticket), parallel attempts anchoring on each other (one designer per variant), or the author's intent filling the gaps a reader will hit (a review). The boundary also costs: everything the child needs crosses in its brief or is missing. See [`AGENT-MECHANICS.md`](AGENT-MECHANICS.md).
-- **By invocation**, skill-specific: see [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md).
+- **By context**: hand a step to a sub-agent when the parent's context would spoil it: later steps in view (one builder per ticket), parallel attempts anchoring on each other (one designer per variant), or the author's intent filling the gaps a reader will hit (a review). The boundary also costs: everything the child needs crosses in its brief or is missing. See [`AGENT-MECHANICS.md`](references/AGENT-MECHANICS.md).
+- **By invocation**, skill-specific: see [`SKILL-MECHANICS.md`](references/SKILL-MECHANICS.md).
 
 A branch only some runs reach is disclosed, not split: see Information hierarchy.
 

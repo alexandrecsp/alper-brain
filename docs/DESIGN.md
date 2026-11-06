@@ -30,7 +30,7 @@ One sentence: **knowledge is shared, work stays local, and both live in the brai
 | `docs/STRUCTURE.md`, glossary, ADRs, suites in `CLAUDE.md` | repo, committed | repo, committed (unchanged) |
 | Is the brain required? | no | yes, but **local-only by default**. It becomes shared the moment it gets a remote |
 
-The brain commits a `.gitignore` holding `.sdd/`, so every teammate's clone ignores it the same way. `.sdd/` keeps its meaning (this machine's pipeline state) and only moves: from the root of each repo to the root of the brain. The format draft is [skills/brain/FORMAT.md](../skills/brain/FORMAT.md).
+The brain commits a `.gitignore` holding `.sdd/`, so every teammate's clone ignores it the same way. `.sdd/` keeps its meaning (this machine's pipeline state) and only moves: from the root of each repo to the root of the brain. The format draft is [skills/brain/references/FORMAT.md](../skills/brain/references/FORMAT.md).
 
 The brain holds what the team knows about its repositories, readable without cloning them, so a product owner or a newcomer can ask it too. **Authored** notes hold what the code cannot tell you by looking. **Explored** notes hold what the code does, written by `/brain explore` for a reader who never opens it, and stamped with the commit they were read at so anyone can tell when they fall behind. Specs stay what they are today: your working plan, from which knowledge is harvested when it lands.
 
@@ -67,8 +67,8 @@ The ecosystem command is `/brain`, extended, rather than a new command. The brai
 
 | Branch | What it does |
 |---|---|
-| `/brain status` | The ecosystem at a glance: every registered repo (linked or not, open or not, dirty, unpushed `sdd/*` branches), your in-flight specs with their state, and the risks first: blocked or failed builds, specs waiting on a dependency, and contract changes whose consumers the spec leaves out. See [STATUS.md](../skills/brain/STATUS.md). |
-| `/brain ask <question>` | Answers a question that crosses repos. It recalls the notes, picks the repos involved, sends one scout per repo in parallel, and answers with citations from each. Then it offers whatever the notes lacked as new notes. **This is also the answer to "how do I fill an empty brain"**: every cross-repo question you ask leaves notes behind. See [ASK.md](../skills/brain/ASK.md). |
+| `/brain status` | The ecosystem at a glance: every registered repo (linked or not, open or not, dirty, unpushed `sdd/*` branches), your in-flight specs with their state, and the risks first: blocked or failed builds, specs waiting on a dependency, and contract changes whose consumers the spec leaves out. See [STATUS.md](../skills/brain/references/STATUS.md). |
+| `/brain ask <question>` | Answers a question that crosses repos. It recalls the notes, picks the repos involved, sends one scout per repo in parallel, and answers with citations from each. Then it offers whatever the notes lacked as new notes. **This is also the answer to "how do I fill an empty brain"**: every cross-repo question you ask leaves notes behind. See [ASK.md](../skills/brain/references/ASK.md). |
 | `/brain link` | Finds the local clones of registered repos and records their paths in the brain's `.sdd/links.json`, without opening them. It matches `git remote get-url origin` against each `REPO.md`, scanning the workspace folder first. Run it once per machine, and again when you clone another repo. |
 
 `setup`, `recall`, `remember` and `sync` stay, and `view` replaces `graph`. See [SKILL.md](../skills/brain/SKILL.md).

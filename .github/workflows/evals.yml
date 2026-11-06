@@ -1,7 +1,7 @@
 # Runs the skills' evals (evals/README.md) on native Linux, where Claude Code's sandbox runs on bubblewrap.
 # Needs the repository secret ANTHROPIC_API_KEY, so it runs only on demand, from the Actions tab. Each run is capped
 # at $10. To run it on pull requests too, add a pull_request trigger with paths for skills/build, skills/commit,
-# skills/brain/BRIEF.md, skills/brain/FORMAT.md and evals.
+# skills/brain/references/BRIEF.md, skills/brain/references/FORMAT.md and evals.
 name: Evals
 
 on:
