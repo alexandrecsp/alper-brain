@@ -1,6 +1,7 @@
 ---
-name: domain-modeling
+name: model-domain
 description: Build and sharpen each repository's domain model, its glossary and decisions. Use when discussing domain terms, editing a GLOSSARY.md, or recording an ADR.
+user-invocable: false
 metadata:
   type: process
 ---

@@ -44,9 +44,9 @@ The skills then show up as `/alper-brain:<name>`. Below they are written by thei
 ```
 /brainstorm  ──────────────  a shared understanding: What, then How
         │
-/to-spec  ─────────────────  .sdd/specs/NNN-<slug>/spec.md, naming the repositories it changes
+/write-spec  ─────────────────  .sdd/specs/NNN-<slug>/spec.md, naming the repositories it changes
         │
-/to-tickets  ──────────────  one track of milestones per repository, with tickets
+/write-tickets  ──────────────  one track of milestones per repository, with tickets
         │
 /build  (every track side by side, one event loop)        ┐
    ├─ branch sdd/<spec>/M<NNN> in each track's repository
@@ -60,7 +60,7 @@ The skills then show up as `/alper-brain:<name>`. Below they are written by thei
    └─ land the rest → record the spec's landing → offer what was learned as notes
 ```
 
-Each stage writes files the next one reads, and each ends by telling you the next command to run. The files carry Mermaid diagrams so you can take them in at a glance: the spec has the user's **journey** and a **module map**, grouped by repository when it spans several, each milestone its slice of that map, each ticket its **tracer bullet** path through the layers, and each review a **finding map** of where its findings land. `skills/to-spec/references/DIAGRAMS.md` defines them, and the brain page draws them. You can stop between any two stages, or join partway through. For example, `/to-tickets` works on the current conversation without a spec, and `review-changes` works on any branch.
+Each stage writes files the next one reads, and each ends by telling you the next command to run. The files carry Mermaid diagrams so you can take them in at a glance: the spec has the user's **journey** and a **module map**, grouped by repository when it spans several, each milestone its slice of that map, each ticket its **tracer bullet** path through the layers, and each review a **finding map** of where its findings land. `skills/write-spec/references/DIAGRAMS.md` defines them, and the brain page draws them. You can stop between any two stages, or join partway through. For example, `/write-tickets` works on the current conversation without a spec, and `review-changes` works on any branch.
 
 ### 1. `/brainstorm [topic]`
 
@@ -71,9 +71,9 @@ The agent interviews you, one round of questions at a time, until you share an u
 
 Each round asks every question that can be answered *now*, with options and a recommended answer, so replying `ok` accepts all the recommendations. When a question depends on a fact about the codebase, the agent looks it up instead of asking you. It reads the brain's notes on every repository the topic touches first, and each contract the design would change becomes a question: do its consumers change too, or does the interface stay compatible? Each phase ends with a summary for you to confirm.
 
-`/brainstorm-with-docs` runs the same interview together with `domain-modeling`. Terms are challenged against each repository's `GLOSSARY.md` and written down as they settle, and decisions that are hard to reverse are offered as ADRs in `docs/adr/`.
+`/brainstorm --docs` runs the same interview together with `model-domain`. Terms are challenged against each repository's `GLOSSARY.md` and written down as they settle, and decisions that are hard to reverse are offered as ADRs in `docs/adr/`.
 
-### 2. `/to-spec`
+### 2. `/write-spec`
 
 Turns the conversation into `.sdd/specs/NNN-<slug>/spec.md` in the brain. Its **Repos** line names the repositories it changes, and specs are numbered in one sequence across all of them. The spec contains only what the conversation settled. Each question left open comes with a recommended answer, for you to settle now or record as open. Before writing, the agent proposes two things for you to confirm:
 
@@ -84,7 +84,7 @@ It also asks for the spec's commit key: one key, or one per repository when thei
 
 When another **in-flight** spec (one not landed yet) changes the same modules, or a contract the new work's repositories share, the new spec **depends on** it: it is designed against that spec's planned state, lists what it assumes under **Relies On**, and `/build` waits until the dependency lands and those assumptions still hold. In-flight checks see every spec in the brain, whatever repository it changes. A spec that will never be built carries an `**Abandoned:** <reason>` line: it stops counting as in-flight, `/build` refuses it, and the brain page greys it out.
 
-### 3. `/to-tickets [spec-id]`
+### 3. `/write-tickets [spec-id]`
 
 Breaks the spec into ordered **milestones**, and each milestone into **tickets**:
 
@@ -120,7 +120,7 @@ Each track works on one milestone and one ticket at a time, and the tracks run s
 
 A failure stops only its own track; the others go on, and the build reports every stopped track once nothing is left to do.
 
-Landing takes your answer from the start of the call. A track lands only between a squash and its next milestone, and only its **landable** milestones: squashed, after its earlier ones, and after every milestone their **Lands after** names. To land a track, it rebases that repository's spec branch onto its base, runs the full suite (fixing it, in up to two tries, when the base's new commits broke it), and fast-forwards the base, then records **Landed** on each milestone that landed and the landing itself on the spec's **Landings** line, the order `/pr` merges in. Once every milestone has landed, the spec gets its **Landed** line, one entry per repository, and the tickets' gotchas and the arbiter's reasons are offered as notes. Everything stays local: nothing is pushed and no PR is opened, so run `/pr <spec-id>` when you want the PRs. Because progress lives in the ticket files, the **Phase** and **Landed** lines and `review.md`, a build that stops picks up where it left off.
+Landing takes your answer from the start of the call. A track lands only between a squash and its next milestone, and only its **landable** milestones: squashed, after its earlier ones, and after every milestone their **Lands after** names. To land a track, it rebases that repository's spec branch onto its base, runs the full suite (fixing it, in up to two tries, when the base's new commits broke it), and fast-forwards the base, then records **Landed** on each milestone that landed and the landing itself on the spec's **Landings** line, the order `/open-pr` merges in. Once every milestone has landed, the spec gets its **Landed** line, one entry per repository, and the tickets' gotchas and the arbiter's reasons are offered as notes. Everything stays local: nothing is pushed and no PR is opened, so run `/open-pr <spec-id>` when you want the PRs. Because progress lives in the ticket files, the **Phase** and **Landed** lines and `review.md`, a build that stops picks up where it left off.
 
 #### Branches and landing
 
@@ -167,7 +167,7 @@ Everything about the brain runs through `/brain`, and its first argument picks w
 
 Each note holds one fact: frontmatter with `name`, a one-line `description` and a `type` (`feature`, `concept`, `decision`, `gotcha`, `contract`, `how-to`), then the fact, linked to related notes with `[[name]]`. A note is **authored**, holding what the code cannot tell you (a reason, a trap, a contract), or **explored**, holding what the code does, for teammates who never open it. Explored notes carry the commit they were read at, so `/brain ask` and `/brain status` can say when they fall behind. Teammates who don't code need to clone only the brain. Obsidian can open the brain as a vault.
 
-The pipeline uses the brain throughout. Every skill that reads the glossary and ADRs also reads the brain's notes on the repositories it works in. A `contract` note records which repositories consume an interface: a change to it becomes a question in `brainstorm`, a confirmed item in `to-spec`, an overlap in the in-flight check, an **escalate** flag in `review-changes`, and a one-way door in `pr`, with those repositories in its blast radius. Knowledge flows back as proposals you pick from: `diagnose` offers the root cause as a gotcha, landing a spec offers the tickets' gotchas and the arbiter's reasons, `onboard` offers undocumented dependencies on other repositories as contracts, `research` offers its verified answer, and `/brain ask` offers whatever the notes lacked.
+The pipeline uses the brain throughout. Every skill that reads the glossary and ADRs also reads the brain's notes on the repositories it works in. A `contract` note records which repositories consume an interface: a change to it becomes a question in `brainstorm`, a confirmed item in `write-spec`, an overlap in the in-flight check, an **escalate** flag in `review-changes`, and a one-way door in `open-pr`, with those repositories in its blast radius. Knowledge flows back as proposals you pick from: `diagnose` offers the root cause as a gotcha, landing a spec offers the tickets' gotchas and the arbiter's reasons, `onboard` offers undocumented dependencies on other repositories as contracts, `research` offers its verified answer, and `/brain ask` offers whatever the notes lacked.
 
 ## Skills used along the way
 
@@ -176,20 +176,24 @@ The pipeline uses the brain throughout. Every skill that reads the glossary and 
 | `tdd` | Red then green, one vertical slice at a time, with tests only at confirmed seams. Runs the suites the repository's card names. |
 | `commit` | `<KEY>: <Present-tense title>` plus one to three bullets. Reads the key from the spec, or the repository's card. |
 | `review-changes` | Reviews a diff in separate sub-agents. **Standards** checks repo docs, glossary, ADRs and the smell baseline. **Spec** checks for missing requirements, scope creep and requirements built wrong. **Consumers**, when the diff changes a contract, sends a scout into each linked consumer repository and escalates every call site the change breaks. A whole spec gets one Standards reviewer per repository and one Spec reviewer across them all. Saves the report as `review.md` in the milestone's folder, or the spec's when it reviews the whole spec. |
-| `pr` | Writes a PR's title and body: a visual **Summary**, before-and-after **Evidence** checked against the spec's claims, and a **Merge Danger** call (one-way or two-way door, blast radius from the contract notes and a scout per consumer). A spec across repositories gets one PR per landing, cross-linked under **Merge Order** in the order they must merge and deploy. It opens or updates the PRs only when you ask. |
-| `domain-modeling` | Maintains each repository's `GLOSSARY.md` and ADRs, including multi-context repos with `GLOSSARY-MAP.md`. |
+| `open-pr` | Writes a PR's title and body: a visual **Summary**, before-and-after **Evidence** checked against the spec's claims, and a **Merge Danger** call (one-way or two-way door, blast radius from the contract notes and a scout per consumer). A spec across repositories gets one PR per landing, cross-linked under **Merge Order** in the order they must merge and deploy. It opens or updates the PRs only when you ask. |
+| `model-domain` | Maintains each repository's `GLOSSARY.md` and ADRs, including multi-context repos with `GLOSSARY-MAP.md`. |
 | `design-patterns` | A catalogue of patterns and when to choose each one. Each choice is recorded as Pattern, Where and Why. |
 | `project-structure` | One hexagonal layout for every language: `domain/` (entities, value objects, ports), `application/` (use cases, services, DTOs), `infrastructure/` (driving, driven, config). Covers role-suffixed names for TypeScript, Python and Java, and frontend, backend and full-stack apps. The repo's `docs/STRUCTURE.md` overrides it. |
 | `codebase-design` | Vocabulary for deep modules: module, interface, seam, adapter, depth. |
-| `writing-for-agents` | How to write skills, `CLAUDE.md` and `AGENTS.md`. Used when editing this repo. |
+| `agent-writing` | How to write skills, `CLAUDE.md` and `AGENTS.md`. Used when editing this repo. |
 | `diagnose` | Diagnoses a hard bug or performance regression. It first builds a tight loop that goes red on the bug, then minimises the repro, ranks falsifiable hypotheses, and instruments one variable at a time. It fixes with a regression test at a correct seam, or records that no such seam exists. |
 | `brain` | The hub, behind one command: `setup`, `link`, `explore`, `status`, `ask`, `view`, `recall`, `remember` and `sync`. On its own, it reads a repository's notes before work and proposes a note when it learns something the repository doesn't record. It syncs only when you ask. |
 | `research` | Researches a question against primary sources in a background sub-agent. Saves the cited findings to the brain's `.sdd/research/<slug>.md`. |
 | `prototype` | Builds a throwaway prototype that answers one design question: a shareable HTML demo for logic, or switchable variants for UI, each drafted in parallel by its own designer sub-agent. Keeps a UI prototype on a `prototype/<slug>` branch and a logic one in the brain's `.sdd/prototypes/`, and records the verdict in the spec and as a brain decision. |
-| `improve-and-refactor` | Scans hot spots for deepening and smell refactors, shows them as an HTML report saved to the brain's `.sdd/refactors/<slug>/`, and brainstorms the one you pick. A contained refactor goes straight to `/to-tickets` and `/build`; a larger one starts at `/to-spec`. |
+| `refactor` | Scans hot spots for deepening and smell refactors, shows them as an HTML report saved to the brain's `.sdd/refactors/<slug>/`, and brainstorms the one you pick. A contained refactor goes straight to `/write-tickets` and `/build`; a larger one starts at `/write-spec`. |
 | `onboard` | Tours one repository for a newcomer who will code in it, one scout per area in parallel, starting from the brain's notes on it, then traces the two or three journeys that cross the most areas, following them into linked neighbours. Writes the tour to the brain's `.sdd/tours/<slug>/`: a context map with the neighbouring repositories, the journeys, a card per area, where things live, the vocabulary and the commands. Then offers to record the terms, decisions and contracts it found undocumented. |
 
-The pipeline skills (`brainstorm-with-docs`, `to-spec`, `to-tickets`, `build`), `improve-and-refactor`, `onboard` and `pr` only run when you type their command. The others can also be invoked by the agent when it needs them.
+The pipeline skills (`write-spec`, `write-tickets`, `build`), `refactor`, `onboard` and `open-pr` only run when you type their command. The other actions can also be invoked by the agent when it needs them. The skills other skills run as a step (`tdd`, `review-changes`, `model-domain`) and the reference skills (`codebase-design`, `design-patterns`, `project-structure`, `agent-writing`) stay out of the slash menu: the agent and other skills load them, and you ask for one in words ("review this branch", "build this test-first").
+
+## Moving from 1.x
+
+2.0 names every command for its action: `/to-spec` is now `/write-spec`, `/to-tickets` is `/write-tickets`, `/pr` is `/open-pr`, `/improve-and-refactor` is `/refactor`, and `/brainstorm-with-docs` is `/brainstorm --docs`. `tdd`, `review-changes`, `model-domain` (formerly `domain-modeling`) and the reference skills (`codebase-design`, `design-patterns`, `project-structure` and `agent-writing`, formerly `writing-for-agents`) leave the slash menu: the agent still loads them when the work calls for them, and you can ask for one in words. Specs, notes and branches are unchanged.
 
 ## Moving from alper-skills
 

@@ -24,7 +24,7 @@ The shape of the second brain: the team's notes on every repository, shared, and
     │           └── review.md
     ├── research/<slug>.md                ← cited findings from `research`, with `<slug>/<group>.md` beside it when it fans out
     ├── tours/<repo-slug>/                ← onboarding tours from `onboard`
-    ├── refactors/<repo-slug>/            ← reports from `improve-and-refactor`
+    ├── refactors/<repo-slug>/            ← reports from `refactor`
     ├── prototypes/<slug>.html            ← logic prototypes from `prototype`
     ├── snapshots/<repo-slug>/            ← a repository's default branch, checked out while a skill reads it
     └── explore/<repo-slug>/<area>/       ← explored notes `explore` drafts, only while it runs
@@ -174,7 +174,7 @@ An explored note is **current** while the repository's default branch still poin
 
 ## Specs
 
-Specs live in `.sdd/specs/`, numbered `NNN` in one sequence across every repository: [SPEC-ID.md](../../to-spec/references/SPEC-ID.md) resolves the short forms users type. A spec can change several repositories.
+Specs live in `.sdd/specs/`, numbered `NNN` in one sequence across every repository: [SPEC-ID.md](../../write-spec/references/SPEC-ID.md) resolves the short forms users type. A spec can change several repositories.
 
 A spec's milestones sit in one **track** per repository it changes: the folder `milestones/<slug>/`, whose name is the repository every milestone in it builds in. A track numbers its milestones `001` upwards, and its tickets `001` upwards across those milestones, and builds and lands them in number order. A number names a milestone or ticket inside its own track; from anywhere else, write `<slug>/NNN`. A ticket's **Depends on** of `004, web-app/002` names ticket `004` of its own track and ticket `002` of `web-app`'s.
 
@@ -187,7 +187,7 @@ A spec ticketed before tracks has the **flat layout**: its milestones sit straig
 | **Base** | `spec.md` | one `<slug>@<branch>` entry per repository: the branch its milestones land on |
 | **Landings** | `spec.md` | each landing in the order it reached its base, as `<slug> <NNN>` or `<slug> <NNN>-<NNN>`: the slug, a space (not the `/` of an id), then the first and last of the track's milestones it put on the base, or the one; entries separated by `; `, such as `billing-api 001; web-app 001-002`. Absent until the first landing |
 | **Landed** | `spec.md` | one `<slug>@<SHA>` entry per repository, written once every milestone has landed |
-| **Abandoned** | `spec.md` | the user's reason the spec will never be built, under its **Key** line, by [IN-FLIGHT.md](../../to-spec/references/IN-FLIGHT.md); absent otherwise |
+| **Abandoned** | `spec.md` | the user's reason the spec will never be built, under its **Key** line, by [IN-FLIGHT.md](../../write-spec/references/IN-FLIGHT.md); absent otherwise |
 | **Lands after** | `milestone.md` | the milestones of other tracks it reaches its base after, as `<slug>/NNN` ids, or `None`; only a contract change's order writes them. Absent in the flat layout |
 | **Landed** | `milestone.md` | the SHA its squash became on its repository's base once it landed, or `none` |
 

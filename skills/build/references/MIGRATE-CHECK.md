@@ -1,6 +1,6 @@
 # Migrate check
 
-`build`'s step 9 runs this for a **migrate**: a consumer's milestone that moves it onto the new shape a producer's **expand** offers, the expand being the producer's milestone that offers that shape beside the old one, as [CONTRACT-CHANGE.md](../../to-tickets/references/CONTRACT-CHANGE.md) defines both.
+`build`'s step 9 runs this for a **migrate**: a consumer's milestone that moves it onto the new shape a producer's **expand** offers, the expand being the producer's milestone that offers that shape beside the old one, as [CONTRACT-CHANGE.md](../../write-tickets/references/CONTRACT-CHANGE.md) defines both.
 
 1. **Wait for the expand.** The expands a migrate waits on are the entries of its **Lands after** line (`<producer>/NNN`) that are expands. While any of them is still open (that milestone's own **Squash** names no commit), write `waits` into this milestone's **Phase** line and take it off the closing queue (build's step 3): the loop puts it back once that expand squashes, by build's **After each squash**. Done when every expand it waits on is squashed, or the milestone waits.
 

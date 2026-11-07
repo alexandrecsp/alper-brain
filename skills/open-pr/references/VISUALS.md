@@ -1,6 +1,6 @@
 # Summary visuals
 
-One example of each view in the [`pr`](../SKILL.md) Summary. Place each next to the sentence it supports.
+One example of each view in the [`open-pr`](../SKILL.md) Summary. Place each next to the sentence it supports.
 
 ## Pseudocode
 
@@ -44,7 +44,7 @@ src/
 
 ## Mermaid
 
-Mark what the PR adds or changes by [DIAGRAMS.md](../../to-spec/references/DIAGRAMS.md)'s **Marks**.
+Mark what the PR adds or changes by [DIAGRAMS.md](../../write-spec/references/DIAGRAMS.md)'s **Marks**.
 
 ```mermaid
 sequenceDiagram

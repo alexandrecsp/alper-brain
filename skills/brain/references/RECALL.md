@@ -1,6 +1,6 @@
 # Recall
 
-Read what the active brain knows about the repositories the work touches. The `brain` skill runs this, and so does every skill that reads the [domain docs](../../domain-modeling/references/DOMAIN-DOCS.md). [FORMAT.md](FORMAT.md) defines the active brain and **registered**. Recall only the repositories registered in the active brain. Run every git command in the brain as `git -C <brain>`.
+Read what the active brain knows about the repositories the work touches. The `brain` skill runs this, and so does every skill that reads the [domain docs](../../model-domain/references/DOMAIN-DOCS.md). [FORMAT.md](FORMAT.md) defines the active brain and **registered**. Recall only the repositories registered in the active brain. Run every git command in the brain as `git -C <brain>`.
 
 As a sub-agent, read only the notes your brief's Context block lists, and skip the steps below: the skill that dispatched you recalled them, and you have no user to offer fixes to, so report a note the code contradicts instead.
 

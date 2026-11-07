@@ -1,6 +1,7 @@
 ---
 name: codebase-design
 description: Deep-module vocabulary and the principles for shaping modules. Use when designing or deepening a module's interface or a contract between repositories, deciding where a seam goes, or making code more testable.
+user-invocable: false
 metadata:
   type: reference
 ---
@@ -9,7 +10,7 @@ Design **deep modules**: a lot of behaviour behind a small interface, placed at 
 
 ## Vocabulary
 
-Use these terms exactly, for architecture. Name the modules themselves in the glossary's terms, from the [domain docs](../domain-modeling/references/DOMAIN-DOCS.md) of the repository that holds each one ("the Order intake module"). Each term lists the words it replaces, so translate those when you meet them.
+Use these terms exactly, for architecture. Name the modules themselves in the glossary's terms, from the [domain docs](../model-domain/references/DOMAIN-DOCS.md) of the repository that holds each one ("the Order intake module"). Each term lists the words it replaces, so translate those when you meet them.
 
 **Module**: anything with an interface and an implementation. Deliberately scale-agnostic: a function, class, package, tier-spanning slice, or a whole repository as other repositories see it. _Replaces_: unit, component, service.
 
@@ -37,7 +38,7 @@ Use these terms exactly, for architecture. Name the modules themselves in the gl
 - **The deletion test.** Imagine deleting the module. If complexity vanishes, it was a pass-through. If complexity reappears across N callers, it was earning its keep.
 - **The interface is the test surface.** Callers and tests cross the same seam. A test that needs to reach past the interface says the module is the wrong shape.
 - **One adapter means a hypothetical seam; two adapters mean a real one.** Introduce a seam only where something actually varies across it (typically production and test).
-- **A contract is the costliest interface to change.** Its consumers land and deploy on their own schedules, so any change to what crosses the wire ships expand–contract across repositories ([CONTRACT-CHANGE.md](../to-tickets/references/CONTRACT-CHANGE.md)). Name its consumers from the brain's contract notes before shaping it, and prefer a design every current consumer already tolerates.
+- **A contract is the costliest interface to change.** Its consumers land and deploy on their own schedules, so any change to what crosses the wire ships expand–contract across repositories ([CONTRACT-CHANGE.md](../write-tickets/references/CONTRACT-CHANGE.md)). Name its consumers from the brain's contract notes before shaping it, and prefer a design every current consumer already tolerates.
 
 When shaping an interface, ask: can it have fewer methods, simpler parameters, more complexity hidden inside?
 

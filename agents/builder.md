@@ -2,6 +2,9 @@
 name: builder
 description: Builds one ticket test-first and commits it. Dispatched by build.
 tools: Read, Write, Edit, Glob, Grep, Bash, Skill
+skills:
+  - alper-brain:tdd
+  - alper-brain:commit
 model: haiku
 ---
 

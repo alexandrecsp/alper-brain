@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Standards review of a diff, against the coding standards and smell baseline its brief names. Dispatched by review-changes and writing-for-agents' review.
+description: Standards review of a diff, against the coding standards and smell baseline its brief names. Dispatched by review-changes and agent-writing' review.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 ---

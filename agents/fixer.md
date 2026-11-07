@@ -2,6 +2,9 @@
 name: fixer
 description: Fixes what a build left wrong (review findings, a failing check, or a ticket its builder could not finish) and commits the fix. Dispatched by build.
 tools: Read, Write, Edit, Glob, Grep, Bash, Skill
+skills:
+  - alper-brain:tdd
+  - alper-brain:commit
 model: sonnet
 ---
 

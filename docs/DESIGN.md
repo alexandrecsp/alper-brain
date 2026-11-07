@@ -73,7 +73,7 @@ The ecosystem command is `/brain`, extended, rather than a new command. The brai
 
 `setup`, `recall`, `remember` and `sync` stay, and `view` replaces `graph`. See [SKILL.md](../skills/brain/SKILL.md).
 
-The pipeline commands (`/brainstorm`, `/to-spec`, `/to-tickets`, `/build`, `/pr`) keep their names. What changes is where they look: specs are in the brain's `.sdd/`, and repos are found through the links. So you run them from the brain, whichever repo the work is in.
+The pipeline commands (`/brainstorm`, `/write-spec`, `/write-tickets`, `/build`, `/open-pr`) keep their names. What changes is where they look: specs are in the brain's `.sdd/`, and repos are found through the links. So you run them from the brain, whichever repo the work is in.
 
 ## Cross-repo specs
 
@@ -97,7 +97,7 @@ flowchart LR
 - **Branches** keep today's names in each repo: `sdd/<spec-folder>/spec` and `sdd/<spec-folder>/M<NNN>`. Each repo's spec branch holds only that repo's milestones.
 - **`/build`** finds each milestone's repo through the links, asks you to open any that is not open yet, checks that its tree is clean, and builds there.
 - **Landing** happens per repo. The **Landed** line becomes one entry per repo (`billing-api@3fa91c2, web-app@b77d012`). A spec counts as landed once every repo in **Repos** has landed it.
-- **Contract changes are cut expand-then-contract** by `to-tickets`, the same way `WIDE-REFACTOR.md` cuts wide refactors: first add the new shape beside the old one, then move each consumer, then remove the old shape. Each step is a milestone that leaves every repo working. This matters because landing locally is not deploying: repos deploy on their own schedules.
+- **Contract changes are cut expand-then-contract** by `write-tickets`, the same way `WIDE-REFACTOR.md` cuts wide refactors: first add the new shape beside the old one, then move each consumer, then remove the old shape. Each step is a milestone that leaves every repo working. This matters because landing locally is not deploying: repos deploy on their own schedules.
 - **In-flight checks cover every repo.** A spec overlaps when it shares a module in the same repo, **or** when it changes a contract that the new work produces or consumes.
 
 ## What stays local, and what that costs
@@ -107,7 +107,7 @@ Keeping specs out of the brain's git keeps the shared part small and conflict-fr
 - **Teammates cannot see each other's in-flight work.** `status` and the in-flight checks cover only this machine's specs. Two people changing the same contract at the same time still find out at review or merge, as they do today.
 - **A lost machine still loses its specs.** So harvesting knowledge at landing (LAND's **Keep what was learned**) stays essential, and the knowledge inbox discussed earlier gets more valuable, not less: it would live at `.sdd/inbox/` in the brain.
 
-If the first cost starts to bite, a small step fixes it without sharing specs. `to-spec` could add an **In flight** line to each `contract` note the spec changes, naming who changes it and how. That line is knowledge a teammate needs, and `LAND.md` removes it when the spec lands.
+If the first cost starts to bite, a small step fixes it without sharing specs. `write-spec` could add an **In flight** line to each `contract` note the spec changes, naming who changes it and how. That line is knowledge a teammate needs, and `LAND.md` removes it when the spec lands.
 
 ## What changes per skill
 
@@ -115,11 +115,11 @@ If the first cost starts to bite, a small step fixes it without sharing specs. `
 |---|---|
 | `brain` | New `status`, `ask` and `link` branches. FORMAT gains `REPO.md`, the brain's `.sdd/`, several brains, the active brain found among the open folders, and `.sdd/links.json`. `SETUP.md` asks whether to add a new brain or register the repo in an existing one, and its template writes the brain's `.gitignore`. `graph.html` draws `REPO.md` as the repo's hub. |
 | `setup-repository` | Stops creating `.sdd/` in the repo. Writes the repo's `REPO.md` in the brain (commit key pattern, summary) and links it. `docs/STRUCTURE.md`, suites and the agent-file section stay. It folds into `/brain setup`, or the other way round: two setup commands per repo is one too many. |
-| `to-spec`, `SPEC-ID.md`, `SPEC-TEMPLATE.md` | Write to the brain's `.sdd/specs/`. The template gains **Repos**, and the module map tags repos. |
+| `write-spec`, `SPEC-ID.md`, `SPEC-TEMPLATE.md` | Write to the brain's `.sdd/specs/`. The template gains **Repos**, and the module map tags repos. |
 | `IN-FLIGHT.md` | Reads every spec in the brain's `.sdd/specs/`, and adds the contract overlap. |
-| `to-tickets`, `TEMPLATES.md` | Add the milestone **Repo** line, and cut contract changes expand-then-contract. |
+| `write-tickets`, `TEMPLATES.md` | Add the milestone **Repo** line, and cut contract changes expand-then-contract. |
 | `build`, `LAND.md` | Build in the milestone's repo, once it is open, and land per repo. LAND's **Keep what was learned** stays as it is. |
-| `research`, `onboard`, `improve-and-refactor` | Save to the brain's `.sdd/research/`, `.sdd/tours/<slug>/` and `.sdd/refactors/<slug>/`. |
+| `research`, `onboard`, `refactor` | Save to the brain's `.sdd/research/`, `.sdd/tours/<slug>/` and `.sdd/refactors/<slug>/`. |
 | `dashboard`, `brain graph` | Become one page over the brain folder: the notes graph beside the specs, milestones and tickets, with each repo as a hub that both hang from. You pick one folder per knowledge base instead of one per repo. |
 | `alper-flow` (mods) | Reads `.sdd/` from the brain it was launched in. Since you launch Claude in the brain, that path is the hook's `cwd`, as it is today. |
 | `commit` | Reads the key pattern from `REPO.md`. |

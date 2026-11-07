@@ -1,11 +1,11 @@
 # Skill mechanics
 
-The skill-specific branch of [`writing-for-agents`](../SKILL.md): what changes when the document is a skill (frontmatter, the invocation choice, shared reference, and router skills).
+The skill-specific branch of [`agent-writing`](../SKILL.md): what changes when the document is a skill (frontmatter, the invocation choice, shared reference, and router skills).
 
 ## Frontmatter
 
-- `name`: the folder's name, and what the user types after the slash.
-- `description` and `disable-model-invocation`: see Invocation.
+- `name`: the folder's name, and what the user types after the slash. A `process` skill is named for its action, as a verb (`build`, `write-spec`, `model-domain`); a `reference` skill for its subject, as a noun (`design-patterns`, `project-structure`).
+- `description`, `disable-model-invocation` and `user-invocable`: see Invocation.
 - `argument-hint`: only when the skill takes arguments, written as the user types them (`"[spec-id]"`).
 - `metadata.type`: `process` when the skill has steps, `reference` when it is all reference, by the content types in `SKILL.md`'s Information hierarchy.
 
@@ -17,6 +17,8 @@ Two choices, trading the two loads:
 - A **user-invoked** skill strips the description from the agent's reach: only the human typing its name can invoke it, and no other skill can. Zero context load, but it spends cognitive load: you are the index that must remember it exists. Mechanics: set `disable-model-invocation: true`; the `description` becomes human-facing: a one-line summary, trigger lists stripped.
 
 Pick model-invocation only when the agent must reach the skill on its own, or another skill must. If it only ever fires by hand, make it user-invoked and pay no context load.
+
+A skill the user never types is model-invoked and also sets `user-invocable: false`: every `reference` skill, and a `process` skill other skills run as one of their steps (`tdd`, `review-changes`). The agent and other skills reach it, and it stays out of the user's slash menu, which then lists only the actions a user starts. Its description keeps its triggers, and the user who wants it asks in words.
 
 ## Splitting by invocation
 

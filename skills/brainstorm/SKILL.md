@@ -1,12 +1,14 @@
 ---
 name: brainstorm
 description: Brainstorm a plan or design with the user. Use when the user wants to brainstorm, or to stress-test a plan.
-argument-hint: "[topic]"
+argument-hint: "[--docs] [topic]"
 metadata:
   type: process
 ---
 
 Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
+
+With `--docs`, also invoke the `model-domain` skill and run it beside this one by `model-domain`'s **Beside brainstorm**, so the glossary and ADRs are written as the design settles.
 
 ## What, then How
 
@@ -21,7 +23,7 @@ Every `How` decision hangs off `What` decisions, so settle the `What` first. Whe
 
 Close each phase, once its frontier is empty, with a **summary** of its settled decisions as a short bulleted list. The `What` summary opens with **Repositories**: each slug in scope with its one-line reason, plus any that need `/brain setup` or `/brain link`. It ends with the parked questions under **Parked for How**; the user's confirmation of it opens the `How`, with the parked questions in its first frontier.
 
-When the `How` opens, invoke the `design-patterns` skill. Each module and contract `design-patterns` says to weigh is then a frontier question: recommend a pattern with its Where and Why, or no pattern when the problem doesn't call for one. The `How` summary adds four lists, which `/to-spec` reads: **Contracts**, each changed contract with its consumers and the settled path (expand–contract, additive only, or old shape kept); **Builds on**, each overlapping in-flight spec and what it shares; **Patterns**, as Pattern, Where and Why, the Where prefixed by its repository's slug when the design spans several; and **Notes read**, the absolute paths of the brain notes the session relied on.
+When the `How` opens, invoke the `design-patterns` skill. Each module and contract `design-patterns` says to weigh is then a frontier question: recommend a pattern with its Where and Why, or no pattern when the problem doesn't call for one. The `How` summary adds four lists, which `/write-spec` reads: **Contracts**, each changed contract with its consumers and the settled path (expand–contract, additive only, or old shape kept); **Builds on**, each overlapping in-flight spec and what it shares; **Patterns**, as Pattern, Where and Why, the Where prefixed by its repository's slug when the design spans several; and **Notes read**, the absolute paths of the brain notes the session relied on.
 
 ## Rounds
 
@@ -39,12 +41,12 @@ Finding _facts_ is your job; the user only ever answers _decisions_. When a fron
 
 ### Second brain
 
-Follow [RECALL.md](../brain/references/RECALL.md) alongside `What · Round 1`, picking every repository the topic reaches by its **Pick the repositories**: a design can span several, and its notes are facts, so you look them up rather than ask. Each in-or-out call the notes leave open enters the round as a scope question. Each changed contract enters the `What` as a scope question (do its consumers change with it, or does the interface stay compatible?), and its mechanism is parked for the `How`, by [CONTRACT-CHANGE.md](../to-tickets/references/CONTRACT-CHANGE.md): expand–contract, additive only, or the old shape kept. A repository that is registered but not linked is designed from its notes alone, its explored notes standing in for its code, with the hint `/brain link`.
+Follow [RECALL.md](../brain/references/RECALL.md) alongside `What · Round 1`, picking every repository the topic reaches by its **Pick the repositories**: a design can span several, and its notes are facts, so you look them up rather than ask. Each in-or-out call the notes leave open enters the round as a scope question. Each changed contract enters the `What` as a scope question (do its consumers change with it, or does the interface stay compatible?), and its mechanism is parked for the `How`, by [CONTRACT-CHANGE.md](../write-tickets/references/CONTRACT-CHANGE.md): expand–contract, additive only, or the old shape kept. A repository that is registered but not linked is designed from its notes alone, its explored notes standing in for its code, with the hint `/brain link`.
 
 ### In-flight specs
 
-When the brain's `.sdd/specs/` holds specs, other specs may be planned or mid-build in the modules or contracts this design touches, in any repository. Follow [IN-FLIGHT.md](../to-spec/references/IN-FLIGHT.md) alongside `What · Round 1`, and again when the `How` opens, since the `How` names new modules. Each overlap with an in-flight spec enters the next round as a frontier question: build on its planned state, or revise it separately.
+When the brain's `.sdd/specs/` holds specs, other specs may be planned or mid-build in the modules or contracts this design touches, in any repository. Follow [IN-FLIGHT.md](../write-spec/references/IN-FLIGHT.md) alongside `What · Round 1`, and again when the `How` opens, since the `How` names new modules. Each overlap with an in-flight spec enters the next round as a frontier question: build on its planned state, or revise it separately.
 
 ## Done
 
-The session is done when the user confirms the `How` summary: every branch of the `What` and the `How` visited, nothing left silently assumed. That confirmation is the shared understanding; act on the plan only after it. `/to-spec` turns it into a spec.
+The session is done when the user confirms the `How` summary: every branch of the `What` and the `How` visited, nothing left silently assumed. That confirmation is the shared understanding; act on the plan only after it. `/write-spec` turns it into a spec.

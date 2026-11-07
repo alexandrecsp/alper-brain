@@ -1,6 +1,6 @@
 # Review
 
-The review branch of [`writing-for-agents`](../SKILL.md): check a document against the reference in a fresh context, so it is read the way its consumer reads it, cold, without the intent its author carries. Review in place only a change of a sentence or two to a document you did not write in this conversation.
+The review branch of [`agent-writing`](../SKILL.md): check a document against the reference in a fresh context, so it is read the way its consumer reads it, cold, without the intent its author carries. Review in place only a change of a sentence or two to a document you did not write in this conversation.
 
 1. **Gather the parts.** The document; every file it points to; and every pointer to it: its description, the lines of `AGENTS.md` or `CLAUDE.md` that name it, and every step that invokes it or dispatches to it (grep its name). For an agent definition, also every brief its callers hand it. Done when you hold the absolute path of every part.
 

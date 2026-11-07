@@ -1,4 +1,4 @@
-// Reading the files to-tickets writes into the brain's .sdd/ and /build updates:
+// Reading the files write-tickets writes into the brain's .sdd/ and /build updates:
 // .sdd/specs/NNN-<spec>/milestones/<repo>/NNN-<milestone>/{milestone.md, review.md, NNN-<ticket>.md}
 // A spec ticketed before tracks has no <repo> folder: its milestones sit straight under milestones/.
 

@@ -547,7 +547,7 @@ function render() {
   if (state.section === 'notes') return notesView();
   if (state.section === 'map') return mapView();
   if (!state.specs.length) {
-    empty('No specs yet. Run <code>/to-spec</code> to write one.');
+    empty('No specs yet. Run <code>/write-spec</code> to write one.');
     crumbs(null);
     return sections();
   }
@@ -563,7 +563,7 @@ function render() {
   });
 
   const body = !spec.tickets.length
-    ? `<div class="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 py-16 text-center text-sm text-zinc-500">No tickets yet. Run <code class="font-mono">/to-tickets</code> on this spec.</div>`
+    ? `<div class="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 py-16 text-center text-sm text-zinc-500">No tickets yet. Run <code class="font-mono">/write-tickets</code> on this spec.</div>`
     : state.view === 'kanban' ? kanban(spec) : state.view === 'graph' ? graph(spec) : list(spec);
 
   const scroll = $('main').querySelector('[data-scroll]')?.scrollLeft;
@@ -769,7 +769,7 @@ function card(s) {
   const foot = s.abandoned ? `<p class="truncate text-xs text-zinc-500">Abandoned · ${esc(s.abandoned)}</p>`
     : live.length || closing.length ? `<div class="space-y-0.5">${closing.map((m) => closingRow(m)).join('')}${live.slice(0, 3).map((t) => ticketChip(t)).join('')}${live.length > 3 ? `<p class="px-2 text-xs text-zinc-400">+${live.length - 3} more</p>` : ''}</div>`
     : s.status === 'waiting' ? `<p class="truncate text-xs text-violet-600 dark:text-violet-400">Waiting on ${s.waiting.map((d) => `<span class="font-mono">${esc(numOf(d.id))}</span>`).join(', ')}</p>`
-    : s.status === 'draft' ? `<p class="text-xs text-zinc-500">Run <code class="font-mono">/to-tickets</code> to plan the build.</p>`
+    : s.status === 'draft' ? `<p class="text-xs text-zinc-500">Run <code class="font-mono">/write-tickets</code> to plan the build.</p>`
     : s.status === 'done' ? `<p class="text-xs text-emerald-600 dark:text-emerald-400">✓ All ${plural(s.milestones.length, 'milestone')} complete</p>`
     : next ? `<p class="truncate text-xs text-zinc-500">Next up · <span class="font-mono text-zinc-400">${esc(mName(next))}</span> ${esc(next.title)}</p>` : '';
 
@@ -2351,7 +2351,7 @@ function mapSpecPanel(s) {
     </div>
     ${s.waiting.length ? `<p class="rounded-lg bg-violet-50 px-3 py-2 text-xs text-violet-800 dark:bg-violet-950/50 dark:text-violet-300">Builds after ${s.waiting.map((d) => esc(d.id)).join(', ')}, not landed yet.</p>` : ''}
     ${[...tracks].map(([repo, ms]) => `<div>${mCaps(`<button data-map-pick="r:${esc(repo)}" class="font-mono normal-case tracking-normal hover:text-zinc-900 dark:hover:text-zinc-100">${esc(repo)} →</button>`)}${box(`<div class="divide-y divide-zinc-100 dark:divide-zinc-800/70">${ms.map((m) => msRow(s, m, false)).join('')}</div>`)}</div>`).join('')}
-    ${!s.milestones.length ? `<p class="text-sm text-zinc-500">No tickets yet: <code class="font-mono">/to-tickets ${esc(s.num)}</code> cuts its tracks.</p>` : ''}
+    ${!s.milestones.length ? `<p class="text-sm text-zinc-500">No tickets yet: <code class="font-mono">/write-tickets ${esc(s.num)}</code> cuts its tracks.</p>` : ''}
     <button data-map-spec="${esc(s.id)}" class="w-full rounded-md bg-zinc-900 px-3 py-1.5 text-sm text-white hover:opacity-90 dark:bg-zinc-100 dark:text-zinc-900">Open the spec →</button>
   </div>`;
 }

@@ -10,16 +10,16 @@ Each claim below was checked against the skills as they stand.
 
 | What blocks | Where | What it costs |
 |---|---|---|
-| **The number implies an order** | [to-tickets](../skills/to-tickets/SKILL.md) step 2 numbers milestones across the spec, while **Waves** ([build](../skills/build/SKILL.md) l.22) orders only within a repository and by **Depends on** | `M002` builds beside `M001`, so the number misleads the reader. A repository's branches can also start at `sdd/<spec>/M002`, with no `M001` in that repository |
+| **The number implies an order** | [write-tickets](../skills/write-tickets/SKILL.md) step 2 numbers milestones across the spec, while **Waves** ([build](../skills/build/SKILL.md) l.22) orders only within a repository and by **Depends on** | `M002` builds beside `M001`, so the number misleads the reader. A repository's branches can also start at `sdd/<spec>/M002`, with no `M001` in that repository |
 | **Landing on a repository switch** | build step 1; [LAND.md](../skills/build/references/LAND.md) intro | Each time a wave moves on to another repository, the build stops, rebases, runs suites and asks the user |
 | **Synchronized rounds** | build step 4: "Start the next round once every builder of this one has reported" | The slowest track sets the pace for every track |
-| **Contract order as a build dependency** | [CONTRACT-CHANGE.md](../skills/to-tickets/references/CONTRACT-CHANGE.md): "each migrate's first ticket names the expand's last ticket" | No consumer starts until the producer's expand is squashed |
+| **Contract order as a build dependency** | [CONTRACT-CHANGE.md](../skills/write-tickets/references/CONTRACT-CHANGE.md): "each migrate's first ticket names the expand's last ticket" | No consumer starts until the producer's expand is squashed |
 | **Serial closing** | Waves: "the review's sub-agents run from this session"; review-changes step 4 runs them in the foreground | A sub-agent cannot dispatch sub-agents. This one stays (see **Building**) |
 
 Three corrections to the first analysis:
 
 1. **Today the consumer's stub comes from the producer's code, not from the spec.** [CONTRACTS.md](../skills/tdd/references/CONTRACTS.md) builds each fake "from the producer's code at the commit this milestone builds against", and that is why the migrate waits on the expand. Building in parallel means the fake comes from the spec instead. Checking the fake against the real producer then moves from the migrate's first ticket to the migrate's close. That check needs a gate, described in **Contract changes**.
-2. **The spec does not fix the contract's shape yet.** [SPEC-TEMPLATE.md](../skills/to-spec/references/SPEC-TEMPLATE.md) asks only for "API contracts, naming every other repository that consumes them", which is not enough to build a fake from. Building a consumer from a stub requires the spec to pin the shape.
+2. **The spec does not fix the contract's shape yet.** [SPEC-TEMPLATE.md](../skills/write-spec/references/SPEC-TEMPLATE.md) asks only for "API contracts, naming every other repository that consumes them", which is not enough to build a fake from. Building a consumer from a stub requires the spec to pin the shape.
 3. **Parallel tracks make one existing read unsafe.** CONTRACTS.md reads the producer's code "by absolute path from the producer's root", which is that repository's working tree. While the producer's own track is building, that tree sits on whatever milestone branch is checked out. Every read of another track's code must go through `git -C <root> show <ref>:<path>`, never through the working tree.
 
 ## The model
@@ -44,8 +44,8 @@ The two ties between tracks are different relations, so each gets its own line:
 
 | Relation | Line | Between | Means | Who writes it |
 |---|---|---|---|---|
-| **Depends on** | ticket | tickets, `NNN` or `<slug>/NNN` | this ticket's code builds on that one | to-tickets step 3 |
-| **Lands after** | `milestone.md` | milestones in other tracks, `<slug>/NNN` | this milestone reaches its base only after that one reached its own | to-tickets step 2, by CONTRACT-CHANGE.md |
+| **Depends on** | ticket | tickets, `NNN` or `<slug>/NNN` | this ticket's code builds on that one | write-tickets step 3 |
+| **Lands after** | `milestone.md` | milestones in other tracks, `<slug>/NNN` | this milestone reaches its base only after that one reached its own | write-tickets step 2, by CONTRACT-CHANGE.md |
 
 Inside a track, order needs no line: the track builds and lands in number order. Across tracks, a **Depends on** holds the ticket until the milestone it names is squashed, so the builder reads reviewed, final code. **Lands after** never holds a build back: it orders the landing, and holds a migrate at its contract check (`waits`) until its expand is squashed. (Step 2, still landing on a repository switch, needed a stopgap: a milestone also waited on whatever its **Lands after** target waited on, so a migrate never built ahead of its expand. Step 3's per-track landing and the `waits` phase made it unneeded.)
 
@@ -87,14 +87,14 @@ A milestone is **landable** when all three hold: it is squashed, every earlier m
 - **When it lands.** A track lands only while it is **idle**, between a squash and its next milestone's branch. That keeps a rebase of `sdd/<spec>/spec` from happening under a milestone that is mid-build. In practice, the moment is right after each squash, or at the track's next squash if a gate was still closed.
 - **A prefix, not the whole spec branch.** A gate can hold one milestone back while later ones in the same track are already squashed, for example a contract waiting on its consumers. LAND then fast-forwards the base to the rebased commit of the last landable milestone instead of to the branch tip. Since the rebase rewrites the SHAs, LAND writes each milestone's rebased commit back into its **Squash** line, found by its unique subject among the spec branch's own commits; a fix made while readying a landing is folded into the last squash. A milestone has landed once its **Squash** commit is on its base, and that same commit is its **Landed**, so a call resumed after its merge records exactly what the first would have.
 - **One question per call.** At the start of each `/build` call, ask once whether to land each track **as it goes** or **hold every landing for the end**. Without that, every landing would stop the event loop to ask for approval while builders are still running.
-- **Recording the order.** Each landing appends to a new `**Landings:**` line in `spec.md`, for example `billing-api 001; web-app 001; billing-api 002`. This line is the only record of the order the bases actually took, so [pr](../skills/pr/SKILL.md)'s landings and [SERIES.md](../skills/pr/references/SERIES.md)'s Merge Order read it in place of "milestone order".
+- **Recording the order.** Each landing appends to a new `**Landings:**` line in `spec.md`, for example `billing-api 001; web-app 001; billing-api 002`. This line is the only record of the order the bases actually took, so [open-pr](../skills/open-pr/SKILL.md)'s landings and [SERIES.md](../skills/open-pr/references/SERIES.md)'s Merge Order read it in place of "milestone order".
 
 ## Contract changes
 
 The order stays the same: **expand → migrates → contract**. What changes is where the order lives: it moves from build to landing.
 
-1. **to-spec pins the shape.** Each entry under API contracts gives the route or event, every field with its type and whether it is optional, and the old shape it replaces. The entry must be precise enough for a consumer to fake. The **Done when** of to-spec step 6 checks for this.
-2. **to-tickets cuts by Lands after.** Each migrate has **Lands after** the expand, and the contract has **Lands after** every migrate. No **Depends on** crosses tracks just to hold that order.
+1. **write-spec pins the shape.** Each entry under API contracts gives the route or event, every field with its type and whether it is optional, and the old shape it replaces. The entry must be precise enough for a consumer to fake. The **Done when** of write-spec step 6 checks for this.
+2. **write-tickets cuts by Lands after.** Each migrate has **Lands after** the expand, and the contract has **Lands after** every migrate. No **Depends on** crosses tracks just to hold that order.
 3. **The consumer builds against the spec.** Its fake comes from the pinned shape, and the fixture's comment names the spec and the section the fake was built from (CONTRACTS.md changes accordingly).
 4. **The contract check gate.** Once the expand is squashed, the migrate's check (build step 9) adds one step. A `spec-reviewer` compares each fake against the producer's code at the expand's **Squash**, read with `git show`. When they drift, a fixer runs in the consumer before the squash, so the milestone still squashes into a single commit.
 5. **Fallback.** When the shape cannot be pinned before building, because it is still being discovered, the migrate keeps today's cross-track **Depends on** on the expand's last ticket, and the quiz says why.
@@ -122,16 +122,16 @@ Adapted from Matt Pocock's `handoff` (`skills/productivity/handoff` in mattpococ
 - **User-invoked only** (`disable-model-invocation: true`, as in Pocock's version). Its description then costs no context load, and build's drain needs no skill because its state is already on disk.
 - **Done when** the file ends with the first prompt for the next session (the command plus the handoff's path), and that prompt plus the file's pointers are enough to take the next step without this conversation.
 
-Write the skill by `writing-for-agents`, as CLAUDE.md requires.
+Write the skill by `agent-writing`, as CLAUDE.md requires.
 
 ## What changes per file
 
 | File | Change |
 |---|---|
-| `to-tickets/SKILL.md` | Step 2 cuts tracks and drops "keep a repository's milestones together". Step 3 numbers tickets per track. Step 4's quiz shows tracks and the landing order instead of waves. Step 5 uses the new layout and the new `/build` ids |
-| `to-tickets/references/TEMPLATES.md` | Drop **Repo**, add **Lands after**. A ticket's **Milestone** and **Depends on** take `NNN` or `<slug>/NNN` |
-| `to-tickets/references/CONTRACT-CHANGE.md` | Order held by **Lands after**, build in parallel against the pinned shape, the contract check gate, the fallback |
-| `to-spec/references/SPEC-TEMPLATE.md`, `to-spec/SKILL.md` | API contracts pin the shape; step 6's Done when checks it |
+| `write-tickets/SKILL.md` | Step 2 cuts tracks and drops "keep a repository's milestones together". Step 3 numbers tickets per track. Step 4's quiz shows tracks and the landing order instead of waves. Step 5 uses the new layout and the new `/build` ids |
+| `write-tickets/references/TEMPLATES.md` | Drop **Repo**, add **Lands after**. A ticket's **Milestone** and **Depends on** take `NNN` or `<slug>/NNN` |
+| `write-tickets/references/CONTRACT-CHANGE.md` | Order held by **Lands after**, build in parallel against the pinned shape, the contract check gate, the fallback |
+| `write-spec/references/SPEC-TEMPLATE.md`, `write-spec/SKILL.md` | API contracts pin the shape; step 6's Done when checks it |
 | `tdd/references/CONTRACTS.md` | The consumer's fake comes from the spec's shape, and is checked against the producer at close; read the producer only through `git show` |
 | `build/SKILL.md` | **Waves** becomes tracks and an event loop. Background builders, the closing queue, blocking per track, the `waits` phase, drain points, and Needs-the-user items written to Notes |
 | `build/references/LAND.md` | Landable, idle tracks, landing a prefix, one question per call, the **Landings** line |
@@ -148,7 +148,7 @@ Write the skill by `writing-for-agents`, as CLAUDE.md requires.
 ## What gets harder
 
 - **The orchestrator becomes an event loop.** It is harder to follow than rounds, and it depends on the resume rules being right. That is why the drain exists.
-- **Stub drift shows up later**, at the migrate's close instead of at its first ticket. The fix runs inside the milestone, but a large drift wastes the migrate's tickets. Pinning the shape in to-spec is the defence.
+- **Stub drift shows up later**, at the migrate's close instead of at its first ticket. The fix runs inside the milestone, but a large drift wastes the migrate's tickets. Pinning the shape in write-spec is the defence.
 - **Landing as it goes means more landings**, and so more PRs in a series. Choosing "hold for the end" gives one landing per track, plus the one the contract gate forces.
 - **A single track stays serial.** The spec's wall time becomes the longest track plus the closing queue. Building one track's next milestone during its predecessor's close would need one git worktree per milestone, which this proposal does not take on.
 - **Readers must handle two layouts** until every brain has migrated.
@@ -169,6 +169,6 @@ Write the skill by `writing-for-agents`, as CLAUDE.md requires.
 Each step ships alone:
 
 1. **Layout and ids** (built). Tracks, per-track numbering, `<slug>/NNN` ids, the **Landings** line, the readers (FORMAT, hooks, `brain.html`, SETUP, review-changes, STATUS, IN-FLIGHT), pr and SERIES, and MIGRATE's **Tracks**. The build keeps its rounds and its landing on a repository switch, with waves computed from tracks; contract order is still held by cross-track **Depends on**. **Landings** moved into this step because the global milestone number, which pr used to order a series, is gone.
-2. **Contracts from the spec** (built). **Lands after**, with its waits inherited in **Waves**, the pinned shape (SPEC-TEMPLATE, to-spec), CONTRACTS.md, CONTRACT-CHANGE.md, and the contract check in build step 8. Migrates now build beside their expand. Inside a wave, the expand closes first, so the check never waits: the `waits` phase stays with step 3, where tracks stop sharing waves.
+2. **Contracts from the spec** (built). **Lands after**, with its waits inherited in **Waves**, the pinned shape (SPEC-TEMPLATE, write-spec), CONTRACTS.md, CONTRACT-CHANGE.md, and the contract check in build step 8. Migrates now build beside their expand. Inside a wave, the expand closes first, so the check never waits: the `waits` phase stays with step 3, where tracks stop sharing waves.
 3. **The event loop and landing per track** (built). Background builders, the closing queue, blocking per track, the `waits` phase in the build pane and the brain page, LAND's **Land a track** with prefix landing, and the one landing question per call. Step 2's inherited waits are gone. A landing whose suite fails below the branch's tip stops its track rather than fixing, since the fix would have to rewrite the squashes above it.
 4. **Handoff.** Needs-the-user items in Notes, the drain, and the `handoff` skill.

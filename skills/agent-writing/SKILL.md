@@ -1,6 +1,7 @@
 ---
-name: writing-for-agents
+name: agent-writing
 description: Writing documents for agents. Use when writing or reviewing a skill, an agent definition in agents/, or an AGENTS.md or CLAUDE.md.
+user-invocable: false
 metadata:
   type: reference
 ---

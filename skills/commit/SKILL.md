@@ -27,7 +27,7 @@ Commit in the **working repository**, by [FORMAT.md](../brain/references/FORMAT.
 1. **Find the key**, by the first rule that gives one:
    1. The root is the active brain: no key.
    2. The repository's card, `repos/<slug>/REPO.md` in the brain, holds a `null` `commitKeyPattern`: no key.
-   3. A spec folder, from a `[spec-id]` argument by [SPEC-ID.md](../to-spec/references/SPEC-ID.md) or the one this conversation works in: its `spec.md` **Key** line's one key, or its entry for the repository's slug. `None` means no key.
+   3. A spec folder, from a `[spec-id]` argument by [SPEC-ID.md](../write-spec/references/SPEC-ID.md) or the one this conversation works in: its `spec.md` **Key** line's one key, or its entry for the repository's slug. `None` means no key.
    4. Ask the user for a key, or none.
 
    A key fully matches the card's `commitKeyPattern`; when it does not, ask the user for one that does. A sub-agent, with no user to ask, commits without a key and reports why. Done when you hold a matching key, or know there is none.

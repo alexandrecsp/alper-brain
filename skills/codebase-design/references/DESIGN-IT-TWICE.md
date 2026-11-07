@@ -12,7 +12,7 @@ Explore alternative interfaces for a module with parallel sub-agents. Based on "
    - Agent 4, when a dependency is remote but owned or true external: "Put each remote dependency behind a port the module declares, with an in-memory adapter for tests and the network adapter for production."
    - Agent 5, when the interface is a contract other repositories consume: "Keep every current consumer working unchanged: only add to the contract."
 
-   Every brief's **Docs** line also names the absolute path of [SKILL.md](../SKILL.md), for its vocabulary, and the glossaries of the [domain docs](../../domain-modeling/references/DOMAIN-DOCS.md) when present, so each design names things in the same terms. Each sub-agent returns:
+   Every brief's **Docs** line also names the absolute path of [SKILL.md](../SKILL.md), for its vocabulary, and the glossaries of the [domain docs](../../model-domain/references/DOMAIN-DOCS.md) when present, so each design names things in the same terms. Each sub-agent returns:
 
    1. The interface (types, methods, parameters, plus invariants, ordering, error modes)
    2. A usage example from a caller
@@ -23,4 +23,4 @@ Explore alternative interfaces for a module with parallel sub-agents. Based on "
 
    Done when every sub-agent has returned every part its brief asks for; send a design missing a part back to its agent.
 
-3. **Compare and recommend.** Present the designs one at a time, then compare them in prose by **depth**, **locality** and **seam placement**, and, for a contract, by **contract cost**: which consumers change, and whether expand–contract by [CONTRACT-CHANGE.md](../../to-tickets/references/CONTRACT-CHANGE.md) can carry the change. Recommend the strongest, or a hybrid when parts of several combine well: the user wants a strong read, not a menu. Done when the user has your recommendation.
+3. **Compare and recommend.** Present the designs one at a time, then compare them in prose by **depth**, **locality** and **seam placement**, and, for a contract, by **contract cost**: which consumers change, and whether expand–contract by [CONTRACT-CHANGE.md](../../write-tickets/references/CONTRACT-CHANGE.md) can carry the change. Recommend the strongest, or a hybrid when parts of several combine well: the user wants a strong read, not a menu. Done when the user has your recommendation.

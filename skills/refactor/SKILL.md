@@ -1,5 +1,5 @@
 ---
-name: improve-and-refactor
+name: refactor
 description: Scan the codebase for deepening and refactoring opportunities, show them as a visual HTML report, then brainstorm the one you pick into the spec pipeline.
 argument-hint: "[<repo>] [module, area or pain point]"
 disable-model-invocation: true
@@ -18,7 +18,7 @@ Scan the **working repository**, by [FORMAT.md](../brain/references/FORMAT.md). 
 
 ## Process
 
-1. **Load the vocabulary.** Invoke the `codebase-design` skill, and use its terms exactly in every candidate. Read the repository's [domain docs](../domain-modeling/references/DOMAIN-DOCS.md): modules are named in the glossary's terms ("the Order intake module"), and the candidates respect the ADRs and `decision` notes. Done when you know the terms, the ADR and `decision`-note decisions that bind the repository, its `gotcha` notes, and each `contract` note naming its slug with the repositories that consume it.
+1. **Load the vocabulary.** Invoke the `codebase-design` skill, and use its terms exactly in every candidate. Read the repository's [domain docs](../model-domain/references/DOMAIN-DOCS.md): modules are named in the glossary's terms ("the Order intake module"), and the candidates respect the ADRs and `decision` notes. Done when you know the terms, the ADR and `decision`-note decisions that bind the repository, its `gotcha` notes, and each `contract` note naming its slug with the repositories that consume it.
 
 2. **Scope.** Deepening pays back through future changes, so look where **churn** is. When the user named a module, area or pain point, take it. Otherwise rank the **hot spots** by churn over the last six months (`git -C <root> log --since="6 months ago" --name-only --format=`), skipping lockfiles, generated and vendored code, and group them into areas by [AREAS.md](../brain/references/AREAS.md). Raise an area that a `gotcha` note names, or that holds the **Sources** of a feature note with many rules. When changes are scattered with no hot spot, take every area. Done when you can name the areas to scan, each with why.
 
@@ -43,7 +43,7 @@ Scan the **working repository**, by [FORMAT.md](../brain/references/FORMAT.md). 
 
 4. **Report.** Number the candidates `#1` to `#N`, strongest first; the number is the candidate's handle, so the user picks by it and you refer to it by it from here on. Write the candidates as one self-contained HTML file, the brain's `.sdd/refactors/<repo-slug>/<YYYY-MM-DD-HHmm>.html`, stamped with the branch and `git -C <root> rev-parse --short HEAD`, adding "uncommitted changes" when `git -C <root> status --porcelain` lists any. Build it by [HTML-REPORT.md](references/HTML-REPORT.md). Open it (`cmd /c start "" "<path>"` on Windows, `open` on macOS, `xdg-open` on Linux) and give the user its absolute path. Interfaces wait for step 5: the report names problems and refactors only. List each candidate's number and title in your reply, and ask: "Which of these would you like to explore? Pick by number." Done when the user has picked a candidate, or declined them all.
 
-5. **Brainstorm the pick.** Invoke the `brainstorm` and `domain-modeling` skills, and run the rounds on the candidate by domain-modeling's **Beside brainstorm**.
+5. **Brainstorm the pick.** Invoke the `brainstorm` and `model-domain` skills, and run the rounds on the candidate by model-domain's **Beside brainstorm**.
 
    - **What**: the behaviour that must stay unchanged, the tests that pin it today and those it lacks, and the scope of the refactor.
    - **How**: the deepened module's interface, where its seam sits, what goes behind it, and how each dependency is tested by its category in DEEPENING.md. When the interface is contested, run `codebase-design`'s DESIGN-IT-TWICE.md.
@@ -64,7 +64,7 @@ Scan the **working repository**, by [FORMAT.md](../brain/references/FORMAT.md). 
 
 7. **Hand over.** Give the user the size, the deciding test, and the next step, so they can override it:
 
-   - **Contained**: `/to-tickets`, straight from this conversation with no spec, cutting one milestone of one ticket, then `/build`.
-   - **Staged**: `/to-spec`, then `/to-tickets`, then `/build`. `/to-tickets` cuts a refactor that crosses a contract by its CONTRACT-CHANGE.md (expand in the producer, migrate each consumer, contract), with the producer and every consumer in the spec's **Repos**, and one whose blast radius spans the repository by its WIDE-REFACTOR.md.
+   - **Contained**: `/write-tickets`, straight from this conversation with no spec, cutting one milestone of one ticket, then `/build`.
+   - **Staged**: `/write-spec`, then `/write-tickets`, then `/build`. `/write-tickets` cuts a refactor that crosses a contract by its CONTRACT-CHANGE.md (expand in the producer, migrate each consumer, contract), with the producer and every consumer in the spec's **Repos**, and one whose blast radius spans the repository by its WIDE-REFACTOR.md.
 
    Done when the user has the next step; or, after a rejection, the record offer is answered or skipped for a passing reason, and any record accepted is written.

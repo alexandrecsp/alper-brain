@@ -1,6 +1,7 @@
 ---
 name: tdd
 description: Test-driven development, red then green. Use when the user wants work built test-first, or wants integration tests.
+user-invocable: false
 metadata:
   type: process
 ---
@@ -11,7 +12,7 @@ TDD is the **red → green** loop. This skill makes that loop produce tests wort
 
 Name the **working repository** by [FORMAT.md](../brain/references/FORMAT.md)'s working repository rules (a builder's brief names it in its Context block), or by its **With no brain open** when no brain is open. It must be open, since you write tests and code into it. Run every command as `cd <root> && <command>`, the single filtered test included: with a brain open, each shell call starts in the brain. Its seams are the ones you test: a spec's seams in other repositories belong to their own milestones.
 
-Read the working repository's [domain docs](../domain-modeling/references/DOMAIN-DOCS.md): test names and interface vocabulary use the glossary's terms. When your brief lists the brain notes to read, read those instead of recalling notes yourself.
+Read the working repository's [domain docs](../model-domain/references/DOMAIN-DOCS.md): test names and interface vocabulary use the glossary's terms. When your brief lists the brain notes to read, read those instead of recalling notes yourself.
 
 ## What a good test is
 

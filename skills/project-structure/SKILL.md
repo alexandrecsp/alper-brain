@@ -1,6 +1,7 @@
 ---
 name: project-structure
 description: Folder layout and file names: the working repository's docs/STRUCTURE.md, else the default hexagonal layout for frontend, backend and full-stack apps. Use when creating, moving or naming a file, starting a project, or recording a repository's layout.
+user-invocable: false
 metadata:
   type: reference
 ---
@@ -55,7 +56,7 @@ Use these terms exactly; `port` and `adapter` mean what they mean in `codebase-d
 - **A folder exists once it holds a file.** A display-only frontend module can be just `infrastructure/driving/`.
 - **Tests sit beside the file they test**, where the language allows; use-case tests run at the application seam with in-memory driven adapters.
 - **Another repository is a driven port like any other**, named for what the module needs from it (`InvoiceGateway Port`), so it survives that repository being renamed or split. Its adapter is named for the technology (`Http InvoiceGateway Adapter`); a generated client (OpenAPI, protobuf) lives inside that adapter's technology folder, `infrastructure/driven/<technology>/`, and only that adapter imports it. Its in-memory adapter is what lets this repository's milestone test without the other one running.
-- **A contract's wire shape lives only in infrastructure DTOs**: the producer's driving `Request` and `Response`, or the `Payload` its driven publisher adapter maps a domain event to; the consumer's driven `Payload`, and the `Listener` that receives an event it consumes. Each is one glob away, so a diff that touches one is a contract change ([CONTRACT-CHANGE.md](../to-tickets/references/CONTRACT-CHANGE.md)).
+- **A contract's wire shape lives only in infrastructure DTOs**: the producer's driving `Request` and `Response`, or the `Payload` its driven publisher adapter maps a domain event to; the consumer's driven `Payload`, and the `Listener` that receives an event it consumes. Each is one glob away, so a diff that touches one is a contract change ([CONTRACT-CHANGE.md](../write-tickets/references/CONTRACT-CHANGE.md)).
 
 ## Names
 

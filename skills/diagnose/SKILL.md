@@ -54,7 +54,7 @@ Done when the loop is red on the user's symptom and every remaining element is *
 
 ### 3. Hypothesise
 
-Read the [domain docs](../domain-modeling/references/DOMAIN-DOCS.md) of each repository on the failing path, which recall the brain's notes on it, when it joins the path. A `gotcha` matching the symptom becomes a hypothesis. A `contract` note names the producer and consumers of a boundary the path crosses, and is what the boundary is checked against.
+Read the [domain docs](../model-domain/references/DOMAIN-DOCS.md) of each repository on the failing path, which recall the brain's notes on it, when it joins the path. A `gotcha` matching the symptom becomes a hypothesis. A `contract` note names the producer and consumers of a boundary the path crosses, and is what the boundary is checked against.
 
 Rank 3–5 hypotheses before testing any, each naming the repository its cause sits in; a single hypothesis anchors on the first plausible idea. Each is **falsifiable**, stated as a prediction: "If X is the cause, then changing Y turns the loop green (or changing Z makes it worse)." A hypothesis whose prediction you cannot state gets sharpened or dropped.
 
@@ -79,7 +79,7 @@ Done when one hypothesis has survived its prediction and the others are falsifie
 The fix goes in the repository the root cause sits in. Before changing it, check it is **open** by FORMAT.md; when it is only linked, ask the user to run `/add-dir <root>`, and go to step 6 without a fix. When the cause is two repositories disagreeing across a contract:
 
 - **One side breaks the contract its `contract` note records:** fix that side.
-- **The contract is wrong, unrecorded, or the fix changes a shape another repository calls:** this is a contract change, which lands expand–contract across the repositories ([CONTRACT-CHANGE.md](../to-tickets/references/CONTRACT-CHANGE.md)). Go to step 6 without a fix: its first, fourth and fifth items run, and the report names the root cause, the producer and every consumer, and, with a brain open, offers `/to-spec` to plan it.
+- **The contract is wrong, unrecorded, or the fix changes a shape another repository calls:** this is a contract change, which lands expand–contract across the repositories ([CONTRACT-CHANGE.md](../write-tickets/references/CONTRACT-CHANGE.md)). Go to step 6 without a fix: its first, fourth and fifth items run, and the report names the root cause, the producer and every consumer, and, with a brain open, offers `/write-spec` to plan it.
 
 The regression test goes at a **correct seam**: one where the test exercises the bug pattern as it really occurs at the call site, with every caller and step of the chain the minimised repro proved load-bearing. A correct seam for a bug across a contract is the side of the boundary that broke it, tested by [CONTRACTS.md](../tdd/references/CONTRACTS.md) in that repository's own suite, the consumer's fixture being the recorded boundary payload. A shallower seam (a single-caller test for a multi-caller bug, a unit test that skips the triggering chain) gives false confidence, so a missing correct seam is itself a finding: note it for the report in step 6, and skip the test.
 
@@ -96,7 +96,7 @@ Done when the step 1 loop is green, and the regression test is green or the miss
 1. Remove every tagged log, and delete throwaway harnesses: grepping for the prefix in the root of every repository you instrumented finds none.
 2. Run the full suite of each repository the fix changed, from its root.
 3. Commit in each repository the fix changed, one commit each, with the `commit` skill naming that repository, its details naming the hypothesis that proved right, so the next debugger learns from it.
-4. Report to the user: the root cause and the repository it sits in, the fix, the regression test or the missing seam, and the commit SHAs. When the seam was missing, offer `/improve-and-refactor` to deepen the module so the bug can be locked down.
+4. Report to the user: the root cause and the repository it sits in, the fix, the regression test or the missing seam, and the commit SHAs. When the seam was missing, offer `/refactor` to deepen the module so the bug can be locked down.
 5. Invoke the `brain` skill to record the root cause as a `gotcha` by FORMAT.md, in the notes of the repository the cause sits in, or in `shared/` naming both slugs when the trap is how two repositories meet. When a `contract` note on the path was wrong or silent about the trap, propose its fix in the same list. Skip this when no brain is open, or none of those repositories is registered in it.
 
 Done when the tag grep is empty in every instrumented root, each changed repository's suite passes and holds its commit, the user has the report, and the user has confirmed or declined the gotcha, or no brain is open, or no repository on the path is registered in it.

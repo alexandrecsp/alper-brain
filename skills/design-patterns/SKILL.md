@@ -1,6 +1,7 @@
 ---
 name: design-patterns
 description: Design patterns and the rules for choosing one. Use when deciding whether a problem calls for a pattern, or recording a pattern choice.
+user-invocable: false
 metadata:
   type: reference
 ---
@@ -47,7 +48,7 @@ A spec's rows stay on this machine. A choice the next change must repeat outlive
 - **Domain Event**: one part of the domain must react to something that happened in another part of the same repository, without a direct call. When the reacting part is in another repository, the event is a contract: see **Across repositories**.
 - **Result type**: expected failures must be returned as values the caller handles, not thrown.
 
-**Across repositories**: each sits on a contract, so its `contract` note names the choice, and a change to the contract is cut by `to-tickets`' [CONTRACT-CHANGE.md](../to-tickets/references/CONTRACT-CHANGE.md).
+**Across repositories**: each sits on a contract, so its `contract` note names the choice, and a change to the contract is cut by `write-tickets`' [CONTRACT-CHANGE.md](../write-tickets/references/CONTRACT-CHANGE.md).
 - **Transactional Outbox**: a repository must commit its own change and publish the event or call another repository relies on, and neither may happen without the other.
 - **Idempotent Consumer**: a consumer can receive the same message twice (at-least-once delivery, retries, an outbox relay). Key it on the id the contract note names.
 - **Tolerant Reader**: a consumer must keep working through the producer's expand step: it reads only the fields it uses and ignores the rest. Choose it where a consumer would break on a field it does not use.

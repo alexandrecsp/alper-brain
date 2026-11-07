@@ -19,7 +19,7 @@ Replace each guidance line with its content. Use the terms of the glossary of th
 
 ## Shape
 
-The **milestone shape**, by [DIAGRAMS.md](../../to-spec/references/DIAGRAMS.md).
+The **milestone shape**, by [DIAGRAMS.md](../../write-spec/references/DIAGRAMS.md).
 ```
 
 ## NNN-<ticket-slug>.md
@@ -37,7 +37,7 @@ The **milestone shape**, by [DIAGRAMS.md](../../to-spec/references/DIAGRAMS.md).
 
 ## What to build
 
-The end-to-end behaviour this ticket makes work, from the user's perspective, rather than a layer-by-layer implementation list. When its path calls or offers an interface that a milestone in another repository changes, name that interface's shape as that milestone leaves it, and the milestone as `<slug>/NNN`. Then its **tracer bullet**, by [DIAGRAMS.md](../../to-spec/references/DIAGRAMS.md).
+The end-to-end behaviour this ticket makes work, from the user's perspective, rather than a layer-by-layer implementation list. When its path calls or offers an interface that a milestone in another repository changes, name that interface's shape as that milestone leaves it, and the milestone as `<slug>/NNN`. Then its **tracer bullet**, by [DIAGRAMS.md](../../write-spec/references/DIAGRAMS.md).
 
 ## Design patterns
 

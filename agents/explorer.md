@@ -1,6 +1,6 @@
 ---
 name: explorer
-description: Walks named areas of a codebase for friction and reports refactor candidates. Dispatched by improve-and-refactor.
+description: Walks named areas of a codebase for friction and reports refactor candidates. Dispatched by refactor.
 tools: Read, Grep, Glob, Bash
 model: inherit
 ---
