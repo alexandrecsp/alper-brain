@@ -49,4 +49,4 @@ The spec folder lives in the active brain's `.sdd/specs/`, by FORMAT.md. When no
                └── NNN-<ticket-slug>.md   ← one per ticket
    ```
 
-   Done when every milestone folder has its `milestone.md` and at least one ticket, every diagram slot holds its diagram, and the user has the spec folder's path, `/add-dir <root>` for each repository in **Repos** not open in this session, and the next step, `/build <spec-id>` to build every milestone and land the spec.
+   Write the files in plain prose, by [PROSE.md](../brain/references/PROSE.md), and check the `milestones/` folder by its **Check**. Done when every milestone folder has its `milestone.md` and at least one ticket, every diagram slot holds its diagram, the check prints `prose: ok`, and the user has the spec folder's path, `/add-dir <root>` for each repository in **Repos** not open in this session, and the next step, `/build <spec-id>` to build every milestone and land the spec.

@@ -35,7 +35,7 @@
   ::-webkit-scrollbar-button { display: none; }
   /* The notes graph: one node per note, clustered round its repositories' hubs. */
   :root { --surface: #ffffff; --glyph: #71717a; --nedge: #a1a1aa; --member: #d4d4d8; --label: #52525b; --accent: #10b981;
-    --t-feature: #5b84ae; --t-concept: #3c8f8f; --t-decision: #8775a9; --t-gotcha: #ab6e64; --t-contract: #967d46; --t-how-to: #618d62; --t-other: var(--glyph); }
+    --t-feature: #5b84ae; --t-concept: #3c8f8f; --t-decision: #8775a9; --t-gotcha: #ab6e64; --t-contract: #967d46; --t-how-to: #618d62; --t-topic: var(--label); --t-other: var(--glyph); }
   @media (prefers-color-scheme: dark) {
     :root { --surface: #09090b; --glyph: #a1a1aa; --nedge: #71717a; --member: #3f3f46; --label: #a1a1aa;
       --t-feature: #81a9d2; --t-concept: #68b4b3; --t-decision: #ac9acd; --t-gotcha: #cf9389; --t-contract: #baa16e; --t-how-to: #87b188; }
@@ -50,6 +50,13 @@
   #noteCanvas .nnode.ghost .glyph { --c: var(--glyph); fill: var(--surface); }
   #noteCanvas .nnode.ghost .glyph { stroke-dasharray: 3 2; stroke-opacity: .7; }
   #noteCanvas .nnode.repo .glyph { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+  /* A topic is a hub its members cluster round: a large hexagon in neutral ink, its name always shown. */
+  #noteCanvas .nnode.topic .glyph { fill: color-mix(in oklab, var(--label) 10%, var(--surface)); stroke-width: 2.25; }
+  #noteCanvas .nnode.topic text { display: inline; fill: currentColor; font-size: 11px; font-weight: 600; }
+  #noteCanvas .link.topic { stroke: var(--label); stroke-opacity: .35; }
+  /* A draft is a note only this machine holds, until /brain sync consolidates it; a superseded decision fades. */
+  #noteCanvas .nnode.draft .glyph { stroke-dasharray: 1.5 2.5; fill: var(--surface); }
+  #noteCanvas .nnode.superseded { opacity: .4; }
   #noteCanvas .nnode.match .glyph, #noteCanvas .nnode.selected .glyph { stroke: var(--accent); stroke-width: 3; }
   #noteCanvas .nnode.repo.selected .glyph { stroke: var(--glyph); }
   #noteCanvas .nnode text { fill: var(--label); font-size: 10px; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
@@ -59,12 +66,21 @@
   #noteCanvas .nnode.hover .note-label { display: inline; }
   #doc .wikilink { text-decoration: none; border-bottom: 1px solid currentColor; }
   #doc .wikilink.ghost { border-bottom-style: dashed; opacity: .7; }
+  /* The timeline: one bar per week, its height the changes to the notes that week. */
+  #tlChart .bar { fill: var(--accent); transition: opacity .15s; }
+  #tlChart .hit { fill: transparent; cursor: pointer; }
+  #tlChart .col:hover .bar, #tlChart .col.picked .bar { fill: color-mix(in oklab, var(--accent) 70%, var(--label)); }
+  #tlChart.picking .col:not(.picked) .bar { opacity: .35; }
+  #tlChart .axis text { fill: var(--glyph); font-size: 10px; }
+  #tlChart .axis line, #tlChart .axis path { stroke: var(--member); }
+  #tlChart .grid line { stroke: var(--member); stroke-opacity: .6; }
+  #tlChart .grid path { display: none; }
   /* The map: repositories on a ring, the specs at its centre, each milestone between the spec it serves and the
      repository it builds in. A --s-* token per status colours the milestone, its line and its repository's ring. */
   :root { --s-landed: #10b981; --s-done: #34d399; --s-landing: #14b8a6; --s-active: #f59e0b; --s-attention: #ef4444; --s-blocked: #f43f5e;
     --s-waiting: #8b5cf6; --s-ready: #0ea5e9; --s-draft: #a1a1aa; --s-abandoned: #d4d4d8; --core: #18181b; --core-text: #fafafa; }
   @media (prefers-color-scheme: dark) {
-    :root { --s-draft: #71717a; --s-abandoned: #3f3f46; --core: #f4f4f5; --core-text: #18181b; }
+    :root { --s-draft: #71717a; --s-abandoned: #3f3f46; --core: #27272a; --core-text: #f4f4f5; }
   }
   #mapCanvas svg { cursor: grab; }
   #mapCanvas svg:active { cursor: grabbing; }
@@ -77,6 +93,16 @@
   #mapCanvas .mlink.order, #mapCanvas .mlink.dep { stroke: var(--s-waiting); stroke-opacity: .75; stroke-width: 1.5; }
   #mapCanvas .mlink.order { stroke-dasharray: 5 4; }
   #mapCanvas .arrow { fill: var(--s-waiting); }
+  #mapCanvas .mlink.holds { stroke-opacity: .25; stroke-width: 1; }
+  #mapCanvas .mlink.tdep { stroke-opacity: .7; stroke-width: 1.1; }
+  #mapCanvas .mlink.tdep.settled { stroke-opacity: .3; }
+  #mapCanvas .tarrow { fill: var(--nedge); }
+  #mapCanvas .ticket .dot { fill: var(--c); stroke: var(--surface); stroke-width: 1.5; }
+  #mapCanvas .ticket .dot.todo { fill: var(--surface); stroke: var(--c); }
+  /* A ticket's label shows only where it reads: the ticket hovered, the tickets a hovered ticket or milestone lights,
+     and, zoomed in, the tickets of the spec or repository picked or hovered. */
+  #mapCanvas .ticket .label { display: none; font-size: 9.5px; }
+  #mapCanvas .ticket.hover .label, #mapCanvas .ticket.named .label, #mapCanvas.zoomed .ticket.near .label { display: inline; }
   #mapCanvas .mnode { cursor: pointer; transition: opacity .2s; }
   #mapCanvas .pop { animation: pop .55s cubic-bezier(.2, 1.5, .4, 1) backwards; transform-box: fill-box; transform-origin: center; }
   @keyframes pop { from { transform: scale(0); opacity: 0; } }
@@ -99,7 +125,7 @@
   #mapCanvas .milestone .label { display: none; font-size: 10px; }
   #mapCanvas .milestone.hover .label, #mapCanvas.zoomed .milestone .label { display: inline; }
   #mapCanvas .picked .core, #mapCanvas .picked .dot { stroke: var(--accent); stroke-width: 3.5; }
-  #mapCanvas .match .core, #mapCanvas .match .dot { stroke: var(--accent); stroke-width: 3; }
+  #mapCanvas .match .core, #mapCanvas .match .dot, #mapCanvas .match .dot.todo { stroke: var(--accent); stroke-width: 3; }
   #mapCanvas .dim .mnode:not(.hot), #mapCanvas .dim .mlink:not(.hot) { opacity: .1; }
   @media (prefers-reduced-motion: reduce) { #mapCanvas .halo, #mapCanvas .mlink.flow, #mapCanvas .pop { animation: none; } }
 </style>
@@ -116,6 +142,7 @@
       <button data-section="specs" class="px-3 py-1 rounded">Specs</button>
       <button data-section="map" class="px-3 py-1 rounded" title="What each repository is being built into">Map</button>
       <button data-section="notes" class="px-3 py-1 rounded">Notes</button>
+      <button data-section="timeline" class="px-3 py-1 rounded" title="How the notes changed over time">Timeline</button>
     </nav>
     <nav id="views" class="hidden ml-2 inline-flex rounded-md border border-zinc-200 dark:border-zinc-800 p-0.5 text-sm">
       <button data-view="list" class="px-3 py-1 rounded">List</button>
@@ -177,19 +204,21 @@ const store = {
 };
 
 // The route lives in the hash: #/ is the brain list, #/b/<brain> a brain's specs, #/b/<brain>/spec/<id> one spec,
-// #/b/<brain>/notes its notes, and #/b/<brain>/map its map of what each repository is being built into.
+// #/b/<brain>/notes its notes, #/b/<brain>/map its map of what each repository is being built into, and
+// #/b/<brain>/timeline how its notes changed.
 const route = () => {
-  const m = /^#\/b\/([^/]+)(?:\/(notes|map)|\/spec\/(.+))?$/.exec(location.hash);
+  const m = /^#\/b\/([^/]+)(?:\/(notes|map|timeline)|\/spec\/(.+))?$/.exec(location.hash);
   return m ? { repo: m[1], section: m[2] || 'specs', spec: m[3] ? decodeURIComponent(m[3]) : null } : { repo: null, section: 'specs', spec: null };
 };
 const goRepo = (id) => { location.hash = id ? '#/b/' + id : '#/'; };
 const go = (id) => { location.hash = '#/b/' + state.repo.id + (id ? '/spec/' + encodeURIComponent(id) : ''); };
 const goNotes = () => { location.hash = '#/b/' + state.repo.id + '/notes'; };
 const goMap = () => { location.hash = '#/b/' + state.repo.id + '/map'; };
+const goTimeline = () => { location.hash = '#/b/' + state.repo.id + '/timeline'; };
 
 // Each entry of repos is a brain the user added. The open brain's spec files, specs, notes and name are copied into
 // files, specs, notes and root, so every view reads them as one brain's.
-const state = { repos: [], repo: null, notice: '', files: new Map(), root: '', specs: [], notes: null, section: 'specs', specId: null, view: store.get('view') || 'list', dir: store.get('dir') || 'h', cross: store.get('cross') === '1', filter: store.get('filter') || 'all', sideOpen: store.get('side') !== '0', query: '', doc: null };
+const state = { repos: [], repo: null, notice: '', files: new Map(), root: '', specs: [], notes: null, timeline: null, section: 'specs', specId: null, view: store.get('view') || 'list', dir: store.get('dir') || 'h', cross: store.get('cross') === '1', filter: store.get('filter') || 'all', sideOpen: store.get('side') !== '0', query: '', doc: null };
 
 // ---------- folder access ----------
 
@@ -226,11 +255,11 @@ async function walk(dir, prefix, out) {
 const sameFiles = (a, b) => a.size === b.size && [...a].every(([k, v]) => b.get(k) === v);
 
 // Re-reads one brain and sets its status: 'ok', 'denied' (read permission not granted) or 'missing' (no BRAIN.md at its root).
-// Its specs come from .sdd/specs, which may not exist yet, and its notes from repos/ and shared/.
-// Returns whether its status or files changed.
+// Its specs come from .sdd/specs, which may not exist yet, its notes from repos/ and shared/ with this machine's
+// drafts from .sdd/drafts, and its history from timeline.json. Returns whether its status or files changed.
 async function readRepo(repo) {
   const before = repo.status;
-  let files = null, notes = null;
+  let files = null, notes = null, timeline = '';
   const dirs = [];
   try {
     if ((await repo.handle.queryPermission({ mode: 'read' })) !== 'granted') repo.status = 'denied';
@@ -246,13 +275,17 @@ async function readRepo(repo) {
         if (top === 'repos') for await (const [name, h] of dir.entries()) if (h.kind === 'directory') dirs.push(name);
         await walk(dir, top + '/', notes);
       }
+      try { await walk(await (await repo.handle.getDirectoryHandle('.sdd')).getDirectoryHandle('drafts'), '.sdd/drafts/', notes); } catch {}
+      try { timeline = await (await (await repo.handle.getFileHandle('timeline.json')).getFile()).text(); } catch {}
       repo.status = 'ok';
     }
   } catch { repo.status = 'missing'; }
   if (!files) return repo.status !== before;
   dirs.sort();
-  if (repo.files && sameFiles(files, repo.files) && sameFiles(notes, repo.noteFiles) && dirs.join() === repo.dirs.join()) return repo.status !== before;
+  if (repo.files && sameFiles(files, repo.files) && sameFiles(notes, repo.noteFiles) && dirs.join() === repo.dirs.join() && timeline === repo.timelineText) return repo.status !== before;
   repo.files = files;
+  repo.timelineText = timeline;
+  repo.timeline = parseTimeline(timeline);
   repo.noteFiles = notes;
   repo.dirs = dirs;
   repo.specs = parse(files);
@@ -264,6 +297,7 @@ function sync() {
   state.files = state.repo?.files || new Map();
   state.specs = state.repo?.specs || [];
   state.notes = state.repo?.notes || null;
+  state.timeline = state.repo?.timeline || null;
   state.root = state.repo?.name || '';
 }
 
@@ -546,6 +580,7 @@ function render() {
   }
   if (state.section === 'notes') return notesView();
   if (state.section === 'map') return mapView();
+  if (state.section === 'timeline') return timelineView();
   if (!state.specs.length) {
     empty('No specs yet. Run <code>/write-spec</code> to write one.');
     crumbs(null);
@@ -1585,7 +1620,13 @@ function closeDoc() {
 
 // A note's type is drawn as its shape and its muted colour (the --t-* tokens). Six hues cannot all stay apart
 // for colour-blind readers on a scatter of nodes, so the shape is what tells two similar hues apart.
-const SHAPES = { feature: d3.symbolWye, concept: d3.symbolCircle, decision: d3.symbolSquare, gotcha: d3.symbolTriangle, contract: d3.symbolDiamond, 'how-to': d3.symbolStar, other: d3.symbolCross };
+// A topic's hexagon, drawn like d3's own symbols: centred on the origin, its area the size given.
+const symbolHexagon = { draw(ctx, size) {
+  const r = Math.sqrt(size / (1.5 * Math.sqrt(3)));
+  for (let i = 0; i < 6; i++) { const a = Math.PI / 3 * i - Math.PI / 2; ctx[i ? 'lineTo' : 'moveTo'](r * Math.cos(a), r * Math.sin(a)); }
+  ctx.closePath();
+} };
+const SHAPES = { feature: d3.symbolWye, concept: d3.symbolCircle, decision: d3.symbolSquare, gotcha: d3.symbolTriangle, contract: d3.symbolDiamond, 'how-to': d3.symbolStar, topic: symbolHexagon, other: d3.symbolCross };
 const glyph = (type, size = 150) => d3.symbol().type(SHAPES[type] || SHAPES.other).size(size)();
 const tint = (type) => `var(--t-${SHAPES[type] ? type : 'other'})`;
 const icon = (type) => `<svg class="h-3.5 w-3.5" viewBox="-8 -8 16 16" style="color: ${tint(type)}"><path d="${glyph(type, 70)}" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`;
@@ -1596,12 +1637,68 @@ const WIKI = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]/g;
 // The Notes section's own filters: graph or list, one repository or all, the types hidden, and the search.
 const nv = {
   view: store.get('noteView') || 'graph',
+  // The list's order: 'recent' puts drafts first, then the notes changed last; 'name' groups them by repository.
+  sort: store.get('noteSort') === 'name' ? 'name' : 'recent',
   repo: store.get('noteRepo') || 'all',
   hidden: (() => { try { return new Set(JSON.parse(store.get('noteHidden') || '[]')); } catch { return new Set(); } })(),
   query: '',
+  // The time slider: the index of the timeline commit the graph stands at, or null for now.
+  at: null,
 };
 
-function parseNote(path, text) {
+// timeline.json, by the brain's FORMAT.md **Timeline**; null when the brain has none or it does not parse.
+function parseTimeline(text) {
+  if (!text) return null;
+  try {
+    const t = JSON.parse(text);
+    if (!Array.isArray(t.commits)) return null;
+    const commits = t.commits.map((c) => ({ ...c, changes: Array.isArray(c.changes) ? c.changes : [] }));
+    // Each note's last change and first record, by name, for the notes list.
+    const last = new Map(), first = new Map();
+    for (const c of commits) for (const x of c.changes) {
+      last.set(x.note, { date: c.date, author: c.author, action: x.action, sha: c.sha });
+      if (!first.has(x.note)) first.set(x.note, c.date);
+    }
+    return { commits, last, first };
+  } catch { return null; }
+}
+
+// The names of the notes alive after commit i of the timeline, or null for now. A note no commit holds yet,
+// such as a draft, shows only at now.
+function aliveAt(i) {
+  const commits = state.timeline?.commits;
+  if (i === null || i === undefined || !commits) return null;
+  const alive = new Set();
+  for (const c of commits.slice(0, i + 1)) for (const x of c.changes) {
+    if (x.action === 'deleted') alive.delete(x.note);
+    else {
+      // A move can also join a deleted note and a new one git found alike: the old name goes.
+      if (x.from) alive.delete(x.from.split('/').at(-1).replace(/\.md$/, ''));
+      alive.add(x.note);
+    }
+  }
+  return alive;
+}
+
+function timeSlider() {
+  const commits = state.timeline?.commits || [];
+  $('noteTime').classList.toggle('hidden', !commits.length);
+  $('noteTime').classList.toggle('inline-flex', !!commits.length);
+  if (!commits.length) { nv.at = null; return; }
+  if (nv.at !== null && nv.at >= commits.length) nv.at = null;
+  const input = $('noteAt');
+  input.max = commits.length;
+  input.value = nv.at === null ? commits.length : nv.at;
+  $('noteAtLabel').textContent = nv.at === null ? 'now' : commits[nv.at].date.slice(0, 10);
+}
+
+function parseNote(file, text) {
+  // A draft is read as the note it would land as, at its target.
+  const draft = file.startsWith('.sdd/drafts/');
+  const head = draft ? (/^---\r?\n([\s\S]*?)\r?\n---/.exec(text) || [])[1] || '' : '';
+  const target = draft ? (/^target:\s*(.+)$/m.exec(head) || [])[1]?.trim().replace(/^["']|["']$/g, '') : null;
+  if (draft && !target) return null;
+  const path = draft ? target : file;
   const parts = path.split('/');
   if (parts[0] === 'repos' && parts.length < 3) return null;
   // A repository's card is its hub in the graph, not a note.
@@ -1617,17 +1714,30 @@ function parseNote(path, text) {
   const repos = parts[0] === 'repos' ? [parts[1]]
     : (fm.repos || '').replace(/^\[|\]$/g, '').split(',').map((r) => r.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
   const links = [...new Set([...body.matchAll(WIKI)].map((x) => x[1].trim()))].filter((l) => l !== id);
-  return { id, path, description: fm.description || '', type: SHAPES[fm.type] && fm.type !== 'other' ? fm.type : 'other', repos, shared: parts[0] === 'shared', body, links };
+  return {
+    id, path: file, description: fm.description || '', type: SHAPES[fm.type] && fm.type !== 'other' ? fm.type : 'other', repos, shared: parts[0] === 'shared', body, links,
+    draft: draft ? fm.action || 'record' : null, supersedes: fm.supersedes || null,
+    superseded: fm.status === 'superseded', supersededBy: fm.supersededBy || null,
+  };
 }
 
 // Notes resolve by file name, as Obsidian resolves [[links]]: the first file wins a name used twice, and the rest are reported.
+// A draft adds a node only when it adds a note; one that updates or deletes a note marks that note instead.
 function parseNotes(files, dirs) {
-  const notes = new Map(), dupes = [];
+  const notes = new Map(), dupes = [], drafts = [];
   for (const [path, text] of files) {
     const n = parseNote(path, text);
     if (!n) continue;
-    if (notes.has(n.id)) dupes.push(path);
+    if (n.draft) drafts.push(n);
+    else if (notes.has(n.id)) dupes.push(path);
     else notes.set(n.id, n);
+  }
+  for (const d of drafts) {
+    const own = notes.get(d.id);
+    if (own) own.pending = d.draft;
+    else if (d.draft !== 'delete') notes.set(d.id, d);
+    const old = d.draft === 'supersede' && notes.get(d.supersedes);
+    if (old && old !== d) old.pending = 'supersede';
   }
   const repos = new Set(dirs);
   const ghosts = new Set(), backlinks = new Map();
@@ -1646,6 +1756,9 @@ function parseNotes(files, dirs) {
 function shownNotes() {
   const { notes } = state.notes;
   let keep = [...notes.values()].filter((n) => !nv.hidden.has(n.type));
+  // With the time slider moved back, only the notes alive after that commit.
+  const alive = aliveAt(nv.at);
+  if (alive) keep = keep.filter((n) => alive.has(n.id));
   if (nv.repo !== 'all') {
     const own = new Set(keep.filter((n) => n.repos.includes(nv.repo)).map((n) => n.id));
     const near = new Set(own);
@@ -1671,7 +1784,7 @@ function graphData() {
     nodes.push({ id: 'n:' + n.id, kind: 'note', note: n });
     n.repos.forEach((r) => edges.push({ source: 'n:' + n.id, target: 'r:' + r, kind: 'member' }));
     for (const l of n.links) {
-      if (ids.has(l)) edges.push({ source: 'n:' + n.id, target: 'n:' + l, kind: 'link' });
+      if (ids.has(l)) edges.push({ source: 'n:' + n.id, target: 'n:' + l, kind: n.type === 'topic' ? 'link topic' : 'link' });
       else if (!notes.has(l)) { ghosts.add(l); edges.push({ source: 'n:' + n.id, target: 'g:' + l, kind: 'link' }); }
     }
   }
@@ -1680,6 +1793,8 @@ function graphData() {
 }
 
 const hubR = (d) => 9 + Math.sqrt(d.count) * 2.5;
+const isTopic = (d) => d.kind === 'note' && d.note.type === 'topic';
+const noteClass = (d) => 'nnode ' + d.kind + (d.kind !== 'note' ? '' : (isTopic(d) ? ' topic' : '') + (d.note.draft ? ' draft' : '') + (d.note.superseded ? ' superseded' : ''));
 // Node positions survive a redraw, so a live reload or a filter change never reshuffles the graph.
 const gPos = new Map();
 let gSvg, gRoot, gZoom, gSim, gNodes, gLinks;
@@ -1711,15 +1826,15 @@ function drawGraph() {
 
   gRoot.selectAll('*').remove();
   gLinks = gRoot.append('g').selectAll('line').data(edges).join('line').attr('class', (e) => 'link ' + e.kind);
-  gNodes = gRoot.append('g').selectAll('g').data(nodes).join('g').attr('class', (d) => 'nnode ' + d.kind);
+  gNodes = gRoot.append('g').selectAll('g').data(nodes).join('g').attr('class', noteClass);
   gNodes.append('circle').attr('r', (d) => (d.kind === 'repo' ? hubR(d) + 6 : 14)).attr('fill', 'transparent');
   gNodes.filter((d) => d.kind === 'repo').append('circle').attr('class', 'glyph').attr('r', hubR);
-  gNodes.filter((d) => d.kind !== 'repo').append('path').attr('class', 'glyph').attr('d', (d) => glyph(d.kind === 'ghost' ? 'concept' : d.note.type))
+  gNodes.filter((d) => d.kind !== 'repo').append('path').attr('class', 'glyph').attr('d', (d) => glyph(d.kind === 'ghost' ? 'concept' : d.note.type, isTopic(d) ? 520 : 150))
     .style('--c', (d) => (d.kind === 'note' ? tint(d.note.type) : null));
   gNodes.append('text')
     .attr('class', (d) => (d.kind === 'repo' ? '' : 'note-label'))
     .attr('text-anchor', 'middle')
-    .attr('dy', (d) => (d.kind === 'repo' ? hubR(d) + 16 : 20))
+    .attr('dy', (d) => (d.kind === 'repo' ? hubR(d) + 16 : isTopic(d) ? 28 : 20))
     .text((d) => (d.kind === 'note' ? d.note.id : d.label));
 
   gNodes
@@ -1742,16 +1857,13 @@ function drawGraph() {
       ev.stopPropagation();
       if (d.kind === 'repo') setNoteRepo(nv.repo === d.label ? 'all' : d.label);
       else openNote(d.kind === 'note' ? d.note.id : d.label);
-    })
-    .call(d3.drag()
-      .on('start', (ev, d) => { if (!ev.active) gSim.alphaTarget(0.2).restart(); d.fx = d.x; d.fy = d.y; })
-      .on('drag', (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
-      .on('end', (ev, d) => { if (!ev.active) gSim.alphaTarget(0); d.fx = null; d.fy = null; }));
+    });
+  // Nodes cannot be dragged: a drag reheats the whole simulation on every move, and a large graph stutters under it.
 
   gSim = d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(edges).id((d) => d.id).distance((e) => (e.kind === 'member' ? 70 : 100)).strength((e) => (e.kind === 'member' ? 0.5 : 0.2)))
-    .force('charge', d3.forceManyBody().strength((d) => (d.kind === 'repo' ? -500 : -140)))
-    .force('collide', d3.forceCollide((d) => (d.kind === 'repo' ? hubR(d) + 14 : 18)))
+    .force('link', d3.forceLink(edges).id((d) => d.id).distance((e) => (e.kind === 'member' ? 70 : e.kind === 'link topic' ? 60 : 100)).strength((e) => (e.kind === 'member' ? 0.5 : 0.2)))
+    .force('charge', d3.forceManyBody().strength((d) => (d.kind === 'repo' ? -500 : isTopic(d) ? -300 : -140)))
+    .force('collide', d3.forceCollide((d) => (d.kind === 'repo' ? hubR(d) + 14 : isTopic(d) ? 26 : 18)))
     .force('x', d3.forceX().strength(0.03))
     .force('y', d3.forceY().strength(0.03))
     .alpha(fresh ? 1 : 0.15)
@@ -1791,7 +1903,7 @@ function showTip(ev, d) {
   const tip = $('noteTip');
   if (d.kind === 'repo') tip.innerHTML = `<div class="font-semibold">${esc(d.label)}</div><div class="mt-0.5 text-zinc-500">${plural(d.count, 'note')}. Click to show only this repository.</div>`;
   else if (d.kind === 'ghost') tip.innerHTML = `<div class="font-mono">${esc(d.label)}</div><div class="mt-0.5 text-zinc-500">Not written yet.</div>`;
-  else tip.innerHTML = `<div class="flex items-center gap-1.5 font-mono">${icon(d.note.type)}${esc(d.note.id)}</div><div class="mt-1 text-zinc-600 dark:text-zinc-300">${esc(d.note.description)}</div>`;
+  else tip.innerHTML = `<div class="flex items-center gap-1.5 font-mono">${icon(d.note.type)}${esc(d.note.id)}</div><div class="mt-1 text-zinc-600 dark:text-zinc-300">${esc(d.note.description)}</div>${noteState(d.note) ? `<div class="mt-1 text-zinc-500">${noteState(d.note)}</div>` : ''}`;
   tip.classList.remove('hidden');
   moveTip(ev);
 }
@@ -1802,14 +1914,35 @@ function moveTip(ev) {
   tip.style.top = Math.min(ev.clientY + 14, innerHeight - tip.offsetHeight - 8) + 'px';
 }
 
+// A note's status in the list: a draft and its action, a draft waiting to change it, or superseded.
+function statusChip(n) {
+  const chip = (text, cls) => `<span class="whitespace-nowrap rounded border px-1.5 py-0.5 font-mono text-[11px] ${cls}">${text}</span>`;
+  const dashed = 'border-dashed border-zinc-400 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300';
+  if (n.draft) return chip(`draft · ${esc(n.draft)}`, dashed);
+  if (n.pending) return chip(`${esc(n.pending)} drafted`, dashed);
+  if (n.superseded) return chip('superseded', 'border-zinc-200 dark:border-zinc-700 text-zinc-500');
+  return '';
+}
+const lastOf = (n) => (n.draft ? null : state.timeline?.last.get(n.id) || null);
+function changedCell(n) {
+  if (n.draft) return '<span class="text-zinc-500">this machine</span>';
+  const l = lastOf(n);
+  if (!l) return `<span class="text-zinc-400" title="${state.timeline ? 'Not in timeline.json yet' : 'No timeline.json yet: /brain sync writes it'}">—</span>`;
+  const since = state.timeline.first.get(n.id);
+  return `<span title="${esc(`${ACTION_LABEL[l.action] || l.action} by ${l.author} in ${l.sha}` + (since ? ` · first recorded ${shortDate(since)}` : ''))}">${esc(shortDate(l.date))}</span><span class="block text-[11px] text-zinc-500">${esc(l.author)}</span>`;
+}
+const draftRank = (n) => (n.draft ? 0 : n.pending ? 1 : 2);
+
 function noteList() {
-  const rows = shownNotes().sort((a, b) => a.repos.join().localeCompare(b.repos.join()) || a.id.localeCompare(b.id));
+  const byName = (a, b) => a.repos.join().localeCompare(b.repos.join()) || a.id.localeCompare(b.id);
+  const rows = shownNotes().sort(nv.sort === 'name' ? byName
+    : (a, b) => draftRank(a) - draftRank(b) || (lastOf(b)?.date || '').localeCompare(lastOf(a)?.date || '') || byName(a, b));
   const q = nv.query.trim().toLowerCase();
   const hit = (n) => q && `${n.id} ${n.description}`.toLowerCase().includes(q);
   $('noteList').innerHTML = !rows.length ? `<p class="py-16 text-center text-sm text-zinc-500">No notes match these filters.</p>` : `
     <table class="mx-auto w-full max-w-6xl text-sm">
       <thead class="text-left font-mono text-xs uppercase tracking-widest text-zinc-500">
-        <tr><th class="py-2 pr-4">Note</th><th class="py-2 pr-4">Type</th><th class="py-2 pr-4">Repositories</th><th class="py-2 pr-4">Description</th><th class="py-2">Links</th></tr>
+        <tr><th class="py-2 pr-4">Note</th><th class="py-2 pr-4">Type</th><th class="py-2 pr-4">Repositories</th><th class="py-2 pr-4">Description</th><th class="py-2 pr-4">Status</th><th class="py-2 pr-4">Changed</th><th class="py-2">Links</th></tr>
       </thead>
       <tbody>${rows.map((n) => `
         <tr data-note="${esc(n.id)}" class="cursor-pointer border-t border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 ${hit(n) ? 'bg-emerald-50 dark:bg-emerald-950/30' : ''}">
@@ -1817,6 +1950,8 @@ function noteList() {
           <td class="py-2 pr-4"><span class="inline-flex items-center gap-1.5">${icon(n.type)}${esc(n.type)}</span></td>
           <td class="py-2 pr-4">${n.repos.map(repoChip).join(' ')}</td>
           <td class="py-2 pr-4 text-zinc-600 dark:text-zinc-300">${esc(n.description)}</td>
+          <td class="py-2 pr-4">${statusChip(n)}</td>
+          <td class="py-2 pr-4 whitespace-nowrap text-xs tabular-nums">${changedCell(n)}</td>
           <td class="py-2 tabular-nums text-zinc-500">${n.links.length}</td>
         </tr>`).join('')}
       </tbody>
@@ -1849,10 +1984,19 @@ function resolveNote(ref) {
   });
   return {
     label: 'Note', path: n.path, shown: n.path, accent: 'bg-gradient-to-r from-emerald-400 to-sky-500', title: n.id,
-    kicker: `<span class="inline-flex items-center gap-1.5">${icon(n.type)}${esc(n.type)}</span>${n.shared ? '<span class="text-zinc-300 dark:text-zinc-700">·</span><span>shared</span>' : ''}`,
-    badges: n.repos.map(repoChip).join('') + (n.description ? `<p class="w-full text-sm text-zinc-600 dark:text-zinc-300">${esc(n.description)}</p>` : ''),
+    kicker: `<span class="inline-flex items-center gap-1.5">${icon(n.type)}${esc(n.type)}</span>${n.shared ? '<span class="text-zinc-300 dark:text-zinc-700">·</span><span>shared</span>' : ''}${n.draft ? '<span class="text-zinc-300 dark:text-zinc-700">·</span><span>draft</span>' : n.superseded ? '<span class="text-zinc-300 dark:text-zinc-700">·</span><span>superseded</span>' : ''}`,
+    badges: n.repos.map(repoChip).join('') + (n.description ? `<p class="w-full text-sm text-zinc-600 dark:text-zinc-300">${esc(n.description)}</p>` : '') + (noteState(n) ? `<p class="w-full text-xs text-zinc-500">${noteState(n)}</p>` : ''),
     html: tasks(marked.parse(body)) + linkList('Links to', n.links) + linkList('Linked from', from),
   };
+}
+
+// What a note waits on or became: a draft only this machine holds, a pending change, or a superseded decision.
+const DRAFT_ACTION = { record: 'New draft', update: 'Draft update', supersede: 'Draft decision', delete: 'Draft deletion' };
+function noteState(n) {
+  if (n.draft) return `${DRAFT_ACTION[n.draft] || 'Draft'}${n.draft === 'supersede' && n.supersedes ? ', superseding ' + esc(n.supersedes) : ''}: only this machine holds it, until <code>/brain sync</code>.`;
+  if (n.superseded) return `Superseded${n.supersededBy ? ' by ' + esc(n.supersededBy) : ''}.`;
+  if (n.pending) return `A draft ${n.pending === 'delete' ? 'deletes' : n.pending === 'supersede' ? 'supersedes' : 'updates'} it at the next <code>/brain sync</code>.`;
+  return '';
 }
 
 function setNoteRepo(r) {
@@ -1873,10 +2017,15 @@ function noteBar() {
     return `<button data-type="${t}" aria-pressed="${!off}" title="${off ? 'Show' : 'Hide'} ${t} notes" class="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 dark:border-zinc-800 px-2 py-1 text-xs ${off ? 'opacity-40 line-through' : ''}">${icon(t)}${t}<span class="tabular-nums text-zinc-500">${counts[t] || 0}</span></button>`;
   }).join('');
   const links = [...b.notes.values()].reduce((n, x) => n + x.links.length, 0);
-  $('noteStats').textContent = `${plural(b.notes.size, 'note')} · ${plural(b.repos.length, 'repo')} · ${plural(links, 'link')} · ${b.ghosts.size} unwritten`;
+  const drafts = [...b.notes.values()].filter((n) => n.draft || n.pending).length;
+  $('noteStats').textContent = `${plural(b.notes.size, 'note')} · ${plural(b.repos.length, 'repo')} · ${plural(links, 'link')} · ${b.ghosts.size} unwritten` + (drafts ? ` · ${plural(drafts, 'draft')}` : '');
+  timeSlider();
   $('noteWarn').classList.toggle('hidden', !b.dupes.length);
   $('noteWarn').innerHTML = !b.dupes.length ? '' : `Each name must be unique across the brain, so <code>[[links]]</code> resolve to only the first file named so. Rename: ${b.dupes.map((x) => `<code class="font-mono">${esc(x)}</code>`).join(', ')}`;
   document.querySelectorAll('#noteViews [data-note-view]').forEach((btn) => (btn.className = 'px-3 py-1 rounded ' + (btn.dataset.noteView === nv.view ? 'bg-zinc-100 dark:bg-zinc-800 font-medium' : 'text-zinc-500')));
+  $('noteSort').classList.toggle('hidden', nv.view !== 'list');
+  $('noteSort').classList.toggle('inline-flex', nv.view === 'list');
+  document.querySelectorAll('#noteSort [data-note-sort]').forEach((btn) => (btn.className = 'px-3 py-1 rounded ' + (btn.dataset.noteSort === nv.sort ? 'bg-zinc-100 dark:bg-zinc-800 font-medium' : 'text-zinc-500')));
   $('noteEmpty').classList.toggle('hidden', b.notes.size > 0 || b.repos.length > 0);
 }
 
@@ -1903,9 +2052,17 @@ function notesView() {
           <button data-note-view="graph" class="px-3 py-1 rounded">Graph</button>
           <button data-note-view="list" class="px-3 py-1 rounded">List</button>
         </span>
+        <span id="noteSort" class="hidden rounded-md border border-zinc-200 dark:border-zinc-800 p-0.5" title="Order of the list">
+          <button data-note-sort="recent" class="px-3 py-1 rounded">Recent</button>
+          <button data-note-sort="name" class="px-3 py-1 rounded">Name</button>
+        </span>
         <input id="noteSearch" type="search" placeholder="Search notes" class="w-56 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-2.5 py-1 outline-none focus:border-emerald-500">
         <select id="noteRepo" class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-2 py-1" title="Show one repository's notes and their neighbours"></select>
         <div id="noteTypes" class="flex flex-wrap gap-1" aria-label="Note types"></div>
+        <label id="noteTime" class="hidden items-center gap-2 text-xs text-zinc-500" title="Show the notes as they stood after a commit">
+          <input id="noteAt" type="range" min="0" step="1" class="w-40 accent-emerald-500" aria-label="Show the notes as of">
+          <span id="noteAtLabel" class="font-mono tabular-nums"></span>
+        </label>
         <div id="noteStats" class="ml-auto font-mono text-xs text-zinc-500"></div>
       </div>
       <div id="noteWarn" class="hidden border-b border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40 px-4 py-1.5 text-xs"></div>
@@ -1930,6 +2087,11 @@ function notesView() {
       if (d) focusNote(nodeName(d));
     };
     $('noteRepo').onchange = (e) => setNoteRepo(e.target.value);
+    $('noteAt').oninput = (e) => {
+      const commits = state.timeline?.commits || [];
+      nv.at = Number(e.target.value) >= commits.length ? null : Number(e.target.value);
+      renderNotes();
+    };
     $('noteTypes').onclick = (e) => {
       const t = e.target.closest('[data-type]')?.dataset.type;
       if (!t) return;
@@ -1937,6 +2099,11 @@ function notesView() {
       store.set('noteHidden', JSON.stringify([...nv.hidden]));
       renderNotes();
     };
+    document.querySelectorAll('#noteSort [data-note-sort]').forEach((btn) => (btn.onclick = () => {
+      nv.sort = btn.dataset.noteSort;
+      store.set('noteSort', nv.sort);
+      renderNotes();
+    }));
     document.querySelectorAll('#noteViews [data-note-view]').forEach((btn) => (btn.onclick = () => {
       nv.view = btn.dataset.noteView;
       store.set('noteView', nv.view);
@@ -1946,14 +2113,210 @@ function notesView() {
   renderNotes();
 }
 
+// ---------- timeline ----------
+
+// The Timeline section shows how the brain's knowledge grew: one bar per week of changes to the notes, from the
+// committed timeline.json, then each commit's changes, newest first. Clicking a week narrows the list to it.
+const tv = { repo: store.get('tlRepo') || 'all', kind: store.get('tlKind') || 'all', week: null };
+const ACTION_LABEL = { recorded: 'Recorded', updated: 'Updated', superseded: 'Superseded', deleted: 'Deleted', moved: 'Moved' };
+const ACTION_ORDER = ['recorded', 'updated', 'superseded', 'moved', 'deleted'];
+const DAY = 864e5;
+
+// The Monday a date's week starts on, as YYYY-MM-DD in UTC.
+function weekOf(iso) {
+  const d = new Date(iso);
+  d.setUTCHours(0, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+}
+const shortDate = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+const longDate = (iso) => new Date(iso).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+
+// The commits whose changes the filters keep, each with only those changes.
+function tlCommits() {
+  return (state.timeline?.commits || []).map((c) => ({
+    ...c,
+    shown: c.changes.filter((x) => (tv.repo === 'all' || (x.repos || []).includes(tv.repo)) && (tv.kind === 'all' || x.kind === tv.kind)),
+  })).filter((c) => c.shown.length);
+}
+
+// Every week from the first commit's to the last's, empty weeks included, so the bars keep time's spacing.
+function tlWeeks(commits) {
+  if (!commits.length) return [];
+  const by = new Map();
+  for (const c of commits) {
+    const w = weekOf(c.date);
+    if (!by.has(w)) by.set(w, []);
+    by.get(w).push(c);
+  }
+  const out = [];
+  // A rebase can leave author dates out of history order, so the range runs from the earliest date to the latest.
+  const times = commits.map((c) => Date.parse(weekOf(c.date)));
+  for (let t = Math.min(...times), end = Math.max(...times); t <= end; t += 7 * DAY) {
+    const w = new Date(t).toISOString().slice(0, 10);
+    const cs = by.get(w) || [];
+    const actions = {};
+    cs.forEach((c) => c.shown.forEach((x) => (actions[x.action] = (actions[x.action] || 0) + 1)));
+    out.push({ week: w, commits: cs, count: cs.reduce((n, c) => n + c.shown.length, 0), actions });
+  }
+  return out;
+}
+
+const weekTip = (d) => `<div class="font-semibold">Week of ${esc(shortDate(d.week))}</div>`
+  + `<div class="mt-0.5 text-zinc-600 dark:text-zinc-300">${plural(d.count, 'change')} in ${plural(d.commits.length, 'commit')}</div>`
+  + (d.count ? `<div class="mt-0.5 text-zinc-500">${ACTION_ORDER.filter((a) => d.actions[a]).map((a) => `${d.actions[a]} ${ACTION_LABEL[a].toLowerCase()}`).join(' · ')}</div>` : '');
+
+// A bar whose top corners round and whose foot sits square on the baseline.
+function barPath(x, y, w, h) {
+  const r = Math.min(4, w / 2, h);
+  return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
+}
+
+function drawTimelineChart(weeks) {
+  const host = $('tlChart');
+  if (!host) return;
+  host.innerHTML = '';
+  host.classList.toggle('picking', !!tv.week);
+  if (!weeks.length) return;
+  const { width } = host.getBoundingClientRect();
+  const height = 180, m = { top: 10, right: 8, bottom: 22, left: 32 };
+  const x = d3.scaleBand().domain(weeks.map((d) => d.week)).range([m.left, width - m.right]).paddingInner(weeks.length > 1 ? 0.2 : 0).paddingOuter(0.1);
+  const y = d3.scaleLinear().domain([0, d3.max(weeks, (d) => d.count) || 1]).nice().range([height - m.bottom, m.top]);
+  const svg = d3.select(host).append('svg').attr('width', width).attr('height', height).attr('role', 'img')
+    .attr('aria-label', `Changes to the notes per week, ${weeks.length} weeks`);
+  svg.append('g').attr('class', 'grid').attr('transform', `translate(${m.left},0)`)
+    .call(d3.axisLeft(y).ticks(4).tickSize(-(width - m.left - m.right)).tickFormat(''));
+  svg.append('g').attr('class', 'axis').attr('transform', `translate(${m.left},0)`)
+    .call(d3.axisLeft(y).ticks(4, 'd').tickSize(0).tickPadding(6)).call((g) => g.select('.domain').remove());
+  const every = Math.max(1, Math.ceil(weeks.length / Math.max(1, Math.floor(width / 70))));
+  svg.append('g').attr('class', 'axis').attr('transform', `translate(0,${height - m.bottom})`)
+    .call(d3.axisBottom(x).tickValues(weeks.filter((_, i) => i % every === 0).map((d) => d.week)).tickFormat(shortDate).tickSizeOuter(0));
+  const bw = Math.min(x.bandwidth(), 28);
+  const col = svg.append('g').selectAll('g').data(weeks).join('g')
+    .attr('class', (d) => 'col' + (d.week === tv.week ? ' picked' : ''));
+  col.filter((d) => d.count).append('path').attr('class', 'bar')
+    .attr('d', (d) => barPath(x(d.week) + (x.bandwidth() - bw) / 2, y(d.count), bw, y(0) - y(d.count)));
+  col.append('rect').attr('class', 'hit').attr('x', (d) => x(d.week)).attr('width', x.bandwidth()).attr('y', m.top).attr('height', height - m.top - m.bottom)
+    .on('mouseenter', (ev, d) => { $('noteTip').innerHTML = weekTip(d); $('noteTip').classList.remove('hidden'); moveTip(ev); })
+    .on('mousemove', moveTip)
+    .on('mouseleave', () => $('noteTip').classList.add('hidden'))
+    .on('click', (ev, d) => {
+      if (!d.count) return;
+      tv.week = tv.week === d.week ? null : d.week;
+      renderTimeline();
+    });
+}
+
+function changeChip(x) {
+  const live = state.notes?.notes.has(x.note) && x.action !== 'deleted';
+  const name = live
+    ? `<button data-note="${esc(x.note)}" class="font-mono hover:text-emerald-600 dark:hover:text-emerald-400">${esc(x.note)}</button>`
+    : `<span class="font-mono text-zinc-500 ${x.action === 'deleted' ? 'line-through' : ''}" title="${x.action === 'deleted' ? 'Deleted' : 'No longer in the brain'}">${esc(x.note)}</span>`;
+  return `<span class="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 dark:border-zinc-800 px-2 py-0.5 text-xs">${icon(x.type)}${name}<span class="text-zinc-500">${esc((ACTION_LABEL[x.action] || x.action).toLowerCase())}${x.kind === 'explored' ? ' · explored' : ''}</span></span>`;
+}
+
+function tlList(commits) {
+  const rows = [...commits].reverse().filter((c) => !tv.week || weekOf(c.date) === tv.week);
+  if (!rows.length) return `<p class="py-12 text-center text-sm text-zinc-500">No changes match these filters.</p>`;
+  const days = [];
+  for (const c of rows) {
+    const day = longDate(c.date);
+    if (days.at(-1)?.day !== day) days.push({ day, commits: [] });
+    days.at(-1).commits.push(c);
+  }
+  return days.map((d) => `
+    <section class="mt-6">
+      <h3 class="mb-2 font-mono text-xs uppercase tracking-widest text-zinc-500">${esc(d.day)}</h3>
+      <ol class="space-y-3">${d.commits.map((c) => `
+        <li class="rounded-xl border border-zinc-200 dark:border-zinc-800 px-4 py-3">
+          <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span class="font-medium">${esc(c.title)}</span>
+            <span class="text-xs text-zinc-500">${esc(c.author)} · <span class="font-mono">${esc(c.sha)}</span></span>
+          </div>
+          <div class="mt-2 flex flex-wrap gap-1.5">${c.shown.map(changeChip).join('')}</div>
+        </li>`).join('')}
+      </ol>
+    </section>`).join('');
+}
+
+// The drafts this machine holds, as changes not yet committed: new notes, and the notes a draft changes.
+function tlDrafts() {
+  const rows = [...(state.notes?.notes.values() || [])].filter((n) => (n.draft || n.pending) && (tv.repo === 'all' || n.repos.includes(tv.repo)) && tv.kind !== 'explored');
+  if (!rows.length) return '';
+  const chip = (n) => `<span class="inline-flex items-center gap-1.5 rounded-md border border-dashed border-zinc-300 dark:border-zinc-700 px-2 py-0.5 text-xs">${icon(n.type)}<button data-note="${esc(n.id)}" class="font-mono hover:text-emerald-600 dark:hover:text-emerald-400">${esc(n.id)}</button><span class="text-zinc-500">${esc(n.draft || n.pending)}</span></span>`;
+  return `
+    <section class="mt-6">
+      <h3 class="mb-2 font-mono text-xs uppercase tracking-widest text-zinc-500">On this machine · not yet shared</h3>
+      <div class="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 px-4 py-3">
+        <div class="text-sm text-zinc-600 dark:text-zinc-300">${plural(rows.length, 'draft')}, waiting for <code>/brain sync</code> to consolidate ${rows.length === 1 ? 'it' : 'them'}</div>
+        <div class="mt-2 flex flex-wrap gap-1.5">${rows.map(chip).join('')}</div>
+      </div>
+    </section>`;
+}
+
+function renderTimeline() {
+  const commits = tlCommits();
+  const weeks = tlWeeks(commits);
+  if (tv.week && !weeks.some((w) => w.week === tv.week && w.count)) tv.week = null;
+  const all = state.timeline?.commits || [];
+  const repos = [...new Set([...(state.notes?.repos || []), ...all.flatMap((c) => c.changes.flatMap((x) => x.repos || []))])].sort();
+  if (tv.repo !== 'all' && !repos.includes(tv.repo)) tv.repo = 'all';
+  $('tlRepo').innerHTML = `<option value="all">All repositories</option>` + repos.map((r) => `<option value="${esc(r)}" ${r === tv.repo ? 'selected' : ''}>${esc(r)}</option>`).join('');
+  $('tlKind').value = tv.kind;
+  const changes = commits.reduce((n, c) => n + c.shown.length, 0);
+  $('tlStats').textContent = commits.length ? `${plural(changes, 'change')} in ${plural(commits.length, 'commit')} since ${shortDate(commits[0].date)}` : '';
+  $('tlNone').classList.toggle('hidden', !!state.timeline);
+  $('tlWeek').innerHTML = !tv.week ? '' : `Week of ${esc(shortDate(tv.week))} <button id="tlClear" class="ml-1 underline hover:text-zinc-900 dark:hover:text-zinc-100">Show every week</button>`;
+  if ($('tlClear')) $('tlClear').onclick = () => { tv.week = null; renderTimeline(); };
+  drawTimelineChart(weeks);
+  $('tlList').innerHTML = tlDrafts() + (state.timeline ? tlList(commits) : '');
+}
+
+function timelineView() {
+  crumbs(null);
+  sections();
+  $('views').classList.add('hidden');
+  $('side').className = 'hidden';
+  $('inspect').className = 'hidden';
+  const drafts = [...(state.notes?.notes.values() || [])].some((n) => n.draft || n.pending);
+  if (!state.timeline && !drafts) {
+    $('timeline')?.remove();
+    empty('No timeline yet. <code>/brain sync</code> writes <code>timeline.json</code> from the brain\'s history and commits it, so every teammate sees the same one.');
+    crumbs(null);
+    return sections();
+  }
+  if (!$('timeline')) {
+    $('main').innerHTML = `<div id="timeline" class="mx-auto max-w-6xl">
+      <div class="flex flex-wrap items-center gap-2 text-sm">
+        <h2 class="mr-2 text-lg font-semibold tracking-tight">Changes to the notes per week</h2>
+        <select id="tlRepo" class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-2 py-1" title="Only one repository's notes"></select>
+        <select id="tlKind" class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-2 py-1" title="Authored notes, explored notes, or both">
+          <option value="all">All notes</option><option value="authored">Authored</option><option value="explored">Explored</option>
+        </select>
+        <div id="tlStats" class="ml-auto font-mono text-xs text-zinc-500"></div>
+      </div>
+      <p id="tlNone" class="mt-4 hidden rounded-xl border border-zinc-200 dark:border-zinc-800 px-4 py-3 text-sm text-zinc-500">No history yet: <code>/brain sync</code> writes <code>timeline.json</code> from the brain's commits and shares it, so every teammate sees the same one.</p>
+      <div id="tlChart" class="mt-4 w-full"></div>
+      <div id="tlWeek" class="mt-2 text-xs text-zinc-500"></div>
+      <div id="tlList"></div>
+    </div>`;
+    $('tlRepo').onchange = (e) => { tv.repo = e.target.value; store.set('tlRepo', tv.repo); renderTimeline(); };
+    $('tlKind').onchange = (e) => { tv.kind = e.target.value; store.set('tlKind', tv.kind); renderTimeline(); };
+  }
+  renderTimeline();
+}
+
+window.addEventListener('resize', () => { if (state.section === 'timeline' && $('tlChart')) renderTimeline(); });
+
 // ---------- map ----------
 
 // The Map section shows what each repository is being built into. Each repository is a hub on a ring, ringed by one
 // segment per milestone it builds; the specs sit at the centre; each milestone hangs between the spec it serves and
 // the repository it builds in, and its line into the repository moves while work runs there. Violet arrows are
 // order: a milestone that lands after another, a spec built after another.
-const mv = { scope: store.get('mapScope') === 'all' ? 'all' : 'flight', sel: null, query: '' };
-// Positions survive a redraw, as in the notes graph; a repository dragged off its place on the ring stays there.
+// With tickets on, each milestone carries its tickets as small dots, and grey arrows run from a ticket to those that depend on it.
+const mv = { scope: store.get('mapScope') === 'all' ? 'all' : 'flight', tickets: store.get('mapTickets') !== '0', sel: null, query: '' };
+// Positions survive a redraw, as in the notes graph.
 const mPos = new Map();
 // The map fits the window until the user pans or zooms it; Fit hands it back.
 let mSvg, mRoot, mZoom, mSim, mNodes, mLinks, mFit = false, mFitSlow = false, mUserZoom = false;
@@ -1971,7 +2334,8 @@ const byRing = (work) => [...work].sort((a, b) => RING_ORDER.indexOf(mStatus(a.m
 const clip = (t, n) => (t.length > n ? t.slice(0, n - 1) + '…' : t);
 const REPO_R = 30;
 const specR = (s) => 17 + Math.sqrt(s.tickets.length) * 2.2;
-const radiusOf = (d) => (d.kind === 'repo' ? REPO_R + 12 : d.kind === 'spec' ? specR(d.spec) + 6 : 9);
+const radiusOf = (d) => (d.kind === 'repo' ? REPO_R + 12 : d.kind === 'spec' ? specR(d.spec) + 6 : d.kind === 'ticket' ? 5 : 9);
+const isArrow = (e) => e.kind === 'order' || e.kind === 'dep' || e.kind === 'tdep';
 const mapSpecs = () => state.specs.filter((s) => mv.scope === 'all' || (!s.abandoned && !s.landed));
 // The first paragraph of a repository's card, below its front matter.
 const repoBlurb = (slug) => {
@@ -2004,6 +2368,7 @@ function mapData() {
   const nodes = repos.map((r, i) => ({ id: 'r:' + r.slug, kind: 'repo', repo: r, i, n: repos.length }));
   const edges = [];
   const mid = (s, m) => `m:${s.id}|${m.id}`;
+  const tid = (s, n) => `t:${s.id}|${n}`;
   for (const s of specs) nodes.push({ id: 's:' + s.id, kind: 'spec', spec: s });
   for (const s of specs) {
     for (const d of s.deps) if (d.spec && specs.includes(d.spec)) edges.push({ source: 's:' + d.spec.id, target: 's:' + s.id, kind: 'dep' });
@@ -2013,16 +2378,28 @@ function mapData() {
       edges.push({ source: 's:' + s.id, target: mid(s, m), kind: 'part' });
       if (m.repo) edges.push({ source: mid(s, m), target: 'r:' + m.repo, kind: 'build', status: st, live: isLive(m) });
       m.after.forEach((a) => edges.push({ source: mid(s, a), target: mid(s, m), kind: 'order' }));
+      if (mv.tickets) for (const t of m.tickets) {
+        nodes.push({ id: tid(s, t.num), kind: 'ticket', spec: s, m, t });
+        edges.push({ source: mid(s, m), target: tid(s, t.num), kind: 'holds' });
+      }
+    }
+    // The same dependencies the spec's graph draws, a dependency another one implies dropped, across milestones too.
+    if (mv.tickets) for (const [n, { inner, outer }] of depsOf(s)) for (const d of [...inner, ...outer]) {
+      const from = s.tickets.find((t) => t.num === d);
+      edges.push({ source: tid(s, d), target: tid(s, n), kind: 'tdep', settled: from?.status === 'done' });
     }
     for (const r of repos) if (r.planned.includes(s)) edges.push({ source: 's:' + s.id, target: 'r:' + r.slug, kind: 'planned' });
   }
   return { nodes, edges, specs, repos };
 }
 
-function mLight(set) {
+// label is 'named' to show the lit tickets' labels, 'near' to show them only when zoomed in.
+function mLight(set, label = 'near') {
   if (!mRoot) return;
   mRoot.classed('dim', !!set);
   mNodes.classed('hot', (n) => !!set && set.has(n.id));
+  const lit = (n) => !!set && n.kind === 'ticket' && set.has(n.id);
+  mNodes.classed('named', (n) => label === 'named' && lit(n)).classed('near', (n) => label === 'near' && lit(n));
   mLinks.classed('hot', (e) => !!set && set.has(e.source.id) && set.has(e.target.id));
 }
 
@@ -2034,7 +2411,7 @@ function fitMap(ms = 0) {
   const { width, height } = host.getBoundingClientRect();
   const ns = mSim.nodes();
   if (!width || !ns.length) return;
-  const pad = (d) => radiusOf(d) + (d.kind === 'milestone' ? 10 : d.kind === 'repo' ? 84 : 46);
+  const pad = (d) => radiusOf(d) + (d.kind === 'milestone' || d.kind === 'ticket' ? 10 : d.kind === 'repo' ? 84 : 46);
   const x0 = d3.min(ns, (d) => d.x - pad(d)), x1 = d3.max(ns, (d) => d.x + pad(d));
   const y0 = d3.min(ns, (d) => d.y - pad(d)), y1 = d3.max(ns, (d) => d.y + pad(d));
   const k = Math.min(1.4, 0.92 * Math.min(width / (x1 - x0), height / (y1 - y0)));
@@ -2046,8 +2423,11 @@ function drawMap() {
   const host = $('mapCanvas');
   if (!mSvg) {
     mSvg = d3.select(host).append('svg').attr('class', 'h-full w-full');
-    mSvg.append('defs').append('marker').attr('id', 'mArrow').attr('viewBox', '0 -5 10 10').attr('refX', 8).attr('markerWidth', 7).attr('markerHeight', 7).attr('orient', 'auto')
+    const defs = mSvg.append('defs');
+    defs.append('marker').attr('id', 'mArrow').attr('viewBox', '0 -5 10 10').attr('refX', 8).attr('markerWidth', 7).attr('markerHeight', 7).attr('orient', 'auto')
       .append('path').attr('class', 'arrow').attr('d', 'M0,-4L10,0L0,4Z');
+    defs.append('marker').attr('id', 'mTArrow').attr('viewBox', '0 -5 10 10').attr('refX', 8).attr('markerWidth', 5).attr('markerHeight', 5).attr('orient', 'auto')
+      .append('path').attr('class', 'tarrow').attr('d', 'M0,-4L10,0L0,4Z');
     mRoot = mSvg.append('g');
     mZoom = d3.zoom().scaleExtent([0.2, 3]).on('zoom', (e) => {
       mRoot.attr('transform', e.transform);
@@ -2063,7 +2443,7 @@ function drawMap() {
   }
   if (mSim) {
     mSim.stop();
-    mSim.nodes().forEach((d) => mPos.set(d.id, { x: d.x, y: d.y, fixed: d.dragged }));
+    mSim.nodes().forEach((d) => mPos.set(d.id, { x: d.x, y: d.y }));
   }
 
   const { nodes, edges, specs, repos } = mapData();
@@ -2080,37 +2460,38 @@ function drawMap() {
     if (d.kind === 'repo') {
       // Repositories hold their places on the ring, the first at the top, so the picture keeps its shape across reloads.
       const a = -Math.PI / 2 + (d.i * 2 * Math.PI) / d.n;
-      const at = p?.fixed ? p : d.n === 1 ? { x: 0, y: R * 0.6 } : { x: R * Math.cos(a), y: R * Math.sin(a) };
+      const at = d.n === 1 ? { x: 0, y: R * 0.6 } : { x: R * Math.cos(a), y: R * Math.sin(a) };
       d.x = d.fx = at.x;
       d.y = d.fy = at.y;
-      d.dragged = !!p?.fixed;
     } else if (p) {
       d.x = p.x;
       d.y = p.y;
     } else {
-      // A new milestone starts most of the way out to its repository, a new spec near the centre.
+      // A new milestone starts most of the way out to its repository, a new ticket beside its milestone, a new spec near the centre.
+      const m = d.kind === 'ticket' && byId.get(`m:${d.spec.id}|${d.m.id}`);
       const r = d.kind === 'milestone' && byId.get('r:' + d.m.repo);
-      d.x = (r ? r.x * 0.62 : 0) + (Math.random() - 0.5) * 50;
-      d.y = (r ? r.y * 0.62 : 0) + (Math.random() - 0.5) * 50;
+      const spread = m ? 24 : 50;
+      d.x = (m ? m.x : r ? r.x * 0.62 : 0) + (Math.random() - 0.5) * spread;
+      d.y = (m ? m.y : r ? r.y * 0.62 : 0) + (Math.random() - 0.5) * spread;
     }
   }
   const adj = new Map(nodes.map((d) => [d.id, new Set([d.id])]));
   for (const e of edges) { adj.get(e.source)?.add(e.target); adj.get(e.target)?.add(e.source); }
-  // A repository or spec lights up with everything one milestone away from it on either side.
+  // A repository or spec lights up with everything one milestone away from it on either side, and those milestones'
+  // tickets; a ticket, with its milestone and the tickets it depends on or that depend on it.
   mRelated = (d) => {
     const set = new Set(adj.get(d.id));
-    if (d.kind !== 'milestone') for (const id of [...set]) {
-      const n = byId.get(id);
-      if (n?.kind === 'milestone') { set.add('s:' + n.spec.id); if (n.m.repo) set.add('r:' + n.m.repo); }
+    if (d.kind === 'repo' || d.kind === 'spec') for (const id of [...set]) {
+      if (byId.get(id)?.kind === 'milestone') adj.get(id).forEach((x) => set.add(x));
     }
     return set;
   };
 
   mRoot.selectAll('*').remove();
   mLinks = mRoot.append('g').selectAll('path').data(edges).join('path')
-    .attr('class', (e) => `mlink ${e.kind}${e.live ? ' flow' : ''}`)
+    .attr('class', (e) => `mlink ${e.kind}${e.live ? ' flow' : ''}${e.settled ? ' settled' : ''}`)
     .style('--c', (e) => (e.status ? tone(e.status) : null))
-    .attr('marker-end', (e) => (e.kind === 'order' || e.kind === 'dep' ? 'url(#mArrow)' : null));
+    .attr('marker-end', (e) => (e.kind === 'tdep' ? 'url(#mTArrow)' : isArrow(e) ? 'url(#mArrow)' : null));
   mNodes = mRoot.append('g').selectAll('g').data(nodes).join('g').attr('class', (d) => `mnode ${d.kind}`);
   mNodes.append('circle').attr('r', radiusOf).attr('fill', 'transparent');
   const body = mNodes.append('g').attr('class', fresh ? 'pop' : null).style('animation-delay', (d, i) => (fresh ? `${Math.min(i * 16, 1100)}ms` : null));
@@ -2149,8 +2530,14 @@ function drawMap() {
   msG.append('circle').attr('class', 'dot').attr('r', 7);
   msG.append('text').attr('class', 'label').attr('text-anchor', 'middle').attr('dy', -13).text((d) => `${mName(d.m)} · ${clip(d.m.title, 26)}`);
 
+  // A ticket's dot takes its status colour; one not started yet is hollow, one in progress pulses.
+  const tkG = body.filter((d) => d.kind === 'ticket').style('--c', (d) => tone(TICKET_STATUS[d.t.status] || 'draft'));
+  tkG.filter((d) => isDoing(d.t.status)).append('circle').attr('class', 'halo').attr('r', 4);
+  tkG.append('circle').attr('class', (d) => `dot${d.t.status === 'todo' ? ' todo' : ''}`).attr('r', 4);
+  tkG.append('text').attr('class', 'label').attr('text-anchor', 'middle').attr('dy', -9).text((d) => `#${String(d.t.num).split('/').pop()} · ${clip(d.t.title, 28)}`);
+
   mNodes
-    .on('mouseenter', (ev, d) => { mLight(mRelated(d)); d3.select(ev.currentTarget).classed('hover', true); mapTip(ev, d); })
+    .on('mouseenter', (ev, d) => { mLight(mRelated(d), d.kind === 'ticket' || d.kind === 'milestone' ? 'named' : 'near'); d3.select(ev.currentTarget).classed('hover', true); mapTip(ev, d); })
     .on('mousemove', moveTip)
     .on('mouseleave', (ev) => {
       d3.select(ev.currentTarget).classed('hover', false);
@@ -2161,19 +2548,17 @@ function drawMap() {
     .on('click', (ev, d) => {
       ev.stopPropagation();
       if (d.kind === 'milestone') openMilestone(d.spec, d.m);
+      else if (d.kind === 'ticket') openTicket(d.spec, d.t.num);
       else pickMap(mv.sel === d.id ? null : d.id);
     })
-    .on('dblclick', (ev, d) => { if (d.kind === 'spec') go(d.spec.id); })
-    .call(d3.drag()
-      .on('start', (ev, d) => { if (!ev.active) mSim.alphaTarget(0.15).restart(); d.fx = d.x; d.fy = d.y; })
-      .on('drag', (ev, d) => { d.fx = ev.x; d.fy = ev.y; if (d.kind === 'repo') d.dragged = true; })
-      .on('end', (ev, d) => { if (!ev.active) mSim.alphaTarget(0); if (d.kind !== 'repo') { d.fx = null; d.fy = null; } }));
+    .on('dblclick', (ev, d) => { if (d.kind === 'spec') go(d.spec.id); });
+  // Nodes cannot be dragged: a drag reheats the whole simulation on every move, and a large map stutters under it.
 
-  // Lines run edge to edge, not centre to centre; order arrows bend, so two of them between neighbours stay apart.
+  // Lines run edge to edge, not centre to centre; arrows bend, so two of them between neighbours stay apart.
   const ticked = () => {
     mLinks.attr('d', (e) => {
       const s = e.source, t = e.target, dx = t.x - s.x, dy = t.y - s.y, len = Math.hypot(dx, dy) || 1;
-      const ux = dx / len, uy = dy / len, arrow = e.kind === 'order' || e.kind === 'dep';
+      const ux = dx / len, uy = dy / len, arrow = isArrow(e);
       const x1 = s.x + ux * (radiusOf(s) - 6), y1 = s.y + uy * (radiusOf(s) - 6);
       const x2 = t.x - ux * (radiusOf(t) - (arrow ? 1 : 6)), y2 = t.y - uy * (radiusOf(t) - (arrow ? 1 : 6));
       if (!arrow) return `M${x1},${y1}L${x2},${y2}`;
@@ -2194,10 +2579,10 @@ function drawMap() {
   const ring = specs.length > 1 ? Math.min(R * 0.32, 30 + specs.length * 16) : 0;
   mSim = d3.forceSimulation(nodes)
     .force('link', d3.forceLink(edges).id((d) => d.id)
-      .distance((e) => ({ part: R * 0.4, build: 64, planned: R * 0.8, order: 40, dep: 110 }[e.kind]))
-      .strength((e) => ({ part: 0.1, build: 0.6, planned: 0.01, order: 0.04, dep: 0.04 }[e.kind])))
-    .force('charge', d3.forceManyBody().strength((d) => (d.kind === 'spec' ? -480 : d.kind === 'repo' ? -260 : -70)))
-    .force('collide', d3.forceCollide((d) => radiusOf(d) + (d.kind === 'spec' ? 26 : 5)))
+      .distance((e) => ({ part: R * 0.4, build: 64, planned: R * 0.8, order: 40, dep: 110, holds: 40, tdep: 36 }[e.kind]))
+      .strength((e) => ({ part: 0.1, build: 0.6, planned: 0.01, order: 0.04, dep: 0.04, holds: 0.7, tdep: 0.08 }[e.kind])))
+    .force('charge', d3.forceManyBody().strength((d) => (d.kind === 'spec' ? -480 : d.kind === 'repo' ? -260 : d.kind === 'ticket' ? -45 : -70)))
+    .force('collide', d3.forceCollide((d) => radiusOf(d) + (d.kind === 'spec' ? 26 : d.kind === 'ticket' ? 8 : 5)))
     .force('radial', d3.forceRadial((d) => (d.kind === 'spec' ? ring : R * 0.66), 0, 0).strength((d) => (d.kind === 'spec' ? 0.3 : d.kind === 'milestone' ? 0.03 : 0)))
     .on('tick', ticked);
   // A first layout settles before it is shown, so the map arrives in place rather than shaking into it.
@@ -2213,7 +2598,7 @@ function drawMap() {
 function mapMarks() {
   if (!mNodes || !$('map')) return;
   const q = mv.query.trim().toLowerCase();
-  const text = (d) => (d.kind === 'repo' ? d.repo.slug : d.kind === 'spec' ? `${d.spec.num} ${d.spec.title}` : `${d.spec.num} ${mName(d.m)} ${d.m.title} ${d.m.tickets.map((t) => t.title).join(' ')}`);
+  const text = (d) => (d.kind === 'repo' ? d.repo.slug : d.kind === 'spec' ? `${d.spec.num} ${d.spec.title}` : d.kind === 'ticket' ? `#${d.t.num} ${d.t.title}` : `${d.spec.num} ${mName(d.m)} ${d.m.title} ${d.m.tickets.map((t) => t.title).join(' ')}`);
   mNodes.classed('picked', (d) => d.id === mv.sel).classed('match', (d) => !!q && text(d).toLowerCase().includes(q));
   const p = mSim?.nodes().find((n) => n.id === mv.sel);
   mLight(p ? mRelated(p) : null);
@@ -2239,6 +2624,14 @@ function mapTip(ev, d) {
       + sub(`${STATUS[s.status].label} · ${doneOf(s.tickets)}/${plural(s.tickets.length, 'ticket')} done`)
       + sub(s.repos.length ? s.repos.map(esc).join(', ') : 'No repositories yet')
       + '<div class="mt-1 text-zinc-400">Click to focus · double-click to open</div>';
+  } else if (d.kind === 'ticket') {
+    const t = d.t, others = (ns) => ns.map((n) => '#' + esc(String(n).split('/').pop())).join(', ');
+    const after = d.spec.tickets.filter((x) => x.deps.includes(t.num)).map((x) => x.num);
+    tip.innerHTML = `<div class="font-semibold"><span class="font-mono text-zinc-400">#${esc(String(t.num).split('/').pop())}</span> ${esc(t.title)}</div>`
+      + sub(`${esc(STATUS[TICKET_STATUS[t.status] || 'draft'].label)} · ${esc(d.spec.num)} · ${esc(mName(d.m))} ${esc(d.m.title)}`)
+      + (t.deps.length ? sub(`Depends on ${others(t.deps)}`) : '')
+      + (after.length ? sub(`Needed by ${others(after)}`) : '')
+      + '<div class="mt-1 text-zinc-400">Click to open</div>';
   } else {
     const m = d.m, doing = m.tickets.filter((t) => isDoing(t.status));
     tip.innerHTML = `<div class="font-semibold"><span class="font-mono text-zinc-400">${esc(d.spec.num)} · ${esc(mName(m))}</span> ${esc(m.title)}</div>`
@@ -2266,6 +2659,7 @@ const mLegend = () => `<div>${mCaps('Key')}
     <span class="col-span-2 mt-1 flex items-center gap-2"><svg width="28" height="8" class="shrink-0"><line x1="0" y1="4" x2="28" y2="4" stroke="var(--s-active)" stroke-width="2" stroke-dasharray="7 5"/></svg>work running in that repository</span>
     <span class="col-span-2 flex items-center gap-2"><svg width="28" height="8" class="shrink-0"><line x1="0" y1="4" x2="21" y2="4" stroke="var(--s-waiting)" stroke-width="1.5" stroke-dasharray="5 4"/><path d="M20,0L28,4L20,8Z" fill="var(--s-waiting)"/></svg>lands, or builds, after</span>
     <span class="col-span-2 flex items-center gap-2"><svg width="28" height="8" class="shrink-0"><line x1="2" y1="4" x2="26" y2="4" stroke="var(--nedge)" stroke-width="2.5" stroke-dasharray="1 6" stroke-linecap="round"/></svg>named by a spec, not ticketed yet</span>
+    <span class="col-span-2 flex items-center gap-2"><svg width="28" height="8" class="shrink-0"><circle cx="4" cy="4" r="3.5" fill="var(--s-done)"/><line x1="8" y1="4" x2="21" y2="4" stroke="var(--nedge)" stroke-width="1.25"/><path d="M20,1L25,4L20,7Z" fill="var(--nedge)"/></svg>a ticket, and one that depends on it</span>
   </div></div>`;
 
 function msRow(s, m, withTrack) {
@@ -2382,6 +2776,8 @@ function mapPanel() {
 function renderMap() {
   const { specs, repos } = mapWork();
   document.querySelectorAll('#mapScope [data-scope]').forEach((b) => (b.className = 'px-3 py-1 rounded ' + (b.dataset.scope === mv.scope ? 'bg-zinc-100 dark:bg-zinc-800 font-medium' : 'text-zinc-500')));
+  $('mapTickets').className = 'rounded-md border border-zinc-200 dark:border-zinc-800 px-2.5 py-1 ' + (mv.tickets ? 'bg-zinc-100 dark:bg-zinc-800 font-medium' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900');
+  $('mapTickets').setAttribute('aria-pressed', mv.tickets);
   const ms = specs.reduce((n, s) => n + s.milestones.length, 0), doing = repos.reduce((n, r) => n + r.doing.length, 0);
   $('mapStats').textContent = `${plural(specs.length, 'spec')} · ${plural(repos.length, 'repo')} · ${plural(ms, 'milestone')} · ${doing} building now`;
   drawMap();
@@ -2403,6 +2799,7 @@ function mapView() {
           <button data-scope="all" class="px-3 py-1 rounded">All specs</button>
         </span>
         <input id="mapSearch" type="search" placeholder="Find a spec, milestone or ticket" class="w-64 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-2.5 py-1 outline-none focus:border-emerald-500">
+        <button id="mapTickets" class="rounded-md border border-zinc-200 dark:border-zinc-800 px-2.5 py-1" title="Show each milestone's tickets and their dependencies">Tickets</button>
         <button id="mapFit" class="rounded-md border border-zinc-200 dark:border-zinc-800 px-2.5 py-1 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900" title="Fit the map to the window">Fit</button>
         <div id="mapStats" class="ml-auto font-mono text-xs text-zinc-500"></div>
       </div>
@@ -2422,6 +2819,11 @@ function mapView() {
       if (d) mSvg.transition().duration(500).call(mZoom.translateTo, d.x, d.y);
     };
     $('mapFit').onclick = () => { mUserZoom = false; fitMap(500); };
+    $('mapTickets').onclick = () => {
+      mv.tickets = !mv.tickets;
+      store.set('mapTickets', mv.tickets ? '1' : '0');
+      renderMap();
+    };
     document.querySelectorAll('#mapScope [data-scope]').forEach((b) => (b.onclick = () => {
       mv.scope = b.dataset.scope;
       store.set('mapScope', mv.scope);
@@ -2437,10 +2839,10 @@ function mapView() {
 $('open').onclick = addRepo;
 $('reload').onclick = refresh;
 $('brand').onclick = () => goRepo(null);
-document.querySelectorAll('#sections [data-section]').forEach((b) => (b.onclick = () => ({ notes: goNotes, map: goMap }[b.dataset.section] || (() => go(null)))()));
+document.querySelectorAll('#sections [data-section]').forEach((b) => (b.onclick = () => ({ notes: goNotes, map: goMap, timeline: goTimeline }[b.dataset.section] || (() => go(null)))()));
 // A [[link]] in an open note, a linked note's chip, or a row of the notes list opens that note.
 document.addEventListener('click', (e) => {
-  const a = e.target.closest('#doc [data-note], #noteList [data-note]');
+  const a = e.target.closest('#doc [data-note], #noteList [data-note], #timeline [data-note]');
   if (!a) return;
   e.preventDefault();
   focusNote(a.dataset.note);

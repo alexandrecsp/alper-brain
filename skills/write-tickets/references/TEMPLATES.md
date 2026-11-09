@@ -1,13 +1,13 @@
-Replace each guidance line with its content. Use the terms of the glossary of the milestone's repository, and name an interface between repositories in its producer's terms. Describe behaviour and modules by name; file paths and code snippets go stale.
+Replace each guidance line with its content. Name an interface between repositories in its producer's terms. Describe behaviour and modules by name; file paths and code snippets go stale.
 
 ## milestone.md
 
 ```markdown
 # Milestone NNN: <Milestone title>
 
-**Delivers:** the increment this milestone makes work, from the user's perspective; for a milestone that changes an interface between repositories, from its caller's perspective, naming the shapes it leaves offered or called.
+**Delivers:** the increment this milestone makes work, from the user's perspective. For a milestone that changes an interface between repositories, write it from its caller's perspective, naming the shapes it leaves offered or called.
 
-**Done when:** a check the builder can run that proves the increment works once its last ticket lands: a test at a seam the spec names, or a command and its expected output.
+**Done when:** a check the builder can run. The check proves the increment works once the last ticket lands. Name a test at a seam the spec names, or a command and its expected output.
 
 **Lands after:** the milestones of other tracks this one reaches its base after, by [CONTRACT-CHANGE.md](CONTRACT-CHANGE.md), as `<slug>/NNN, <slug>/NNN`; or "None".
 
@@ -37,7 +37,7 @@ The **milestone shape**, by [DIAGRAMS.md](../../write-spec/references/DIAGRAMS.m
 
 ## What to build
 
-The end-to-end behaviour this ticket makes work, from the user's perspective, rather than a layer-by-layer implementation list. When its path calls or offers an interface that a milestone in another repository changes, name that interface's shape as that milestone leaves it, and the milestone as `<slug>/NNN`. Then its **tracer bullet**, by [DIAGRAMS.md](../../write-spec/references/DIAGRAMS.md).
+The end-to-end behaviour this ticket makes work, from the user's perspective, rather than a layer-by-layer implementation list. When its path calls or offers an interface that a milestone in another repository changes, name that interface's shape as that milestone leaves it. Name the milestone as `<slug>/NNN`. Then its **tracer bullet**, by [DIAGRAMS.md](../../write-spec/references/DIAGRAMS.md).
 
 ## Design patterns
 

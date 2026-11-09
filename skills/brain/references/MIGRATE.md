@@ -1,6 +1,6 @@
 # Migrate
 
-Bring pipeline work from an older layout into the one [FORMAT.md](FORMAT.md) describes. Copy before deleting; each section says how to pick up after a stop.
+Bring work from an older layout into the one [FORMAT.md](FORMAT.md) describes. Copy before deleting; each section says how to pick up after a stop.
 
 ## A repository's `.sdd/`
 
@@ -38,3 +38,10 @@ When track folders already sit beside flat ones, an earlier run stopped halfway.
 3. **Rename the branches.** In each track's repository, take the milestones whose number changed in increasing order of the old number, so each new name is free at its turn: when `sdd/<spec-folder>/M<old>` exists and `sdd/<spec-folder>/M<new>` does not, run `git -C <root> branch -m sdd/<spec-folder>/M<old> sdd/<spec-folder>/M<new>`; when `M<new>` exists, an earlier run already renamed it, so leave both. Leave the `sdd/<spec-folder>/pr-M*` branches as they are: a PR opened from one keeps its branch's name. Done when every changed milestone that had a branch has one under its new name.
 
 4. **Remove the flat folders.** Delete each milestone folder straight under `milestones/`. Report the spec's tracks, each milestone with its old and new number, and each `pr-M` branch whose number now names a different milestone, so the user closes or renames it before `/open-pr`. Done when `milestones/` holds only track folders.
+
+## Explored notes
+
+Move a repository's explored notes from beside its authored ones into `repos/<slug>/explored/`, by FORMAT.md's **Layout**. [EXPLORE.md](EXPLORE.md)'s **Commit** runs this for each repository it explores, inside its own commit; a run that stopped halfway picks up by running it again, since a moved note is no longer outside.
+
+1. **Find them.** List each note straight under `repos/<slug>/`, other than `REPO.md`, whose frontmatter has an `explored` line. Done when every such note is listed.
+2. **Move them.** Create `repos/<slug>/explored/` when it is missing, then run `git -C <brain> mv repos/<slug>/<name>.md repos/<slug>/explored/<name>.md` for each. Links resolve by name, so no note changes. Done when no note straight under `repos/<slug>/` has an `explored` line.

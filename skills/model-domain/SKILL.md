@@ -42,7 +42,7 @@ Beside `brainstorm`, the check is a fact: its **Facts and Decisions** sends it t
 
 When a term settles, write it where [DOMAIN-DOCS.md](references/DOMAIN-DOCS.md) puts it, in [GLOSSARY-FORMAT.md](references/GLOSSARY-FORMAT.md)'s format. A glossary or ADR in a repository needs that repository **open** ([FORMAT.md](../brain/references/FORMAT.md)). When it is only linked, add the entry to a **pending** list and keep the session moving. When it is only registered, the term rides on to the spec. A brain note needs only the brain: write it through **Record** in the [brain skill](../brain/SKILL.md).
 
-A glossary holds terms and their definitions only: an implementation decision is an ADR or part of the spec. When a settled term contradicts a brain note you read, propose that note's fix through **Record** when it is authored; an explored note catches up at the next `/brain explore`.
+A glossary holds terms and their definitions only: an implementation decision is an ADR or part of the spec. When a settled term contradicts a brain note you read, draft that note's fix through **Record** when it is authored; an explored note catches up at the next `/brain explore`.
 
 ### Offer ADRs sparingly
 

@@ -39,4 +39,4 @@ The prototype is done when its question has a **verdict**: the answer, the quest
    - **Standalone**: give the user the verdict and the prototype's branch or path, and offer to apply it. On a yes, rebuild the decision in the working repository, with `tdd` where that code has tests.
 3. **Record the decision.** When the repositories it bears on are registered, invoke the `brain` skill to record the verdict as a `decision`: in `repos/<slug>/`, or in `shared/` with its `repos` when it settles a contract, linked to that contract's note. Its **Why** is what the prototype showed, written so a teammate who never ran the prototype can follow it.
 
-Done when the prototype is kept, the verdict is in the spec or with the user, and the user has confirmed or declined the decision note.
+Done when the prototype is kept, the verdict is in the spec or with the user, and the decision sits in a draft, or its repositories are not registered.

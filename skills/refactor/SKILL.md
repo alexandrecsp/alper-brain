@@ -67,4 +67,4 @@ Scan the **working repository**, by [FORMAT.md](../brain/references/FORMAT.md). 
    - **Contained**: `/write-tickets`, straight from this conversation with no spec, cutting one milestone of one ticket, then `/build`.
    - **Staged**: `/write-spec`, then `/write-tickets`, then `/build`. `/write-tickets` cuts a refactor that crosses a contract by its CONTRACT-CHANGE.md (expand in the producer, migrate each consumer, contract), with the producer and every consumer in the spec's **Repos**, and one whose blast radius spans the repository by its WIDE-REFACTOR.md.
 
-   Done when the user has the next step; or, after a rejection, the record offer is answered or skipped for a passing reason, and any record accepted is written.
+   Done when the user has the next step; or, after a rejection, the record offer is answered or skipped for a passing reason, and any record accepted is written to its ADR or sits in a draft.

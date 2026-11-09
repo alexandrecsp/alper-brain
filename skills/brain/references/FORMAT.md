@@ -8,11 +8,14 @@ The shape of the second brain: the team's notes on every repository, shared, and
 <brain>/
 ├── BRAIN.md                              ← what the brain is, how to join, the repositories it covers
 ├── .gitignore                            ← holds `.sdd/`
+├── timeline.json                         ← every change to the notes, by **Timeline**
 ├── repos/<slug>/
 │   ├── REPO.md                           ← the repository's card
-│   └── <name>.md                         ← notes on one repository
-├── shared/<name>.md                      ← notes spanning several repositories
+│   ├── <name>.md                         ← authored notes on one repository
+│   └── explored/<name>.md                ← its explored notes
+├── shared/<name>.md                      ← authored notes spanning several repositories
 └── .sdd/                                 ← this machine's pipeline work, ignored by git
+    ├── drafts/<name>.md                  ← notes waiting for `sync` to consolidate them, by **Drafts**
     ├── links.json                        ← where this machine's clones of the repositories are
     ├── config.json                       ← this machine's limits on the pipeline, by **Settings**
     ├── specs/NNN-<slug>/                 ← work planned or in flight, in one repository or several
@@ -27,7 +30,7 @@ The shape of the second brain: the team's notes on every repository, shared, and
     ├── refactors/<repo-slug>/            ← reports from `refactor`
     ├── prototypes/<slug>.html            ← logic prototypes from `prototype`
     ├── snapshots/<repo-slug>/            ← a repository's default branch, checked out while a skill reads it
-    └── explore/<repo-slug>/<area>/       ← explored notes `explore` drafts, only while it runs
+    └── explore/<repo-slug>/<area>/       ← the scratch folders `explore`'s scribes write into, only while it runs
 ```
 
 Everything outside `.sdd/` is the team's and is committed. `.sdd/` is this machine's and never leaves it: what it learns reaches the team only as notes.
@@ -103,8 +106,8 @@ Otherwise ask the user, listing the registered repositories. Its root comes from
 
 One fact per file. Teammates adding notes at the same time never conflict, and the graph shows one node per fact. A note is one of two kinds:
 
-- **Authored**: what a repository cannot tell by looking, such as the reason behind a choice, a trap, or a contract between two repositories. **Record** in [SKILL.md](../SKILL.md) writes it, once the user confirms it.
-- **Explored**: what the code does, written for an outsider who never opens it. Only `/brain explore` writes it, by [EXPLORE.md](EXPLORE.md), and its next run rewrites it. Its `explored` line marks it.
+- **Authored**: what a repository cannot tell by looking, such as the reason behind a choice, a trap, or a contract between two repositories. It lives in `repos/<slug>/` or `shared/`. **Record** in [SKILL.md](../SKILL.md) writes it as a draft, and **Consolidate** there commits it once the user confirms it.
+- **Explored**: what the code does, written for an outsider who never opens it. It lives in `repos/<slug>/explored/`. Only `/brain explore` writes it, by [EXPLORE.md](EXPLORE.md), and its next run rewrites it. Its `explored` line marks it.
 
 ```markdown
 ---
@@ -126,6 +129,7 @@ Related: [[invoice-event-contract]]
 - `type`: one of the types below.
 - `repos`: in `shared/` only, the slugs the note spans, as `[billing-api, web-app]`. A note in `repos/<slug>/` belongs to that slug.
 - `explored`: on explored notes only, the short SHA of the commit the note was read at.
+- `status` and `supersededBy`: on a superseded `decision` only, `status: superseded` and the name of the decision that replaced it, by **When a note stops being true**.
 
 | type | holds |
 |---|---|
@@ -135,8 +139,28 @@ Related: [[invoice-event-contract]]
 | `gotcha` | a trap: surprising behaviour, or a past incident and its lesson |
 | `contract` | an interface between repositories (an API, event, queue or shared schema) with its producer and consumers. Lives in `shared/` |
 | `how-to` | a recurring procedure that no script or doc in the repository runs |
+| `topic` | a cluster: the notes, of any type and kind, that make up one theme, such as the checkout flow or the auth story. One paragraph on what ties them, then each member as a `[[link]]`. Authored only; in `shared/` when its members span repositories |
 
-The body states the fact first. A `decision` or `gotcha` follows it with **Why:** and **How to apply:** lines. Link every note it builds on or bears on with `[[name]]`: each link is an edge in the graph. A link to a note not written yet draws as a dashed node, marking a note worth writing.
+Write the `description` and the body in plain prose, by [PROSE.md](PROSE.md). The body states the fact first. A `decision` or `gotcha` follows it with **Why:** and **How to apply:** lines. Link every note it builds on or bears on with `[[name]]`: each link is an edge in the graph. A link to a note not written yet draws as a dashed node, marking a note worth writing.
+
+### When a note stops being true
+
+The note's type decides, so the brain keeps a past only where the past is knowledge, and git keeps the rest:
+
+| The note | becomes | by the draft |
+|---|---|---|
+| An explored note | rewritten or deleted by the next `/brain explore` | none |
+| An authored `concept`, `contract`, `gotcha`, `how-to` or `topic` whose subject still exists | its new text, edited in place | `update` |
+| A `decision` reversed or replaced | kept, marked by its `status` and `supersededBy` fields above, with a `Superseded by [[<name>]]` line under its body; the new decision links it, and says why it changed in its **Why:** line | `supersede` |
+| A note whose subject or trap is gone, or that was simply wrong | deleted, the reason in its commit's body | `delete` |
+
+### Drafts
+
+A **draft** is a note this machine learned that the team has not yet seen: one file in `.sdd/drafts/`, named `<name>.md` after the note it proposes. **Record** writes it, and **Consolidate** in [SKILL.md](../SKILL.md) turns it into a commit, discards it or keeps it. It holds the note's full text as it would land, by the format above, with two more frontmatter lines, and a third on a `supersede`:
+
+- `target`: the path the note lands at, such as `repos/billing-api/billing-retry-idempotency.md`.
+- `action`: `record` for a new note, `update` for a new version of the note at `target`, `supersede` for a new decision replacing another, or `delete` for removing the note at `target`, whose body then holds only the reason.
+- `supersedes`: on a `supersede` only, the name of the decision it replaces.
 
 ### Explored notes
 
@@ -150,7 +174,7 @@ type: feature
 explored: a1b2c3d
 ---
 
-A customer, or support on their behalf, asks for a refund of a paid invoice, and the money goes back to the card it was paid with.
+A customer, or support on their behalf, asks to refund a paid invoice. The money goes back to the card it was paid with.
 
 **Rules:**
 - Only within 30 days of payment.
@@ -163,6 +187,19 @@ Sources: `src/refunds/refund.service.ts`, `src/refunds/refund-policy.ts`
 ```
 
 An explored note is **current** while the repository's default branch still points at its commit, and **behind** once the branch has moved on. `git ls-remote <remote> HEAD` tells which without a clone: compare the SHA it prints with the note's `explored` line, by prefix. With the repository linked, `git -C <root> rev-list --count <explored>..origin/HEAD` after a fetch says by how many commits. When the remote cannot be reached, its state is **unknown**. `git -C <brain> log -1 --format=%cr -- <note>` says when the note was last explored.
+
+## Timeline
+
+`timeline.json` at the brain's root holds every committed change to the notes in `repos/` and `shared/`, oldest first, for the brain page's **Timeline**. It is committed, so every teammate's page draws the same history. The brain skill's `scripts/timeline.mjs` writes it from the brain's git history alone, so the same history always writes the same file; **Sync** in [SKILL.md](../SKILL.md) runs it.
+
+```json
+{ "version": 1, "commits": [
+  { "sha": "a1b2c3d", "date": "2026-11-07T14:02:11Z", "author": "Ana", "title": "Records the gotchas behind the invoice rounding bug",
+    "changes": [{ "note": "billing-rounding", "path": "repos/billing-api/billing-rounding.md", "action": "recorded", "type": "gotcha", "kind": "authored", "repos": ["billing-api"] }] }
+] }
+```
+
+A change's `action` is `recorded`, `updated`, `superseded` (a decision's `status` turned `superseded`), `deleted` or `moved` (git sees the file at a new path, the old one in `from`; `note` is the name at the new path). A commit that changes no note is left out, and so is every card.
 
 ## Settings
 
