@@ -1,5 +1,5 @@
-# A milestone reviewed with one escalated finding left unanswered, and a user who decides escalations.
-PHASE=decide
+# A milestone stopped at ask: reviewed, one escalated finding left unanswered for the user, who decides escalations.
+PHASE=ask
 REVIEW='## Summary
 
 1 finding, 1 escalated. Worst: ST1.

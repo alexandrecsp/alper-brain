@@ -74,7 +74,7 @@ export const STAGES = ['tickets', 'review', 'decide', 'fix', 'check', 'squash'] 
 
 /**
  * Where a milestone stands among STAGES; STAGES.length once squashed. `ask`
- * is the decide step's word in builds from before the arbiter; `waits` is a
+ * is the decide step waiting on the user's answers; `waits` is a
  * migrate held at its check until its producer's expand squashes.
  */
 export const stageOf = (phase: string, squash: string | null): number => {
@@ -91,8 +91,8 @@ export const stageOf = (phase: string, squash: string | null): number => {
 /**
  * How many of a review.md's findings are flagged escalate and still have no
  * `**Answer:**` line. A finding runs from its ID (`ST1`, `SP2`, `CN3`) to the
- * next. At the decide stage with none of them answered and no arbiter running,
- * the build waits on the user's answers (skills/build/SKILL.md, step 7).
+ * next. At `ask` with any of them unanswered, the build waits on the user's
+ * answers (skills/build/SKILL.md, step 7).
  */
 export const awaitingOf = (reviewMd: string): number =>
   reviewMd
@@ -100,14 +100,12 @@ export const awaitingOf = (reviewMd: string): number =>
     .slice(1)
     .filter(finding => /\bescalate\b/i.test(finding) && !/\*\*Answer:\*\*/.test(finding)).length
 
-/** A milestone at the decide stage whose escalations wait on the user: some unanswered, and no arbiter deciding them. */
-export const waitsOnUser = (
-  build: { key: string; phase: string; awaiting: number },
-  runs: { status: string; milestone?: string; job: Job }[],
-) =>
-  (build.phase === 'decide' || build.phase === 'ask') &&
-  build.awaiting > 0 &&
-  !runs.some(run => run.status === 'running' && run.milestone === build.key && run.job === 'decide')
+/**
+ * A milestone whose escalations wait on the user: at `ask`, the Phase build's
+ * step 7 writes when the user decides (`decide` is the arbiter's), with an
+ * escalation still unanswered.
+ */
+export const waitsOnUser = (build: { phase: string; awaiting: number }) => build.phase === 'ask' && build.awaiting > 0
 
 /** What an agent started during a phase is for, when its brief names no file. */
 export const jobOf = (phase: string): Job =>

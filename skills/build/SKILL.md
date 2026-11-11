@@ -28,7 +28,7 @@ In each repository, the spec's branch is `sdd/<spec-folder>/spec` and each miles
 - A track's next milestone is **ready** once every earlier milestone of its track is squashed, and so is every milestone of another track its tickets' **Depends on** reach, directly or through the tickets those name. A **Lands after** line never holds a build back: it orders the landing, by LAND.md, and holds a migrate at step 9's wait for its expand.
 - A track is **idle** from its milestone's squash until its next milestone's branch exists, and once it has no open milestone: LAND.md lands a track only while it is idle, so no rebase runs under a milestone being built.
 - A track is **busy** while its builder or fixer runs, or while its milestone is on the closing queue (step 3) or closing.
-- A track is **blocked** from the step that stopped it until a later call resumes it. Nothing is stored for it beyond what the stop wrote (a ticket's `blocked` **Status**, a milestone's `failed` **Phase**, or its `decide` with escalations left to the user), which the next call reads.
+- A track is **blocked** from the step that stopped it until a later call resumes it. Nothing is stored for it beyond what the stop wrote (a ticket's `blocked` **Status**, a milestone's `failed` **Phase**, or its `ask`, its escalations left to the user), which the next call reads.
 
 ## Phase
 
@@ -38,7 +38,8 @@ Once its tickets are `done`, a milestone is still closing: reviewed, decided, fi
 |---|---|---|---|
 | `none` | the ticket template | not closing yet | step 4, or step 6 once its tickets are all `done` |
 | `review` | step 6 | | step 6 |
-| `decide` (`ask` in older builds) | step 7 | | step 7 |
+| `decide` | step 7 | the arbiter decides its escalations | step 7 |
+| `ask` | step 7 | the user decides them: the track waits on their answers | step 7 |
 | `fix` | step 8 | | step 8 |
 | `check` | step 9 | | step 9 |
 | `waits` | step 9 | a migrate whose expand is still open | step 9 |
@@ -58,11 +59,11 @@ Once squashed, a milestone is unlanded and resumes in LAND.md, which writes `lan
      - to clean any whose `repo.clean` is false, since the commits must hold only this spec's work;
      - for the base branch of any repository whose `repo.base` is missing;
      - how this call lands: each track **as it goes** (its landable milestones whenever it is idle) or **at the end** (all at once, after one more yes);
-     - who decides the review's escalated findings: the **arbiter**, in the user's place, or the **user**, whose tracks stop at step 7 on an escalated finding until the next call asks; when the user decides, their answer to each escalated finding with no **Answer** line in a milestone at `decide`: fix it as proposed, fix it another way, or skip it.
+     - who decides the review's escalated findings: the **arbiter**, in the user's place, or the **user**, whose tracks stop at step 7 on an escalated finding until the next call asks; when the user decides, their answer to each escalated finding with no **Answer** line in a milestone at `ask` or `decide`: fix it as proposed, fix it another way, or skip it.
    - Stop until every repository is linked, open and clean. Add each repository's base to the **Base** line by **Branches**, and write each answer the user gave by step 7's form, with the reason `decided by the user`, adding step 7's Notes bullet to each ticket the answer builds differently from.
    - The **cap** is `state`'s `cap`; when `capProblem` is set, tell the user.
 
-   Done when the spec is in tracks, every repository the call changes is linked, open and clean and has its base, you hold the cap, the landing choice and who decides escalations, and, when the user decides, every escalated finding at `decide` has its Answer or the user left it for later, and `state` gives each track's next step.
+   Done when the spec is in tracks, every repository the call changes is linked, open and clean and has its base, you hold the cap, the landing choice and who decides escalations, and, when the user decides, every escalated finding at `ask` or `decide` has its Answer or the user left it for later, and `state` gives each track's next step.
 
 2. **Check the dependencies.** Skip this unless `allTodo`: otherwise an earlier call already ran it. For each of `state`'s `dependencies`, stop at the first of these that holds:
    - `found` is false: report it;
@@ -98,7 +99,7 @@ Once squashed, a milestone is unlanded and resumes in LAND.md, which writes `lan
 
 6. **Review.** When the milestone's `reviewCurrent` is true, its `review.md` was made from the branch as it stands: take that report. Otherwise invoke the `review-changes` skill with the fixed point, the milestone folder and the repository; it saves its report as the milestone's `review.md`. Show the user the report. Done when the milestone's `review.md` has the branch's `HEAD` as its **Head**.
 
-7. **Decide.** When the milestone's `unanswered` is empty, no finding flagged **escalate** lacks an **Answer** line: skip this. When the user decides escalations in this call, mark the track **blocked**, its escalated findings waiting on the user, and stop: the next call's step 1 asks for the answers. Otherwise dispatch one arbiter with the Context block (**Notes** adding the `contract` notes in the brain's `shared/` whose `repos` name this milestone's repository, **Also reads** the root of each other repository those notes name, and **Writes** nothing), the paths of `review.md`, `milestone.md` and `spec.md`, and this brief:
+7. **Decide.** When the milestone's `unanswered` is empty, no finding flagged **escalate** lacks an **Answer** line: skip this. When the user decides escalations in this call, write `ask` into the **Phase** line in place of `decide`, mark the track **blocked**, its escalated findings waiting on the user, and stop: the next call's step 1 asks for the answers. Otherwise dispatch one arbiter with the Context block (**Notes** adding the `contract` notes in the brain's `shared/` whose `repos` name this milestone's repository, **Also reads** the root of each other repository those notes name, and **Writes** nothing), the paths of `review.md`, `milestone.md` and `spec.md`, and this brief:
 
    > Decide each finding in this review flagged escalate that has no **Answer** line. For each, read its hunk in the repository the Context block names, the rule or requirement it cites, the ADRs and `decision` notes it touches and the code that calls what it would change. Take each consumer's call sites from the review's Consumers section, reading the repositories the contract notes name only where a finding needs more, and only with `git -C <its root> show <its entry in spec.md's Base line>:<path>`, since their working trees hold other tracks' unfinished builds. Answer it with one of: fix it as proposed; fix it another way, saying how; or skip it. Give a one-line reason, and when your answer builds something other than what the spec or a ticket says, name those tickets. Weigh the findings together: they come from one diff. When an answer changes an interface another repository calls, keep the old shape offered beside the new one, unless another milestone of this spec migrates that consumer: name the milestone. Report one line per finding, by its ID. Change nothing.
 

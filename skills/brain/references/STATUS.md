@@ -8,7 +8,7 @@ The `status` branch of [`brain`](../SKILL.md): report the active brain's whole e
 
    | State | Holds when |
    |---|---|
-   | `blocked` | a ticket's **Status** is `blocked`, a milestone's **Phase** is `failed`, or it is `decide` with an escalated finding in its `review.md` that has no **Answer** line |
+   | `blocked` | a ticket's **Status** is `blocked`, a milestone's **Phase** is `failed`, or it is `ask` with an escalated finding in its `review.md` that has no **Answer** line |
    | `waiting` | a spec its **Depends on** names is not landed |
    | `landing` | every milestone has a **Squash**, and some milestone's **Landed** names no commit |
    | `building` | some ticket has left `todo` |

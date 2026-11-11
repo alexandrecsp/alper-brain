@@ -12,8 +12,8 @@ export const BuildView = ({ ui: { Box, Text }, Svg, at }: Draw, { build, spent, 
   const done = build.tickets.filter(t => t.status === 'done').length
   const share = done / Math.max(1, build.tickets.length)
   const stage = stageOf(build.phase, build.squash)
-  // Escalations the user decides stop the track at decide until the next /build asks them.
-  const waiting = waitsOnUser(build, running)
+  // Escalations the user decides stop the track at ask until the next /build asks them.
+  const waiting = waitsOnUser(build)
   const cost = spent === null ? 0 : spent.agentTokens + spent.mainTokens
 
   return (

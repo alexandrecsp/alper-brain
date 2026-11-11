@@ -44,6 +44,9 @@
 // Specs, every spec as a pipeline of stages, the specs in a band of their own above a band per repository. A left rail filters, the canvas draws, a right
 // inspector reads the selected document. mount() draws a brain's data (toData's shape) and returns a handle whose
 // snapshot() carries selection, filters, zoom and node positions into the next mount, so a live reload never jumps.
+// A started milestone's status is the /build step it stands at, in order: building its tickets (active), then the
+// closing steps by its Phase line; toData sets them, the Specs view gives each its column.
+const STAGES = ['active', 'review', 'decide', 'fix', 'check', 'squash'];
 const BrainView = (function () {
   // Mermaid loads on the first diagram; drawn diagrams are cached by theme and source, across mounts, so a live reload
   // never redraws one (and never reuses a render id).
@@ -55,7 +58,9 @@ const BrainView = (function () {
   const STATUS = {
     attention: { label: 'Needs attention', tone: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300', c: ['#fecaca', '#ef4444', '#7f1d1d', '#7f1d1d', '#f87171', '#fecaca'] },
     blocked: { label: 'Blocked', tone: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300', c: ['#fecaca', '#ef4444', '#7f1d1d', '#7f1d1d', '#f87171', '#fecaca'] },
-    active: { label: 'In progress', tone: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300', c: ['#fde68a', '#f59e0b', '#78350f', '#78350f', '#fbbf24', '#fde68a'] },
+    // the in-progress stages, one per step of /build a milestone stands at, all amber like the build pane's running work
+    ...Object.fromEntries(Object.entries({ active: 'Building', review: 'Reviewing', decide: 'Deciding', fix: 'Fixing', check: 'Checking', squash: 'Squashing' })
+      .map(([k, label]) => [k, { label, tone: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300', c: ['#fde68a', '#f59e0b', '#78350f', '#78350f', '#fbbf24', '#fde68a'] }])),
     landing: { label: 'Ready to land', tone: 'bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300', c: ['#99f6e4', '#14b8a6', '#134e4a', '#134e4a', '#2dd4bf', '#99f6e4'] },
     waiting: { label: 'Waiting', tone: 'bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300', c: ['#ddd6fe', '#8b5cf6', '#4c1d95', '#4c1d95', '#a78bfa', '#ddd6fe'] },
     ready: { label: 'Ready to build', tone: 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300', c: ['#bae6fd', '#0ea5e9', '#0c4a6e', '#0c4a6e', '#38bdf8', '#bae6fd'] },
@@ -64,14 +69,16 @@ const BrainView = (function () {
     landed: { label: 'Landed', tone: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300', c: ['#6ee7b7', '#059669', '#064e3b', '#065f46', '#10b981', '#d1fae5'] },
     abandoned: { label: 'Abandoned', tone: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400', c: ['#f4f4f5', '#d4d4d8', '#a1a1aa', '#18181b', '#52525b', '#71717a'] },
   };
-  const ORDER = ['attention', 'blocked', 'active', 'landing', 'waiting', 'ready', 'draft', 'done', 'landed', 'abandoned'];
+  const ORDER = ['attention', 'blocked', ...STAGES, 'landing', 'waiting', 'ready', 'draft', 'done', 'landed', 'abandoned'];
   const TICKET_STATUS = { todo: 'draft', doing: 'active', blocked: 'blocked', done: 'done' };
   const TYPES = ['feature', 'concept', 'decision', 'how-to', 'contract', 'other'];
   const LAYERS = ['business', 'application', 'other'];
   const COLS = [
     { label: 'Needs tickets', of: ['draft'] }, { label: 'Ready · Waiting', of: ['ready', 'waiting'] }, { label: 'Blocked · Attention', of: ['blocked', 'attention'] },
-    { label: 'In progress', of: ['active'] }, { label: 'Ready to land', of: ['landing', 'done'] }, { label: 'Landed', of: ['landed'] }, { label: 'Abandoned', of: ['abandoned'] },
+    ...STAGES.map((k) => ({ label: STATUS[k].label, of: [k] })),
+    { label: 'Ready to land', of: ['landing', 'done'] }, { label: 'Landed', of: ['landed'] }, { label: 'Abandoned', of: ['abandoned'] },
   ];
+  const COL = (st) => COLS.findIndex((c) => c.of.includes(st));
   const ACT = { recorded: 'bg-emerald-500', updated: 'bg-sky-500', superseded: 'bg-amber-500', deleted: 'bg-red-500', moved: 'bg-violet-500' };
   const DACT = { record: 'recorded', update: 'updated', supersede: 'superseded', delete: 'deleted' };
   const FUCHSIA = '#d946ef';
@@ -482,8 +489,10 @@ const BrainView = (function () {
       for (const s of D.specs) for (const d of s.deps) if (sInfo.has(d)) E(sInfo.get(d).head, sInfo.get(s.id).head, 'sdep', { dep: d, spec: s.id });
     })();
     const stageOfStatus = (stt) => Math.max(0, COLS.findIndex((c) => c.of.includes(stt)));
-    const stageOf = (n) => (n.kind === 'ticket' ? ({ todo: 1, doing: 3, blocked: 2 }[n.obj.status] ?? (n.m.status === 'landed' ? 5 : 4)) : stageOfStatus(n.status));
-    const colX = (i) => PADL + i * CW + (i === 6 ? 40 : 0);
+    // a done ticket rides with its milestone once that one closes, lands or is landed, and otherwise waits in Ready to land
+    const stageOf = (n) => (n.kind === 'ticket' ? ({ todo: COL('ready'), doing: COL('active'), blocked: COL('blocked') }[n.obj.status]
+      ?? (n.m.status === 'active' ? COL('landing') : stageOfStatus(n.m.status))) : stageOfStatus(n.status));
+    const colX = (i) => PADL + i * CW + (i === COL('abandoned') ? 40 : 0);
     const expandedId = () => { const s = S.sel; if (S.view !== 'specs' || !s) return null; return s.kind === 'spec' ? s.id : s.kind === 'milestone' || s.kind === 'ticket' ? s.id.split('|')[0] : null; };
     let slay = null, sExp = undefined;
     // To-do: a landed milestone or a done ticket is finished; a spec's repositories with work left are those of its unfinished milestones
@@ -496,7 +505,7 @@ const BrainView = (function () {
       const todo = P.scope === 'todo';
       const vis = snodes.filter((n) => inScope(n.spec) && (n.kind !== 'ticket' || n.spec.id === exp) && (!todo || todoLeft(n))), cells = new Map(), kord = { spec: 0, milestone: 1, ticket: 2 };
       // In flight and To-do drop the last two columns, Landed and Abandoned; they sit at the end, so the others keep their x
-      const lastCol = P.scope === 'all' ? COLS.length - 1 : 4;
+      const lastCol = P.scope === 'all' ? COLS.length - 1 : COL('landing');
       // n.ll is the band a node is laid out in: Specs for a spec card, its repository for a milestone or ticket
       vis.forEach((n) => { n.ll = n.kind === 'spec' ? SPECS : n.lane; n.col = stageOf(n); const k = n.ll + '|' + n.col; if (!cells.has(k)) cells.set(k, []); cells.get(k).push(n); });
       let y = STRIP + 14; const bands = [];
@@ -1074,9 +1083,11 @@ function front(t) {
 }
 
 // /build's closing steps after a milestone's last ticket, from milestone.md's Phase line; a Squash commit ends them.
-// ask is decide's word in builds from before the arbiter. scripts/check-phases.mjs checks every phase of build's
-// Phase table is a key here.
-const PHASE_LABEL = { check: 'Checking', failed: 'Check failed', waits: 'Waiting on its expand', review: 'In review', decide: 'Deciding escalations', ask: 'Deciding escalations', fix: 'Fixing review', squash: 'Squashing' };
+// step 7 writes decide when the arbiter decides the escalations, and ask when the user does, stopping the track.
+// scripts/check-phases.mjs checks every phase of build's Phase table is a key here.
+const PHASE_LABEL = { check: 'Checking', failed: 'Check failed', waits: 'Waiting on its expand', review: 'In review', decide: 'Deciding escalations', ask: 'Waiting on your answers', fix: 'Fixing review', squash: 'Squashing' };
+// the STAGES status each closing phase stands at; failed, and ask with answers missing, are the user's turn instead
+const PHASE_STAGE = { review: 'review', decide: 'decide', ask: 'decide', fix: 'fix', check: 'check', waits: 'check', squash: 'squash' };
 // How many of a review.md's findings are flagged escalate with no Answer line yet; a finding runs from its ID
 // (ST1, SP2, CN3) to the next. The same rule as hooks/sdd.ts's awaitingOf.
 const awaitingOf = (md) => md.split(/^(?=\s*(?:[-*]\s+|#{1,4}\s+)?(?:\*\*)?(?:ST|SP|CN)\d+\b)/m).slice(1)
@@ -1177,19 +1188,22 @@ function toData(name, files) {
     if (!s.repos.length) s.repos = [...new Set(s.milestones.map((m) => m.track).filter((x) => x !== 'unassigned'))];
     return s;
   });
-  // statuses: a closing milestone (all tickets done, a Phase, no Squash yet) is active or waits on the user; a squashed
-  // one not yet on its base is landing; a spec takes the most urgent of its milestones
+  // statuses: a closing milestone (all tickets done, a Phase, no Squash yet) stands at its Phase's stage, or waits on the
+  // user when its check failed or it is at ask with escalations unanswered (decide is the arbiter's: it needs no one);
+  // a squashed one not yet on its base is landing. A spec takes the most urgent of its milestones, and while work runs,
+  // the earliest stage any of them stands at.
   for (const s of specs) {
     for (const m of s.milestones) {
       const closing = !m.squash && PHASE_LABEL[m.phase] && m.tickets.length && m.tickets.every((t) => t.status === 'done');
-      const decides = (m.phase === 'decide' || m.phase === 'ask') && m.awaiting > 0, waits = m.phase === 'failed' || decides;
-      m.status = m.landed ? 'landed' : closing ? (waits ? 'attention' : 'active') : ticketsStatus(m.tickets);
+      const waits = m.phase === 'failed' || (m.phase === 'ask' && m.awaiting > 0);
+      m.status = m.landed ? 'landed' : closing ? (waits ? 'attention' : PHASE_STAGE[m.phase]) : ticketsStatus(m.tickets);
       if (m.status === 'done' && m.squash && !m.landed) m.status = 'landing';
-      m.phaseLabel = closing ? (decides ? 'Waiting on your answers' : PHASE_LABEL[m.phase]) : null;
+      m.phaseLabel = closing ? (m.phase === 'ask' && !m.awaiting ? 'Answered' : PHASE_LABEL[m.phase]) : null;
     }
     s.status = ticketsStatus(s.milestones.flatMap((m) => m.tickets));
+    const stage = STAGES.find((k) => s.milestones.some((m) => m.status === k));
     if (s.milestones.some((m) => m.status === 'attention')) s.status = 'attention';
-    else if (s.status === 'done' && s.milestones.some((m) => m.phaseLabel)) s.status = 'active';
+    else if ((s.status === 'active' || s.status === 'done') && stage) s.status = stage;
     else if (s.status === 'done' && !s.landed && s.milestones.some((m) => m.squash && !m.landed)) s.status = 'landing';
     if (s.status === 'done' && s.landed) s.status = 'landed';
   }
@@ -1221,7 +1235,7 @@ const inFlight = (s) => !s.landed && !s.abandoned;
 const brainState = (b) => {
   if (b.status !== 'ok') return null;
   const has = (...ks) => b.data.specs.some((s) => ks.includes(s.status));
-  return has('attention', 'blocked') ? 'attention' : has('active', 'landing') ? 'active' : has('ready') ? 'ready' : 'quiet';
+  return has('attention', 'blocked') ? 'attention' : has(...STAGES, 'landing') ? 'active' : has('ready') ? 'ready' : 'quiet';
 };
 const ORDER = ['attention', 'active', 'ready', 'quiet'];
 

@@ -166,10 +166,10 @@ test('the decide phase shows as the stage the milestone is at, and its arbiter a
   await ui.unmount()
 })
 
-test('a decide the user owns shows as waiting on them, once no arbiter runs and an escalation has no answer', async ($, on) => {
+test('an ask shows as waiting on the user while an escalation has no answer', async ($, on) => {
   const waiting: Record<string, string> = {
     ...files,
-    [`${DIR}/milestone.md`]: '# Milestone 001: Parse invoices\n\n**Phase:** decide\n\n**Squash:** none\n',
+    [`${DIR}/milestone.md`]: '# Milestone 001: Parse invoices\n\n**Phase:** ask\n\n**Squash:** none\n',
     [`${DIR}/review.md`]:
       '# Review: Parse invoices\n\n## Standards\n\nST1. parse.ts: rounds early. Judgement call, **escalate**.\n**Answer:** fix it as proposed — decided by the user\n\nST2. parse.ts: renames a field the web app reads. Judgement call, **escalate**.\n\nST3. parse.ts: long function. Hard violation.\n',
   }

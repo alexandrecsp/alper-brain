@@ -225,7 +225,7 @@ const refreshStatus = async ($: EngineInterface) => {
   let text: string | undefined
   if (building.length === 1 && building[0] !== undefined) {
     const current = building[0]
-    const stage = waitsOnUser(current, list) ? 'decide waits on you' : (STAGES[stageOf(current.phase, current.squash)] ?? 'done')
+    const stage = waitsOnUser(current) ? 'decide waits on you' : (STAGES[stageOf(current.phase, current.squash)] ?? 'done')
     text = `${STATUS_LINE_GLYPH} ${label(current)} tickets · ${stage} · ${agents} · ${tokens(cost)} tok`
   } else if (building.length > 1) {
     text = `${STATUS_LINE_GLYPH} ${building.map(label).join(' · ')} · ${agents} · ${tokens(cost)} tok`
