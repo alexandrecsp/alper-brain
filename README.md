@@ -48,15 +48,15 @@ The skills then show up as `/alper-brain:<name>`. Below they are written by thei
         │
 /write-tickets  ──────────────  one track of milestones per repository, with tickets
         │
-/build  (every track side by side, one event loop)        ┐
+/build  (one frontier per call: each track's next milestone) ┐
    ├─ branch sdd/<spec>/M<NNN> in each track's repository
    ├─ per track: one background builder at a time → tdd → commit
    └─ per milestone, one at a time, while the tracks build:   ┘
         review-changes → arbiter decides escalations → fix
         → check the milestone's "Done when" → squash into sdd/<spec>/spec
-        → land the track's landable milestones (as it goes)
+        → land the track once it has no open milestone
         │
-   then, once every milestone is in
+   /clear, then /build again for the next frontier; once every milestone is in
    └─ land the rest → record the spec's landing → offer what was learned as notes
 ```
 
@@ -107,20 +107,20 @@ You review the breakdown (boundaries, granularity, dependencies) until you appro
 
 ### 4. `/build [spec-id]`
 
-A **spec id** is the spec folder's number (`3` or `s03`), name or path. `/build s03` builds **every milestone and then lands the spec**.
+A **spec id** is the spec folder's number (`3` or `s03`), name or path. `/build s03` builds the spec's next **frontier**: each repository's next milestone that is ready. Run it again, after `/clear`, for the next frontier, until the spec has landed. Each call ends by naming the next frontier, so a long spec never outgrows one session's context, and a call cut off partway, by a usage limit or a closed session, resumes where it stopped.
 
-Each track works on one milestone and one ticket at a time, and the tracks run side by side, at most 5 at a time unless `parallelAgents` in the brain's `.sdd/config.json` says otherwise. A milestone is ready once the earlier milestones of its track are squashed, and any milestone of another track one of its tickets depends on. The build is one **event loop** in your session, the only place that can start sub-agents:
+Each track works on one milestone and one ticket at a time, and the tracks run side by side, at most 5 at a time unless `parallelAgents` in the brain's `.sdd/config.json` says otherwise. A milestone is ready once the earlier milestones of its track are squashed, and any milestone of another track one of its tickets depends on. The cap limits how many tracks build at once, never the frontier: a milestone waiting for a slot takes the next one free. Each call is one **event loop** in your session, the only place that can start sub-agents:
 
-1. It finds each track's repository through the brain's links and asks you, in one message, to open any that is not open and clean any dirty tree, how to land: each track **as it goes**, or **at the end** after one more yes; and who decides escalated findings: the **arbiter**, or you. It resumes each milestone from its **Phase** line when an earlier build stopped partway.
+1. It finds each track's repository through the brain's links and asks you, in one message, to open any that is not open and clean any dirty tree, and for your answers to any escalated finding waiting on you. The **arbiter** decides escalated findings unless your command says you decide them, as in `/build s03 — I decide escalations`. It resumes each milestone from its **Phase** line when an earlier build stopped partway.
 2. It checks out each milestone's own branch, `sdd/<spec-folder>/M<NNN>`, created from that repository's spec branch, `sdd/<spec-folder>/spec`, and starts a fresh **builder sub-agent** in the background for the track's next ticket. The builder builds the ticket with `tdd` (red, then green, at the ticket's seams), commits with `commit`, marks the ticket `done` with its SHA and leaves notes for the next ticket. As each builder reports, the loop starts that track's next ticket at once, so a slow repository never holds the others back.
 3. When a milestone's last ticket is done, it joins a closing queue. The loop closes one milestone at a time, while the other tracks keep building.
-4. It runs `review-changes` over the milestone's whole diff and saves the report as the milestone's `review.md`. Every finding is fixed automatically in one pass by a **fixer** sub-agent on Sonnet, with no second review. Findings flagged **escalate** (fixes that would contradict an ADR, change an interface that code outside the diff already calls, other repositories included, or need the spec itself changed) go first to an **arbiter** sub-agent on Opus, which decides each one without asking you; when you chose to decide them yourself, the track stops there instead, and the next `/build` asks you for each answer. The hand-over lists every decision under **Decided for you**, the defaults sub-agents took for want of a user among them, so you can revert any of them. Every sub-agent's brief opens with one **Context** block, defined in `skills/brain/references/BRIEF.md`: the repository it works in, what it may change, and the notes it reads. After each builder or fixer, the build checks it wrote only there.
+4. It runs `review-changes` over the milestone's whole diff and saves the report as the milestone's `review.md`. Every finding is fixed automatically in one pass by a **fixer** sub-agent on Sonnet, with no second review. Findings flagged **escalate** (fixes that would contradict an ADR, change an interface that code outside the diff already calls, other repositories included, or need the spec itself changed) go first to an **arbiter** sub-agent on Opus, which decides each one without asking you; when your command says you decide them, the track stops there instead, and the next `/build` asks you for each answer. The hand-over lists every decision under **Decided for you**, the defaults sub-agents took for want of a user among them, so you can revert any of them. Every sub-agent's brief opens with one **Context** block, defined in `skills/brain/references/BRIEF.md`: the repository it works in, what it may change, and the notes it reads. After each builder or fixer, the build checks it wrote only there.
 5. It runs the repository's full suite and the milestone's **Done when** check, once, after the fixes. A contract change's migrate waits here until its expand is squashed, then has its fakes checked against the expand's code.
 6. It squashes the milestone's branch into the spec's branch as one commit, recording its SHA in `milestone.md`.
 
-A failure stops only its own track; the others go on, and the build reports every stopped track once nothing is left to do.
+A failure stops only its own track; the others go on, and the call reports every stopped track once its frontier is done, then names the next frontier.
 
-Landing takes your answer from the start of the call. A track lands only between a squash and its next milestone, and only its **landable** milestones: squashed, after its earlier ones, and after every milestone their **Lands after** names. To land a track, it rebases that repository's spec branch onto its base, runs the full suite (fixing it, in up to two tries, when the base's new commits broke it), and fast-forwards the base, then records **Landed** on each milestone that landed and the landing itself on the spec's **Landings** line, the order `/open-pr` merges in. Once every milestone has landed, the spec gets its **Landed** line, one entry per repository, and the tickets' gotchas and the arbiter's reasons are offered as notes. Everything stays local: nothing is pushed and no PR is opened, so run `/open-pr <spec-id>` when you want the PRs. Because progress lives in the ticket files, the **Phase** and **Landed** lines and `review.md`, a build that stops picks up where it left off.
+A track lands, without asking, once it has no open milestone left, and only its **landable** milestones: squashed, after its earlier ones, and after every milestone their **Lands after** names. To land a track, it rebases that repository's spec branch onto its base, runs the full suite (fixing it, in up to two tries, when the base's new commits broke it), and fast-forwards the base, then records **Landed** on each milestone that landed and the landing itself on the spec's **Landings** line, the order `/open-pr` merges in. Once every milestone has landed, the spec gets its **Landed** line, one entry per repository, and the tickets' gotchas and the arbiter's reasons are offered as notes. Everything stays local: nothing is pushed and no PR is opened, so run `/open-pr <spec-id>` when you want the PRs. Because progress lives in the ticket files, the **Phase** and **Landed** lines and `review.md`, a build that stops picks up where it left off.
 
 #### Branches and landing
 

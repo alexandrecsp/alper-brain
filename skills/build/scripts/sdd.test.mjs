@@ -56,6 +56,7 @@ test('a fresh spec: api is dispatchable, web waits on the api ticket it depends 
   assert.deepEqual(st.base, { api: 'main', web: 'main' })
   assert.equal(st.allTodo, true)
   assert.deepEqual(st.dispatchable, [{ track: 'api', milestone: '001', ticket: '001' }])
+  assert.deepEqual(st.frontier, [{ track: 'api', milestone: '001' }])
   assert.deepEqual(ms(st, 'web', '001').waitsOn, ['api/001'])
   assert.equal(ms(st, 'web', '001').ready, false)
   assert.deepEqual(st.closingQueue, [])
@@ -70,17 +71,25 @@ test('once api 001 squashes, web becomes ready and api 001 landable; api 002 wai
   }), { useGit: false })
   assert.equal(ms(st, 'web', '001').ready, true)
   assert.deepEqual(st.dispatchable, [{ track: 'web', milestone: '001', ticket: '001' }])
+  assert.deepEqual(st.frontier, [{ track: 'web', milestone: '001' }])
   assert.deepEqual(track(st, 'api').landable, ['001'])
   assert.equal(ms(st, 'api', '002').landable, false)
   assert.deepEqual(ms(st, 'api', '002').landsAfterOpen, ['web/001'])
-  assert.equal(track(st, 'api').idle, true)
 })
 
 test('a milestone whose tickets are done queues at the step its Phase names', () => {
   const st = specState(twoTracks(brain(), { apiM1: { phase: 'decide', t: { status: 'done' } } }), { useGit: false })
   assert.deepEqual(st.closingQueue, [{ track: 'api', milestone: '001', resume: 7 }])
   assert.deepEqual(st.dispatchable, [])
+  assert.deepEqual(st.frontier, [{ track: 'api', milestone: '001' }])
   assert.equal(st.noneOpen, false)
+})
+
+test("the frontier holds each track's next milestone that is ready or already started, and no later one", () => {
+  // web 001 is not ready (api 001 is open), but an earlier call started its ticket, so it stays in the frontier
+  const st = specState(twoTracks(brain(), { webT: { status: 'doing' } }), { useGit: false })
+  assert.deepEqual(st.frontier, [{ track: 'api', milestone: '001' }, { track: 'web', milestone: '001' }])
+  assert.deepEqual(st.dispatchable, [{ track: 'api', milestone: '001', ticket: '001' }])
 })
 
 test('reports a Depends on that names no ticket', () => {
@@ -133,7 +142,7 @@ test('sets and appends lines, creating them under another and skipping a repeate
   assert.equal(setLine('**Phase:** none\n', 'Phase', 'review'), '**Phase:** review\n')
 })
 
-test('reads git through links.json: branches, idle, cleanliness and squashes on the base', () => {
+test('reads git through links.json: branches, cleanliness and squashes on the base', () => {
   const b = brain()
   const s = twoTracks(b)
   const repo = join(b, 'clones/api')
@@ -160,7 +169,7 @@ test('reads git through links.json: branches, idle, cleanliness and squashes on 
   assert.equal(api.repo.specBranch, true)
   assert.equal(api.repo.head, 'sdd/004-invoice-export/spec')
   assert.equal(api.next, '002')
-  assert.equal(api.idle, true)
+  assert.equal(ms(st, 'api', '002').branch, false)
   assert.equal(ms(st, 'api', '001').onBase, false)
   assert.deepEqual(st.unlinked, ['web'])
 
@@ -169,7 +178,7 @@ test('reads git through links.json: branches, idle, cleanliness and squashes on 
   writeFileSync(join(repo, 'g'), 'dirty')
   st = specState(s)
   assert.equal(ms(st, 'api', '001').onBase, true)
-  assert.equal(track(st, 'api').idle, false)
+  assert.equal(ms(st, 'api', '002').branch, true)
   assert.equal(track(st, 'api').repo.clean, false)
 })
 

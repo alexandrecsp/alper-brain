@@ -1,12 +1,12 @@
 # Land the spec
 
-A milestone **lands** when its squash reaches its repository's base, as one commit per milestone, with no merge commit. A track lands only while it is idle, by the build's **Tracks**, and only its **landable** milestones: a milestone is landable once it is squashed, every earlier milestone of its track is landed or landable, and every milestone its **Lands after** names has landed. Landing in that order gives each base the milestones in the order [CONTRACT-CHANGE.md](../../write-tickets/references/CONTRACT-CHANGE.md) cut them, so every base keeps working with the others. The build's `sdd state`, by its **State**, gives each track's `landable` milestones, and each unlanded one's `onBase`.
+A milestone **lands** when its squash reaches its repository's base, as one commit per milestone, with no merge commit. A track lands only once it has no open milestone, so no rebase runs under a milestone being built, and only its **landable** milestones: a milestone is landable once it is squashed, every earlier milestone of its track is landed or landable, and every milestone its **Lands after** names has landed. Landing in that order gives each base the milestones in the order [CONTRACT-CHANGE.md](../../write-tickets/references/CONTRACT-CHANGE.md) cut them, so every base keeps working with the others. The build's `sdd state`, by its **State**, gives each track's `landable` milestones, and each unlanded one's `onBase`.
 
 Landing rebases a track's spec branch, so each squashed milestone's **Squash** line follows its commit through every rebase: right after one, each milestone's commit is the one in `git -C <root> log --format='%H %(trailers:key=Sdd-Milestone,valueonly,separator=%x2C) %s' <base>..sdd/<spec-folder>/spec` whose `Sdd-Milestone` trailer names it, by the build's step 10. A squash committed before that trailer existed has none: it is the one whose subject is its squash's. A milestone has **landed** once its **Squash** commit is on its base (`git -C <root> merge-base --is-ancestor <Squash SHA> <base>`); a fast-forward keeps the SHA, so its **Landed** commit is that same one.
 
 ## Land a track
 
-Work in the track's repository by [FORMAT.md](../../brain/references/FORMAT.md)'s working repository rules, and find its base branch by the build's **Branches**. The landing takes the track's landable milestones; when it has none, there is nothing to land. When the call lands as it goes, the user's answer at the build's step 1 approves it; at the end, **When no milestone is open** asks first.
+Work in the track's repository by [FORMAT.md](../../brain/references/FORMAT.md)'s working repository rules, and find its base branch by the build's **Branches**. The landing takes the track's landable milestones; when it has none, there is nothing to land. It lands without asking: every base stays local until the user pushes it.
 
 1. **Check what has landed.** A landable milestone whose `onBase` is true landed in an earlier call that stopped after its merge: record those by step 3 first, as one landing, then land the rest by steps 2 and 3. Done when every landable milestone is listed as landed or still to land.
 
@@ -20,7 +20,7 @@ Work in the track's repository by [FORMAT.md](../../brain/references/FORMAT.md)'
 
 ## When no milestone is open
 
-1. **Land the rest.** When the call lands at the end, first ask the user once before changing any base, naming each repository and the milestones that land in it, in the order they will land; when they decline, stop. Then, until no track that has not stopped has a landable milestone left, land each such track by **Land a track**, in the order of the spec's **Repos** line, skipping a track once it has stopped: one track's landing can make another's landable. Done when every milestone's **Landed** names a commit, or the user declined, or a track stopped.
+1. **Land the rest.** Until no track that has not stopped has a landable milestone left, land each such track by **Land a track**, in the order of the spec's **Repos** line, skipping a track once it has stopped: one track's landing can make another's landable. Done when every milestone's **Landed** names a commit, or a track stopped.
 
 2. **Record the spec's landing.** Write `**Landed:** <slug>@<SHA>, …` into `spec.md`, under its **Base** line, with one entry per repository in **Repos**: the **Landed** SHA of its last milestone. Specs that depend on this one wait for that line. Skip this while any milestone is open or unlanded, or when `spec.md` already has its **Landed** line. Done when `spec.md` holds the **Landed** line, or a milestone has not landed.
 

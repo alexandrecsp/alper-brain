@@ -4,8 +4,8 @@
 //
 //   node sdd.mjs state <spec-id|spec-folder> [--brain <brain>] [--no-git]
 //     Prints the spec as JSON: its lines, its dependencies, the cap, and per track its milestones with each one's
-//     state (open, unlanded, landed), the step it resumes at, whether it is ready or landable, and, read from git
-//     through .sdd/links.json, whether its branch exists and the repository is clean.
+//     state (open, unlanded, landed), the step it resumes at, whether it is ready or landable, the frontier a call
+//     builds, and, read from git through .sdd/links.json, whether its branch exists and the repository is clean.
 //   node sdd.mjs brief <ticket-file> [--no-git]
 //     Prints, as Markdown, what the ticket's builder needs from around it: its milestone's lines, and the Notes and
 //     changed files of each earlier ticket of its milestone and each ticket its Depends on names.
@@ -288,7 +288,6 @@ export const derive = ({ tracks, layout, repos, repo = () => ({ git: false }) })
       slug,
       repo: g,
       next: next ? next.n : null,
-      idle: next === null ? true : g.git ? !has(next) : null,
       landable: t.milestones.filter((m) => m.landable).map((m) => m.n),
       milestones: t.milestones.map((m) => ({
         n: m.n,
@@ -316,12 +315,18 @@ export const derive = ({ tracks, layout, repos, repo = () => ({ git: false }) })
     .map((t) => ({ track: t.slug, milestone: t.next, resume: t.milestones.find((x) => x.n === t.next).resume }))
   const dispatchable = out.filter((t) => t.next && (() => { const m = t.milestones.find((x) => x.n === t.next); return m.ready && m.phase === 'none' && !m.ticketsDone })())
     .map((t) => ({ track: t.slug, milestone: t.next, ticket: t.milestones.find((x) => x.n === t.next).nextTicket }))
+  // The frontier: each track's next milestone, once it is ready or an earlier call started it.
+  const frontier = out.filter((t) => t.next && (() => {
+    const m = t.milestones.find((x) => x.n === t.next)
+    return m.ready || m.phase !== 'none' || m.tickets.some((k) => k.status !== 'todo')
+  })()).map((t) => ({ track: t.slug, milestone: t.next }))
   const all = out.flatMap((t) => t.milestones)
 
   return {
     tracks: out,
     closingQueue: queue,
     dispatchable,
+    frontier,
     noneOpen: all.every((m) => m.state !== 'open'),
     allLanded: all.length > 0 && all.every((m) => m.state === 'landed'),
     allTodo: all.flatMap((m) => m.tickets).every((k) => k.status === 'todo'),
