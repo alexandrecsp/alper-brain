@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Brain</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='1 0 31 32'%3E%3Cdefs%3E%3ClinearGradient id='g' gradientUnits='userSpaceOnUse' x1='3' y1='0' x2='30' y2='0'%3E%3Cstop offset='0' stop-color='%2338bdf8'/%3E%3Cstop offset='1' stop-color='%2334d399'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg fill='none' stroke='url(%23g)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 3C13 2 10 3 9.5 5.5C6.5 5.5 5 8 5.5 10.5C3 11.5 2.5 15 4.5 16.5C2.5 18.5 3.5 22 6 22.5C6 25.5 8.5 27.5 11 27C12.5 29 15 29.5 16 28.5V3M9.5 5.5C10 7.5 12 8 13 7M5.5 10.5C7.5 10.5 9 12 9 13.5M4.5 16.5C6.5 16 8 17 8.5 18.5M6 22.5C8 22.5 9.5 21.5 10 20M11 27C11 25 12.5 24 14 24M12.5 11.5C14 12.5 14 15 12.5 16M16 5H21M16 11.5H19L21.5 9H25M16 16H27M16 20.5H19L21.5 23H25M16 27H21'/%3E%3Ccircle cx='22.6' cy='5' r='1.6'/%3E%3Ccircle cx='26.6' cy='9' r='1.6'/%3E%3Ccircle cx='28.6' cy='16' r='1.6'/%3E%3Ccircle cx='26.6' cy='23' r='1.6'/%3E%3Ccircle cx='22.6' cy='27' r='1.6'/%3E%3C/g%3E%3C/svg%3E">
 <script src="https://cdn.tailwindcss.com/3.4.16?plugins=typography"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
@@ -40,7 +41,7 @@
 <script>
 // ============================================================ THE BRAIN VIEW
 // One brain, two views: Brain, its notes as a graph laid out by their links (the timeline is a mode of that graph), and
-// Specs, every spec as a pipeline of stages with a band per repository. A left rail filters, the canvas draws, a right
+// Specs, every spec as a pipeline of stages, the specs in a band of their own above a band per repository. A left rail filters, the canvas draws, a right
 // inspector reads the selected document. mount() draws a brain's data (toData's shape) and returns a handle whose
 // snapshot() carries selection, filters, zoom and node positions into the next mount, so a live reload never jumps.
 const BrainView = (function () {
@@ -151,7 +152,8 @@ const BrainView = (function () {
     const S = { view: 'brain', mode: 'graph', sel: null, showDraft: false };
     const B = { colour: 'type', group: null, show: null, author: null, q: '' };
     const T = { week: null, sha: null, drafts: false };
-    // scope: 'flight' shows only specs in flight (no Landed and no Abandoned line, by FORMAT.md), 'all' shows every spec
+    // scope: 'flight' shows only specs in flight (no Landed and no Abandoned line, by FORMAT.md), 'all' shows every spec,
+    // 'todo' shows the specs in flight without what is finished, and only the repositories left with work
     const P = { repo: null, status: null, q: '', scope: 'flight' };
     const inScope = (s) => P.scope === 'all' || (!s.landed && !s.abandoned);
     Object.assign(S, saved.S); Object.assign(B, saved.B); Object.assign(T, saved.T); Object.assign(P, saved.P);
@@ -484,13 +486,22 @@ const BrainView = (function () {
     const colX = (i) => PADL + i * CW + (i === 6 ? 40 : 0);
     const expandedId = () => { const s = S.sel; if (S.view !== 'specs' || !s) return null; return s.kind === 'spec' ? s.id : s.kind === 'milestone' || s.kind === 'ticket' ? s.id.split('|')[0] : null; };
     let slay = null, sExp = undefined;
+    // To-do: a landed milestone or a done ticket is finished; a spec's repositories with work left are those of its unfinished milestones
+    const todoLeft = (n) => n.kind === 'spec' || (n.kind === 'milestone' ? n.status !== 'landed' : n.obj.status !== 'done');
+    const todoLanes = (s) => { const info = sInfo.get(s.id); return laneNames.filter((l) => info.nodes.some((n) => n.kind === 'milestone' && n.lane === l && todoLeft(n))); };
+    // the repositories a spec spans, by scope; a spec card sits in the Specs band, above them all
+    const specLanes = (s) => (P.scope === 'todo' ? todoLanes(s) : sInfo.get(s.id).lanes);
+    const SPECS = ' specs';
     function layoutSpecs(exp) {
-      const vis = snodes.filter((n) => inScope(n.spec) && (n.kind !== 'ticket' || n.spec.id === exp)), cells = new Map(), kord = { spec: 0, milestone: 1, ticket: 2 };
-      // In flight drops the last two columns, Landed and Abandoned; they sit at the end, so the others keep their x
+      const todo = P.scope === 'todo';
+      const vis = snodes.filter((n) => inScope(n.spec) && (n.kind !== 'ticket' || n.spec.id === exp) && (!todo || todoLeft(n))), cells = new Map(), kord = { spec: 0, milestone: 1, ticket: 2 };
+      // In flight and To-do drop the last two columns, Landed and Abandoned; they sit at the end, so the others keep their x
       const lastCol = P.scope === 'all' ? COLS.length - 1 : 4;
-      vis.forEach((n) => { n.col = stageOf(n); const k = n.lane + '|' + n.col; if (!cells.has(k)) cells.set(k, []); cells.get(k).push(n); });
+      // n.ll is the band a node is laid out in: Specs for a spec card, its repository for a milestone or ticket
+      vis.forEach((n) => { n.ll = n.kind === 'spec' ? SPECS : n.lane; n.col = stageOf(n); const k = n.ll + '|' + n.col; if (!cells.has(k)) cells.set(k, []); cells.get(k).push(n); });
       let y = STRIP + 14; const bands = [];
-      laneNames.forEach((l) => {
+      [SPECS, ...laneNames].forEach((l) => {
+        if (todo && l !== SPECS && !vis.some((n) => n.ll === l)) return;
         let hmax = 0;
         for (let c = 0; c < COLS.length; c++) {
           const arr = cells.get(l + '|' + c); if (!arr) continue;
@@ -498,8 +509,8 @@ const BrainView = (function () {
           let yy = 0; arr.forEach((n) => { n.top = yy; yy += n.h + GAP; }); hmax = Math.max(hmax, yy);
         }
         const h = Math.max(84, hmax + 28);
-        vis.filter((n) => n.lane === l).forEach((n) => { n.x = colX(n.col); n.y = y + 14 + n.top; });
-        bands.push({ lane: l, y0: y, y1: y + h, color: laneColor(l) }); y += h;
+        vis.filter((n) => n.ll === l).forEach((n) => { n.x = colX(n.col); n.y = y + 14 + n.top; });
+        bands.push(l === SPECS ? { lane: l, label: 'Specs', y0: y, y1: y + h, color: 'var(--pd-ex)' } : { lane: l, label: l, y0: y, y1: y + h, color: laneColor(l) }); y += h;
       });
       const cols = COLS.slice(0, lastCol + 1).map((c, i) => ({ i, label: c.label, x: colX(i), ns: vis.filter((n) => n.col === i && n.kind === 'spec').length, nm: vis.filter((n) => n.col === i && n.kind === 'milestone').length }));
       return { vis, bands, cols, bottom: y, right: colX(lastCol) + CW + 10, scope: P.scope };
@@ -521,7 +532,7 @@ const BrainView = (function () {
       ovBands.selectAll('g').data(slay.bands, (b) => b.lane).join((en) => { const g = en.append('g'); g.append('rect').attr('x', 8).attr('width', 6).attr('height', 12).attr('rx', 3); g.append('text').attr('class', 'pd-lbl').attr('x', 20).attr('font-size', 12).attr('font-weight', 700).attr('fill', 'var(--pd-lab)'); return g; })
         .each(function (b) {
           const top = Math.max(t.applyY(b.y0) + 16, STRIP + 16), bot = t.applyY(b.y1) - 8, y = Math.min(top, bot), g = d3.select(this);
-          g.select('rect').attr('y', y - 10).attr('fill', b.color); g.select('text').attr('y', y).text(b.lane);
+          g.select('rect').attr('y', y - 10).attr('fill', b.color); g.select('text').attr('y', y).text(b.label);
         });
     }
     sv.onzoom = drawOverlay;
@@ -577,7 +588,7 @@ const BrainView = (function () {
         }
         g.append('text').attr('class', 'pd-lbl').attr('x', GX + GR[n.kind] + 7).attr('y', cy + 4).attr('font-size', n.kind === 'spec' ? 12 : n.kind === 'milestone' ? 11 : 10.5).attr('font-weight', n.kind === 'spec' ? 600 : 400)
           .style('fill', n.kind === 'spec' && !ab ? 'currentColor' : 'var(--pd-lab)').text(trunc(n.label, n.kind === 'spec' ? 28 : 30));
-        g.append('title').text(`${n.kind === 'spec' ? n.spec.num + ' ' : ''}${n.label} · ${n.kind === 'milestone' && n.obj.phaseLabel ? n.obj.phaseLabel : STATUS[n.status].label}${n.lane ? ' · ' + n.lane : ''}`);
+        g.append('title').text(`${n.kind === 'spec' ? n.spec.num + ' ' : ''}${n.label} · ${n.kind === 'milestone' && n.obj.phaseLabel ? n.obj.phaseLabel : STATUS[n.status].label}${n.kind === 'spec' ? (sInfo.get(n.spec.id).lanes.length ? ' · ' + sInfo.get(n.spec.id).lanes.join(', ') : '') : n.lane ? ' · ' + n.lane : ''}`);
       });
       sCardSel = en.merge(sel);
       sCardSel.on('click', (e, n) => { e.stopPropagation(); act(n.kind, n.kind === 'spec' ? n.spec.id : n.key.slice(2), null, true); });
@@ -585,8 +596,8 @@ const BrainView = (function () {
       sv.svg.on('click', () => { if (S.sel) { S.sel = null; refresh(); } });
       sCardSel.each((n) => { n.px = n.x; n.py = n.y; });
       sCardSel.transition().duration(animate ? 280 : 0).attr('transform', (n) => `translate(${n.x},${n.y})`);
-      // edges: dependency arrows, plus the trunk from a spec card to its milestones in the other bands (all of them once expanded)
-      const ev = sedges.filter((e) => vset.has(e.a) && vset.has(e.b) && (e.kind !== 'trunk' || e.a.lane !== e.b.lane || e.spec === exp));
+      // edges: dependency arrows, plus the trunk from the expanded spec's card down to its milestones (every trunk would crowd the canvas)
+      const ev = sedges.filter((e) => vset.has(e.a) && vset.has(e.b) && (e.kind !== 'trunk' || e.spec === exp));
       // each link is a group: a wide invisible stroke to hover, the visible line, and a tooltip saying what it means
       sEdgeSel = edgeG.selectAll('g.pd-eg').data(ev, (e) => `${e.a.key}>${e.b.key}:${e.kind}`).join((en) => {
         const g = en.append('g').attr('class', 'pd-eg');
@@ -630,13 +641,14 @@ const BrainView = (function () {
         const line = new Set(lineage.map((x) => x.key));
         edgeOn = (e) => e.a.key === key || e.b.key === key || (e.kind === 'trunk' && line.has(e.a.key) && line.has(e.b.key));
       }
-      const ok = (n) => (!P.repo || n.lane === P.repo) && (!P.status || n.spec.status === P.status) && (!P.q || `${n.label} ${n.spec.title} ${n.spec.num}`.toLowerCase().includes(P.q)) && (!hl || hl.has(n.key));
+      // a spec card passes the repository filter when the spec spans that repository
+      const ok = (n) => (!P.repo || (n.kind === 'spec' ? specLanes(n.spec).includes(P.repo) : n.lane === P.repo)) && (!P.status || n.spec.status === P.status) && (!P.q || `${n.label} ${n.spec.title} ${n.spec.num}`.toLowerCase().includes(P.q)) && (!hl || hl.has(n.key));
       sCardSel.style('opacity', (n) => (ok(n) ? 1 : 0.17));
       sCardSel.select('.sel').style('display', (n) => (sel && n.key.slice(2) === sel.id && n.kind === sel.kind ? null : 'none'));
       const eo = (e) => (ok(e.a) && ok(e.b) && (!hl || edgeOn(e)) ? (e.kind === 'trunk' ? 0.6 : e.kind === 'owns' ? 0.55 : 0.95) : 0.05);
       sEdgeSel.interrupt();
       if (delay) sEdgeSel.style('opacity', 0).transition().delay(delay).duration(200).style('opacity', eo); else sEdgeSel.style('opacity', eo);
-      bandG.selectAll('rect.band').style('opacity', (b) => (P.repo && P.repo !== b.lane ? 0.35 : 1));
+      bandG.selectAll('rect.band').style('opacity', (b) => (P.repo && b.lane !== SPECS && P.repo !== b.lane ? 0.35 : 1));
     }
 
     // ============================================================ RAIL
@@ -661,8 +673,9 @@ const BrainView = (function () {
         rail.innerHTML = h;
       } else {
         const scoped = D.specs.filter(inScope), flying = D.specs.filter((s) => !s.landed && !s.abandoned).length;
-        let h = railSec('Show', seg('scope', [['flight', `In flight <span class="text-zinc-400">${flying}</span>`], ['all', `All <span class="text-zinc-400">${D.specs.length}</span>`]], P.scope));
-        h += railSec('Repositories', laneNames.map((l) => row('repo', l, P.repo === l, dot(laneColor(l)), l, scoped.filter((s) => sInfo.get(s.id).lanes.includes(l)).length)).join(''));
+        let h = railSec('Show', seg('scope', [['all', `All <span class="text-zinc-400">${D.specs.length}</span>`], ['flight', `In flight <span class="text-zinc-400">${flying}</span>`], ['todo', 'To-do']], P.scope));
+        h += railSec('Repositories', laneNames.filter((l) => P.scope !== 'todo' || scoped.some((s) => specLanes(s).includes(l)))
+          .map((l) => row('repo', l, P.repo === l, dot(laneColor(l)), l, scoped.filter((s) => specLanes(s).includes(l)).length)).join(''));
         h += railSec('Specs by status', ORDER.filter((k) => scoped.some((s) => s.status === k)).map((k) => {
           const ss = scoped.filter((s) => s.status === k);
           return `<div class="mb-1"><button data-act="status" data-v="${k}" class="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left ${P.status === k ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60'}">${pill(k)}<span class="ml-auto text-xs tabular-nums text-zinc-500">${ss.length}</span></button>`
@@ -866,7 +879,7 @@ ${bar('drafts', 'x', dc, dn, 'Not shared yet', T.drafts, 'outline outline-1 outl
       } else {
         updateSpecs(relaid ? 260 : 0);
         const f = [P.repo, P.status && STATUS[P.status].label, P.q && `"${P.q}"`].filter(Boolean);
-        crumb.innerHTML = `<span class="rounded-md bg-white/80 px-2 py-1 dark:bg-zinc-950/80">${f.length ? 'Filtered: ' + esc(f.join(' · ')) : `${D.specs.filter(inScope).length} ${P.scope === 'all' ? 'specs' : 'specs in flight'} by stage, a band per repository`}</span>`;
+        crumb.innerHTML = `<span class="rounded-md bg-white/80 px-2 py-1 dark:bg-zinc-950/80">${f.length ? 'Filtered: ' + esc(f.join(' · ')) : `${D.specs.filter(inScope).length} ${P.scope === 'all' ? 'specs' : 'specs in flight'} by stage, above a band per repository${P.scope === 'todo' ? ' with work left' : ''}`}</span>`;
       }
     }
     function refresh() { renderHeader(); renderRail(); renderInspector(); renderDock(); renderFoot(); renderCanvas(); }
@@ -903,6 +916,9 @@ ${bar('drafts', 'x', dc, dn, 'Not shared yet', T.drafts, 'outline outline-1 outl
           if (P.status && !D.specs.some((s) => inScope(s) && s.status === P.status)) P.status = null;
           const selSpec = S.sel && ['spec', 'milestone', 'ticket'].includes(S.sel.kind) && D.specs.find((s) => s.id === S.sel.id.split('|')[0]);
           if (selSpec && !inScope(selSpec)) S.sel = null;
+          const selNode = S.sel && (S.sel.kind === 'milestone' || S.sel.kind === 'ticket') && snodeByKey.get(S.sel.kind[0] + ':' + S.sel.id);
+          if (selNode && P.scope === 'todo' && !todoLeft(selNode)) S.sel = null;
+          if (P.repo && P.scope === 'todo' && !D.specs.some((s) => inScope(s) && todoLanes(s).includes(P.repo))) P.repo = null;
           break;
         }
         case 'note': {
