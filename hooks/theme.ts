@@ -1,4 +1,4 @@
-import type { RunStatus } from '../types'
+import type { RunStatus, TrackState } from '../types'
 
 // Every status the plugin shows, whether a run's, a ticket's or a stage's,
 // is one of these tones, so the same state looks the same everywhere.
@@ -14,9 +14,10 @@ const TONES: Record<Tone, { glyph: string; color: string }> = {
   idle: { glyph: '💤', color: 'inactive' },
 }
 
-export const SPINNER = ['⬆️', '➡️', '⬇️', '⬅️']
+// What is at work shows a hammer; more frames here would turn once a second.
+export const SPINNER = ['🔨']
 
-// The spinner turns once a second; `at` is the pane's clock, in ms.
+// The spinner's frame at `at`, the pane's clock, in ms.
 export const spinner = (at: number) => SPINNER[Math.floor(at / 1000) % SPINNER.length] ?? '◐'
 
 export const glyph = (tone: Tone, at: number) => (tone === 'active' ? spinner(at) : TONES[tone].glyph)
@@ -35,6 +36,21 @@ export const runTone = (status: RunStatus): Tone =>
 // A ticket's Status line: anything but these is still to do.
 export const ticketTone = (status: string): Tone =>
   status === 'done' ? 'done' : status === 'doing' ? 'active' : status === 'blocked' ? 'blocked' : 'idle'
+
+/** A track of the Tracks header: working, done, held on someone, or waiting its turn. */
+export const trackTone = (state: TrackState): Tone =>
+  state === 'busy' || state === 'closing' || state === 'landing'
+    ? 'active'
+    : state === 'landed'
+      ? 'done'
+      : state === 'failed'
+        ? 'failed'
+        : state === 'ask' || state === 'blocked' || state === 'waits'
+          ? 'blocked'
+          : 'idle'
+
+/** The track states the user must act on, which the Needs-you banner lists. */
+export const NEEDS_USER: readonly TrackState[] = ['ask', 'failed', 'blocked']
 
 /**
  * A stage of /build's: done once passed; at the current one, working, unless

@@ -12,6 +12,9 @@ type Props = {
   messages: SessionMessage[] | { deny: string }
   // When each message was first seen, by its place in `messages`.
   stamps: number[]
+  // The message count the view froze at, so what is being read stops moving; 0 while live.
+  paused: number
+  onPause: (count: number) => void
   onBack: () => void
 }
 
@@ -20,8 +23,13 @@ const LAST = 30
 const CUT = 800
 
 // One subagent's transcript, newest message on top, where the host has no main view to switch to.
-export const TranscriptView = ({ ui: { Box, Button, Text } }: Draw, { run, messages, stamps, onBack }: Props) => {
+export const TranscriptView = (
+  { ui: { Box, Button, Text } }: Draw,
+  { run, messages, stamps, paused, onPause, onBack }: Props,
+) => {
   const role = roleOf(run?.type ?? '')
+  const count = 'deny' in messages ? 0 : messages.length
+  const newer = paused > 0 ? count - paused : 0
   const head = (
     <Box flexDirection="row" flexWrap="nowrap" alignItems="center" gap={1} marginBottom={1}>
       <Box flexGrow={1} flexShrink={1} minWidth={0}>
@@ -29,6 +37,14 @@ export const TranscriptView = ({ ui: { Box, Button, Text } }: Draw, { run, messa
           {oneLine(`${role} ${run?.ticket !== undefined ? `T${run.ticket}` : ''} ${run?.description ?? ''}`)}
         </Text>
       </Box>
+      {run?.status === 'running' && (
+        <Button
+          key="pause"
+          label={paused > 0 ? (newer > 0 ? `live (+${newer})` : 'live') : 'pause'}
+          variant="secondary"
+          onPress={() => onPause(paused > 0 ? 0 : count)}
+        />
+      )}
       <Button key="back" label="back" onPress={onBack} />
     </Box>
   )
@@ -45,6 +61,7 @@ export const TranscriptView = ({ ui: { Box, Button, Text } }: Draw, { run, messa
   // The first message is the parent's brief; a later one from that side only carries tool results back.
   // A message with nothing to draw (an assistant turn of thinking alone) is left out.
   const shown = messages
+    .slice(0, paused > 0 ? paused : undefined)
     .map((message, i) => ({ message, at: stamps[i], name: i === 0 ? 'brief' : message.role === 'user' ? 'result' : role }))
     .filter(
       ({ message }) => message.text !== '' || message.toolUses.length > 0 || (message.toolResults?.length ?? 0) > 0,
@@ -69,7 +86,10 @@ export const TranscriptView = ({ ui: { Box, Button, Text } }: Draw, { run, messa
             <Text>{message.text.length > CUT ? `${message.text.slice(0, CUT)}…` : message.text}</Text>
           )}
           {message.toolResults?.map(result => (
-            <Text dimColor wrap="truncate-end">{`${result.isError ? '✗' : '↳'} ${oneLine(result.text)}`}</Text>
+            // An error is what went wrong in the run: it stands out, where the rest stays dim.
+            <Text color={result.isError ? 'error' : undefined} dimColor={!result.isError} wrap="truncate-end">
+              {`${result.isError ? '✗' : '↳'} ${oneLine(result.text)}`}
+            </Text>
           ))}
           {message.toolUses.map(use => (
             <Text dimColor wrap="truncate-end">{`⚙ ${oneLine(describe(use.tool, use.input))}`}</Text>

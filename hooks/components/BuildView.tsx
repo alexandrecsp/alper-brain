@@ -2,19 +2,61 @@ import type { AgentRun, Build, Ledger } from '../../types'
 import { bar, elapsed, oneLine, tokens } from '../format'
 import { PROGRESS_HEIGHT, progress } from '../personas'
 import { STAGES, stageOf, waitsOnUser } from '../sdd'
-import { color, glyph, stageTone, ticketTone } from '../theme'
+import { ROLES, color, glyph, roleOf, stageTone, ticketTone } from '../theme'
 import type { Draw } from './ui'
 
-type Props = { build: Build; spent: Ledger | null; running: AgentRun[] }
+type Props = {
+  build: Build
+  spent: Ledger | null
+  // Every run of the session: the running ones show where they work, and the
+  // check's fixers count its attempts.
+  runs: AgentRun[]
+  onOpen: (run: AgentRun) => void
+}
 
-// The milestone on top: its title, ticket progress, stages and tickets.
-export const BuildView = ({ ui: { Box, Text }, Svg, at }: Draw, { build, spent, running }: Props) => {
+// The fixes a failing check gets before the build gives up on it (skills/build/SKILL.md, step 9).
+const CHECK_FIXES = 2
+
+// The milestone on top: its title, ticket progress, stages and tickets, each
+// ticket with the agent building it, and each stage's agent beneath them.
+export const BuildView = ({ ui, Svg, at }: Draw, { build, spent, runs, onOpen }: Props) => {
+  const { Box, Button, Text } = ui
   const done = build.tickets.filter(t => t.status === 'done').length
   const share = done / Math.max(1, build.tickets.length)
-  const stage = stageOf(build.phase, build.squash)
+  const stage = stageOf(build.phase, build.squash, build.landed)
   // Escalations the user decides stop the track at ask until the next /build asks them.
   const waiting = waitsOnUser(build)
   const cost = spent === null ? 0 : spent.agentTokens + spent.mainTokens
+  const mine = runs.filter(run => run.milestone === build.key)
+  const running = mine.filter(run => run.status === 'running')
+  const closing = running.filter(run => run.ticket === undefined)
+  const checkFixes = mine.filter(run => run.job === 'check' && roleOf(run.type) === 'fixer').length
+  const { total, escalated, answered } = build.findings
+  const review = [
+    total > 0 ? `review ${total} finding${total === 1 ? '' : 's'}` : '',
+    escalated > 0 ? `${escalated} escalated, ${answered} answered` : '',
+    checkFixes > 0 && (build.phase === 'check' || build.phase === 'failed') ? `check fixes ${checkFixes}/${CHECK_FIXES}` : '',
+  ].filter(part => part !== '')
+
+  // One agent at work, on a line of its own under what it works on.
+  const liveLine = (run: AgentRun, indent: number) => {
+    const role = roleOf(run.type)
+    return (
+      <Box key={`live-${run.id}`} flexDirection="row" flexWrap="nowrap" alignItems="center" paddingLeft={indent} gap={1} overflow="hidden">
+        <Box flexShrink={0}>
+          <Text color={ROLES[role]?.color} weight="bold">
+            {role}
+          </Text>
+        </Box>
+        <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
+          <Text color="suggestion" wrap="truncate-end">
+            {oneLine(`↳ ${run.activity}`)}
+          </Text>
+        </Box>
+        <Button key={`open-${run.id}`} label="open" variant="secondary" onPress={() => onOpen(run)} />
+      </Box>
+    )
+  }
 
   return (
     <Box key={`build-${build.key}`} flexDirection="column" marginBottom={1}>
@@ -54,6 +96,7 @@ export const BuildView = ({ ui: { Box, Text }, Svg, at }: Draw, { build, spent, 
           <Text wrap="truncate-end">
             {done}/{build.tickets.length} tickets
             {build.squash !== null && <Text color={color('done')}> · squashed {build.squash}</Text>}
+            {build.landed !== null && <Text color={color('done')}> · landed {build.landed}</Text>}
           </Text>
         </Box>
       </Box>
@@ -61,7 +104,7 @@ export const BuildView = ({ ui: { Box, Text }, Svg, at }: Draw, { build, spent, 
         {STAGES.map((name, i) => {
           const label =
             i === stage && build.phase === 'failed'
-              ? 'check failed'
+              ? `${name} failed`
               : i === stage && build.phase === 'waits'
                 ? 'check waits'
                 : i === stage && waiting
@@ -77,13 +120,18 @@ export const BuildView = ({ ui: { Box, Text }, Svg, at }: Draw, { build, spent, 
           )
         })}
       </Text>
+      {review.length > 0 && (
+        <Text color={waiting ? color('blocked') : undefined} dimColor={!waiting} wrap="truncate-end">
+          {review.join(' · ')}
+        </Text>
+      )}
       <Text dimColor>
         {tokens(cost)} tokens · agents {tokens(spent?.agentTokens ?? 0)} · main session{' '}
         {tokens(spent?.mainTokens ?? 0)} · {spent?.agents ?? 0} agents
       </Text>
       {build.tickets.map(ticket => {
         const spend = spent?.byTicket[ticket.num]
-        const live = running.find(run => run.milestone === build.key && run.ticket === ticket.num)
+        const live = running.find(run => run.ticket === ticket.num)
         const liveMs = live === undefined ? 0 : at - live.startedAt
         const facts = [
           spend === undefined ? '' : `${tokens(spend.tokens)} tok`,
@@ -94,24 +142,36 @@ export const BuildView = ({ ui: { Box, Text }, Svg, at }: Draw, { build, spent, 
         const tone = ticketTone(ticket.status)
 
         return (
-          <Box flexDirection="row" flexWrap="nowrap" paddingLeft={2} gap={1} overflow="hidden">
-            {/* The title is a plain string in a Text of its own: a Text nested in a Text does not cut at the edge. */}
-            <Box flexShrink={0}>
-              <Text color={color(tone)}>{glyph(tone, at)}</Text>
+          <Box key={`ticket-${ticket.num}`} flexDirection="column">
+            <Box flexDirection="row" flexWrap="nowrap" paddingLeft={2} gap={1} overflow="hidden">
+              {/* The title is a plain string in a Text of its own: a Text nested in a Text does not cut at the edge. */}
+              <Box flexShrink={0}>
+                <Text color={color(tone)}>{glyph(tone, at)}</Text>
+              </Box>
+              <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
+                <Text dimColor={tone === 'done'} wrap="truncate-end">
+                  {`${ticket.num} ${oneLine(ticket.title)}`}
+                </Text>
+              </Box>
+              <Box flexShrink={0}>
+                <Text dimColor wrap="truncate-end">
+                  {tail}
+                </Text>
+              </Box>
             </Box>
-            <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
-              <Text dimColor={tone === 'done'} wrap="truncate-end">
-                {`${ticket.num} ${oneLine(ticket.title)}`}
-              </Text>
-            </Box>
-            <Box flexShrink={0}>
-              <Text dimColor wrap="truncate-end">
-                {tail}
-              </Text>
-            </Box>
+            {live !== undefined && liveLine(live, 5)}
+            {ticket.status === 'blocked' && ticket.note !== '' && (
+              <Box paddingLeft={5} overflow="hidden">
+                <Text color={color('blocked')} wrap="truncate-end">
+                  {oneLine(`↳ ${ticket.note}`)}
+                </Text>
+              </Box>
+            )}
           </Box>
         )
       })}
+      {/* The review, the arbiter, the fixers and the check work for the milestone, not a ticket. */}
+      {closing.map(run => liveLine(run, 2))}
     </Box>
   )
 }

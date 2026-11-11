@@ -10,13 +10,15 @@ type Props = {
   ticketTitle: string | undefined
   // The most tokens any run spent: what a full meter stands for.
   largest: number
+  // Whether a milestone above already shows what the run is doing, under its ticket or its stage.
+  isShownAbove: boolean
   onOpen: () => void
 }
 
 // One subagent: its persona beside its title, numbers, activity and meter.
 export const AgentRow = (
   { ui: { Box, Button, Text }, Svg, at }: Draw,
-  { run, ticketTitle, largest, onOpen }: Props,
+  { run, ticketTitle, largest, isShownAbove, onOpen }: Props,
 ) => {
   const role = roleOf(run.type)
   const tone = runTone(run.status)
@@ -30,7 +32,13 @@ export const AgentRow = (
   const took = elapsed((run.endedAt ?? at) - run.startedAt)
   const spentHere = total(run.tokens)
   const note =
-    run.status === 'running' ? `↳ ${run.activity}` : run.lastText === '' ? '' : `↳ ${run.lastText}`
+    run.status === 'running'
+      ? isShownAbove
+        ? ''
+        : `↳ ${run.activity}`
+      : run.lastText === ''
+        ? ''
+        : `↳ ${run.lastText}`
 
   // The meter is as wide as its box, so the column may shrink below it and
   // take whatever the persona leaves, or the row wraps it underneath. The

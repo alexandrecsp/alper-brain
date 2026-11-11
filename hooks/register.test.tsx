@@ -193,6 +193,7 @@ test('an ask shows as waiting on the user while an escalation has no answer', as
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
   // ST1 has its answer and ST3 is no escalation, so only ST2 holds the build.
   expect(await ui.find({ type: 'Text', text: /🚧 decide waits on you/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /review 3 findings · 2 escalated, 1 answered/ })).toBeDefined()
   await ui.unmount()
 })
 

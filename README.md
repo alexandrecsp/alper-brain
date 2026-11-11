@@ -130,24 +130,40 @@ Every pipeline branch starts with `sdd/`, so `git branch --list 'sdd/*'` finds t
 
 ## The build pane
 
-While `/build` runs, **build watch**, a live pane beside the chat shows the milestone being built, where it stands, and what each sub-agent is doing and spending:
+While `/build` runs, **build watch**, a live pane beside the chat shows every track of the spec, the milestones being built or landed, what changed, and what each sub-agent is doing and spending:
 
 ```
+⚠ billing-api M001: 1 escalation waits on your answers — /build 004
+Tracks 3 of 4 in flight
+  🚧 billing-api M001 1/1 1 escalation waits on your answers
+  🔨 web-app     M002 2/3 builder T002 · Edit src/columns.ts
+  💤 worker      M001 0/2 after web-app/002
+  ✅ mailer           0/0 landed c0ffee1
+  main 🔨 Bash npm test · 12s
+
 004 Invoice export › M002 Consume v2 · web-app
 ████████░░░░ 2/3 tickets
-✔ tickets → ● review → ○ decide → ○ fix → ○ check → ○ squash
+✅ tickets → 🔨 review → 💤 decide → 💤 fix → 💤 check → 💤 squash → 💤 land
+review 4 findings · 1 escalated, 0 answered
 412.0k tokens · agents 380.0k · main session 32.0k · 4 agents
-  ✔ 001 Read rows                 61.0k tok · 4m10s · a1b2c3d
-  ◐ 002 Map columns               22.3k tok · 1m15s
-      ↳ Edit src/columns.ts
+  ✅ 001 Read rows                 61.0k tok · 4m10s · a1b2c3d
+  🔨 002 Map columns               22.3k tok · 1m15s
+     builder ↳ Edit src/columns.ts                        [open]
+
+Recent
+  14:02:10 ✅ web-app M002 T001 done a1b2c3d
+  14:05:42 •  web-app M002 review
 ```
 
-- **The milestone.** As soon as a sub-agent's brief or a tool call names a path under the brain's `.sdd/specs/<spec>/milestones/<milestone>/`, the pane follows that milestone: each ticket's **Status** and **Commit**, and the **Phase** line as `/build`'s stages (tickets, review, decide, fix, check, squash).
-- **Each sub-agent.** Its role (`builder`, `fixer`, `reviewer`, `arbiter`, `scout`, `scribe`…), the repository its brief works in, the ticket it builds or its job in the phase, elapsed time, steps, tool calls, tokens, model and what it is doing now. Press a row to open that agent's transcript. In VS Code and the desktop app each row starts with a pixel critter dressed for its role.
+- **Needs you.** A line on top for each track that waits on the user: escalations left to answer (`ask`), a check or a landing that gave up (`failed`), or a `blocked` ticket with the last line of its Notes. Each one also raises a toast when it happens.
+- **Tracks.** One line per repository of the spec, read from its files: the next open milestone (else the first unlanded one), its tickets done, and where it stands: the agent at work, closing by the main session, paused, ready, after another track's ticket, waiting at its check, landing, or landed. Under them, the main session's last tool call, since it runs the suite, squashes and lands by itself.
+- **The milestones.** As soon as a sub-agent's brief or a tool call names a path under the brain's `.sdd/specs/<spec>/milestones/<milestone>/`, or a track gets to work, the pane follows that milestone until it lands: each ticket's **Status** and **Commit**, the **Phase** line as `/build`'s stages (tickets, review, decide, fix, check, squash, land), the review's findings and how many escalations have an answer, and the check's fixes so far. The agent at work sits under its ticket, or under the stages for the closing steps, with a button to open its transcript.
+- **Recent.** What changed in the spec's files, newest on top: tickets started, done or blocked, each closing step, a squash, a landing, and every sub-agent that failed. It is saved per spec, so it carries across sessions.
+- **Each sub-agent.** Grouped by milestone: its role (`builder`, `fixer`, `reviewer`, `arbiter`, `scout`, `scribe`…), the repository its brief works in, the ticket it builds or its job in the phase, elapsed time, steps, tool calls, tokens and model. A group's finished agents fold into its heading; **show** lists them. Press a row to open that agent's transcript, which **pause** holds still while you read it. In VS Code and the desktop app each row starts with a pixel critter dressed for its role.
 - **What the milestone cost.** Tokens per ticket, the sub-agents' total and the main session's own requests, saved per milestone so the totals carry across `/build` calls and sessions.
-- **A status line** under the prompt, such as `⚙ M002 web-app 2/3 tickets · review · 1 agent running · 412.0k tok`.
+- **A status line** under the prompt, such as `⚙ M002 web-app 2/3 tickets · review · 1 agent running · 412.0k tok`, or with tracks side by side, each track's stage, `⚠ waits on you` among them.
 
-Open it with `/build-watch`; it also opens by itself when a sub-agent starts or a milestone is picked up. It only reads `.sdd/`. `hooks/register.tsx` is the module, `hooks/register.test.tsx` its tests (`claude plugin test .`), and `types/index.d.ts` the state it keeps.
+Open it with `/build-watch`; it also opens by itself when a sub-agent starts or a milestone is picked up. It only reads `.sdd/`. `hooks/register.tsx` is the module, `hooks/sdd.ts` and `hooks/events.ts` what it reads from the files, `hooks/register.test.tsx` and `hooks/tracks.test.tsx` its tests (`claude plugin test .`), and `types/index.d.ts` the state it keeps.
 
 ## The brain
 
