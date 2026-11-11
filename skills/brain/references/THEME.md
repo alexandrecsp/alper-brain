@@ -1,6 +1,6 @@
 # Report theme
 
-The look shared by every HTML report a skill writes into `.sdd/`: the brain page's, [brain.html](../brain.html). Zinc surfaces in light and dark, emerald as the one accent, rounded cards with a gradient accent bar, mono uppercase eyebrows. When this file and the brain page disagree on a style, the page wins.
+The look shared by every HTML report a skill writes into `.sdd/`, in the brain page's palette ([brain.html](../brain.html)): zinc surfaces in light and dark, emerald as the one accent, rounded cards with a gradient accent bar, mono uppercase eyebrows. This file holds the reports' components; when it and the brain page disagree on a colour, the page wins.
 
 A report is one self-contained file. Tailwind and Mermaid come from CDNs; everything else is inline and static. The report's own reference fills each `{{slot}}` below.
 
@@ -49,7 +49,7 @@ Every surface carries its `dark:` pair, as on the brain page: `border-zinc-200 d
 
 ## Hero
 
-The brain page's hero card: `relative overflow-hidden rounded-2xl border bg-gradient-to-br from-white to-zinc-50 dark:from-zinc-900 dark:to-zinc-950 p-6 sm:p-8`, with its two blurred glows (`bg-emerald-400/20` top right, `bg-sky-400/15` bottom left, `blur-3xl`, `pointer-events-none`). Inside, in order:
+A hero card: `relative overflow-hidden rounded-2xl border bg-gradient-to-br from-white to-zinc-50 dark:from-zinc-900 dark:to-zinc-950 p-6 sm:p-8`, with its two blurred glows (`bg-emerald-400/20` top right, `bg-sky-400/15` bottom left, `blur-3xl`, `pointer-events-none`). Inside, in order:
 
 - **Eyebrow**: repo name and date, `font-mono text-xs uppercase tracking-widest text-zinc-500`.
 - **Headline**: `text-3xl font-semibold tracking-tight`, with one line under it.
@@ -58,12 +58,12 @@ The brain page's hero card: `relative overflow-hidden rounded-2xl border bg-grad
 
 ## Card
 
-One `<article>` per item, built like the brain page's spec card: `relative overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 p-6`, with an `absolute inset-x-0 top-0 h-1 bg-gradient-to-r` accent bar in the gradient the report names. Its parts:
+One `<article>` per item, built like the brain page's brain card: `relative overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 p-6`, with an `absolute inset-x-0 top-0 h-1 bg-gradient-to-r` accent bar in the gradient the report names. Its parts:
 
 - **Meta row**: chips (`rounded bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 font-mono`), and a pill pushed right (`ml-auto rounded-full px-2 py-0.5 text-xs font-medium`).
 - **Title**: `text-xl font-semibold tracking-tight`, a leading handle in `font-mono text-zinc-400`.
 - **Files**: a `font-mono text-xs text-zinc-500` list.
-- **Checks**: bullets marked with the brain page's emerald check.
+- **Checks**: bullets marked with an emerald check, a white tick in a `bg-emerald-500` circle.
 - **Callout**: one line in an amber box (`rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40`).
 
 ## Diagrams
@@ -71,6 +71,6 @@ One `<article>` per item, built like the brain page's spec card: `relative overf
 A diagram sits on a canvas, `dots rounded-xl border bg-zinc-50/80 dark:bg-zinc-900/40`, under a `text-xs uppercase tracking-widest text-zinc-500` label. A hand-built diagram draws:
 
 - **Module**: `rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 shadow-sm`.
-- **Arrow**: the brain page's graph edges, inline SVG with `stroke-width="1.5"`, `stroke-zinc-500 dark:stroke-zinc-400`, and a filled arrowhead marker.
+- **Arrow**: inline SVG with `stroke-width="1.5"`, `stroke-zinc-500 dark:stroke-zinc-400`, and a filled arrowhead marker.
 
 Label modules inside diagrams with `text-xs uppercase tracking-wider`, so they read as schematic rather than UI.
