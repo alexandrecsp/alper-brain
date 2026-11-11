@@ -113,7 +113,8 @@ One fact per file. Teammates adding notes at the same time never conflict, and t
 ---
 name: billing-retry-idempotency
 description: Billing retries reuse the charge's idempotency key, so a retried charge never bills twice
-type: gotcha
+type: how-to
+layer: application
 ---
 
 A retried charge sends the first attempt's idempotency key, and the provider answers with the first attempt's result.
@@ -127,21 +128,29 @@ Related: [[invoice-event-contract]]
 - `name`: the file name without `.md`, in kebab-case, unique across the **whole brain** and not only its folder, since `[[name]]` resolves by it here and in Obsidian. Prefix the repo slug when a bare name could clash.
 - `description`: one line that stands alone. Recall judges relevance from it without opening the note.
 - `type`: one of the types below.
+- `layer`: `business` or `application`, by **Layers**.
 - `repos`: in `shared/` only, the slugs the note spans, as `[billing-api, web-app]`. A note in `repos/<slug>/` belongs to that slug.
 - `explored`: on explored notes only, the short SHA of the commit the note was read at.
 - `status` and `supersededBy`: on a superseded `decision` only, `status: superseded` and the name of the decision that replaced it, by **When a note stops being true**.
 
 | type | holds |
 |---|---|
-| `feature` | something a user, an operator or another system can do through the repository: who does it, what happens, and its rules. Explored only |
-| `concept` | how a part works, or what a term means in this repository. When the repository's `GLOSSARY.md` defines the term, link it and record only what the glossary lacks |
-| `decision` | a choice and its reason. When the repository keeps ADRs, link the ADR's path and record only what it lacks |
-| `gotcha` | a trap: surprising behaviour, or a past incident and its lesson |
-| `contract` | an interface between repositories (an API, event, queue or shared schema) with its producer and consumers. Lives in `shared/` |
-| `how-to` | a recurring procedure that no script or doc in the repository runs |
-| `topic` | a cluster: the notes, of any type and kind, that make up one theme, such as the checkout flow or the auth story. One paragraph on what ties them, then each member as a `[[link]]`. Authored only; in `shared/` when its members span repositories |
+| `feature` | something a user, an operator or another system can do through the repository: who does it, what happens, and its rules. Explored only; always `business` |
+| `concept` | what a term or entity means and the states it moves through (`business`), or how a part of the system works (`application`). When the repository's `GLOSSARY.md` defines the term, link it and record only what the glossary lacks |
+| `decision` | a choice and its reason: a product choice (`business`) or a technical one (`application`). When the repository keeps ADRs, link the ADR's path and record only what it lacks |
+| `how-to` | what to do about a trap or a recurring task: surprising behaviour, a past incident and its lesson, or a procedure no script or doc in the repository runs |
+| `contract` | an interface between repositories (an API, event, queue or shared schema) with its producer and consumers. Lives in `shared/`; always `application` |
 
-Write the `description` and the body in plain prose, by [PROSE.md](PROSE.md). The body states the fact first. A `decision` or `gotcha` follows it with **Why:** and **How to apply:** lines. Link every note it builds on or bears on with `[[name]]`: each link is an edge in the graph. A link to a note not written yet draws as a dashed node, marking a note worth writing.
+Write the `description` and the body in plain prose, by [PROSE.md](PROSE.md). The body states the fact first. A `decision` or `how-to` follows it with **Why:** and **How to apply:** lines; a procedure's steps follow its **How to apply:** line as a numbered list. Link every note it builds on or bears on with `[[name]]`: each link is an edge in the graph. A link to a note not written yet draws as a dashed node, marking a note worth writing.
+
+### Layers
+
+A note's **layer** names its reader:
+
+- **`business`**: what the product does and why, in the domain's words, for a product owner or a teammate on their first day. Every explored note is `business`.
+- **`application`**: how the system is built (its modules, data, interfaces and traps), for whoever changes the code.
+
+A fact about both takes the layer of the reader who acts on it: a refund limit is `business`, the job that enforces it `application`.
 
 ### When a note stops being true
 
@@ -150,7 +159,7 @@ The note's type decides, so the brain keeps a past only where the past is knowle
 | The note | becomes | by the draft |
 |---|---|---|
 | An explored note | rewritten or deleted by the next `/brain explore` | none |
-| An authored `concept`, `contract`, `gotcha`, `how-to` or `topic` whose subject still exists | its new text, edited in place | `update` |
+| An authored `concept`, `contract` or `how-to` whose subject still exists | its new text, edited in place | `update` |
 | A `decision` reversed or replaced | kept, marked by its `status` and `supersededBy` fields above, with a `Superseded by [[<name>]]` line under its body; the new decision links it, and says why it changed in its **Why:** line | `supersede` |
 | A note whose subject or trap is gone, or that was simply wrong | deleted, the reason in its commit's body | `delete` |
 
@@ -171,6 +180,7 @@ An explored note speaks the domain's words, so an outsider can read it, and ends
 name: billing-api-refunds
 description: A paid invoice can be refunded within 30 days, in full or in part, with finance approving any refund above 500
 type: feature
+layer: business
 explored: a1b2c3d
 ---
 
@@ -194,8 +204,8 @@ An explored note is **current** while the repository's default branch still poin
 
 ```json
 { "version": 1, "commits": [
-  { "sha": "a1b2c3d", "date": "2026-11-07T14:02:11Z", "author": "Ana", "title": "Records the gotchas behind the invoice rounding bug",
-    "changes": [{ "note": "billing-rounding", "path": "repos/billing-api/billing-rounding.md", "action": "recorded", "type": "gotcha", "kind": "authored", "repos": ["billing-api"] }] }
+  { "sha": "a1b2c3d", "date": "2026-11-07T14:02:11Z", "author": "Ana", "title": "Records the traps behind the invoice rounding bug",
+    "changes": [{ "note": "billing-rounding", "path": "repos/billing-api/billing-rounding.md", "action": "recorded", "type": "how-to", "layer": "application", "kind": "authored", "repos": ["billing-api"] }] }
 ] }
 ```
 

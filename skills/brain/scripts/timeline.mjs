@@ -83,6 +83,7 @@ function meta(path, text) {
   return {
     note: parts.at(-1).replace(/\.md$/, ''),
     type: fm.type || 'other',
+    layer: fm.layer || null,
     kind: fm.explored || parts[2] === 'explored' ? 'explored' : 'authored',
     repos,
     superseded: fm.status === 'superseded',
@@ -105,7 +106,7 @@ const out = commits.map((c) => {
       last.set(path, m)
       action = letter === 'R' ? 'moved' : letter === 'M' ? (m.superseded && !before?.superseded ? 'superseded' : 'updated') : 'recorded'
     }
-    const change = { note: m.note, path, action, type: m.type, kind: m.kind, repos: m.repos }
+    const change = { note: m.note, path, action, type: m.type, layer: m.layer, kind: m.kind, repos: m.repos }
     if (from) change.from = from
     return change
   })

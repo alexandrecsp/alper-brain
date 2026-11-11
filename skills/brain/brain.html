@@ -65,7 +65,8 @@ const BrainView = (function () {
   };
   const ORDER = ['attention', 'blocked', 'active', 'landing', 'waiting', 'ready', 'draft', 'done', 'landed', 'abandoned'];
   const TICKET_STATUS = { todo: 'draft', doing: 'active', blocked: 'blocked', done: 'done' };
-  const TYPES = ['feature', 'concept', 'decision', 'gotcha', 'contract', 'how-to', 'topic', 'other'];
+  const TYPES = ['feature', 'concept', 'decision', 'how-to', 'contract', 'other'];
+  const LAYERS = ['business', 'application', 'other'];
   const COLS = [
     { label: 'Needs tickets', of: ['draft'] }, { label: 'Ready · Waiting', of: ['ready', 'waiting'] }, { label: 'Blocked · Attention', of: ['blocked', 'attention'] },
     { label: 'In progress', of: ['active'] }, { label: 'Ready to land', of: ['landing', 'done'] }, { label: 'Landed', of: ['landed'] }, { label: 'Abandoned', of: ['abandoned'] },
@@ -77,10 +78,10 @@ const BrainView = (function () {
   const css = `
 .pd-root{--pd-bg:#fff;--pd-lab:#71717a;--pd-e1:#a1a1aa;--pd-e2:#52525b;--pd-ex:#6366f1;--pd-ea:#a855f7;--pd-es:#d946ef;--pd-ring:#6366f1;--pd-bl:#9ca3af;--pd-neutral:#9ca3af;--pd-ghost:#a1a1aa;
 --g0:#3b82f6;--g1:#f97316;--g2:#10b981;--g3:#eab308;--g4:#06b6d4;--g5:#ef4444;--gs:#94a3b8;
---t-feature:#3b82f6;--t-concept:#14b8a6;--t-decision:#8b5cf6;--t-gotcha:#f97316;--t-contract:#eab308;--t-how-to:#22c55e;--t-topic:#64748b;--t-other:#94a3b8}
+--t-feature:#3b82f6;--t-concept:#14b8a6;--t-decision:#8b5cf6;--t-how-to:#f97316;--t-contract:#eab308;--t-other:#94a3b8;--l-business:#0ea5e9;--l-application:#d946ef;--l-other:#94a3b8}
 @media (prefers-color-scheme:dark){.pd-root{--pd-bg:#09090b;--pd-lab:#a1a1aa;--pd-e1:#52525b;--pd-e2:#a1a1aa;--pd-ex:#818cf8;--pd-ea:#c084fc;--pd-es:#e879f9;--pd-ring:#818cf8;--pd-bl:#8b8b97;--pd-neutral:#71717a;--pd-ghost:#71717a;
 --g0:#60a5fa;--g1:#fb923c;--g2:#34d399;--g3:#facc15;--g4:#22d3ee;--g5:#f87171;--gs:#94a3b8;
---t-feature:#60a5fa;--t-concept:#2dd4bf;--t-decision:#a78bfa;--t-gotcha:#fb923c;--t-contract:#facc15;--t-how-to:#4ade80;--t-topic:#cbd5e1;--t-other:#94a3b8}}
+--t-feature:#60a5fa;--t-concept:#2dd4bf;--t-decision:#a78bfa;--t-how-to:#fb923c;--t-contract:#facc15;--t-other:#94a3b8;--l-business:#38bdf8;--l-application:#e879f9;--l-other:#94a3b8}}
 .pd-root svg text{font-family:ui-sans-serif,system-ui,sans-serif}
 .pd-lbl{paint-order:stroke;stroke:var(--pd-bg);stroke-width:3px;stroke-linejoin:round}
 /* Spec links come in two families, and colour belongs to status alone (on the glyphs):
@@ -157,12 +158,13 @@ const BrainView = (function () {
 
     // Groups: a note's cluster is always its repository ('shared' for notes spanning several); the colour follows the chosen axis.
     const clOf = (n) => (n.shared || n.repos.length !== 1 ? 'shared' : n.repos[0]);
-    const groupOf = (n) => (B.colour === 'repo' ? clOf(n) : TYPES.includes(n.type) ? n.type : 'other');
-    const chGroup = (ch) => (B.colour === 'repo' ? ((ch.path || '').startsWith('shared/') || (ch.repos || []).length !== 1 ? 'shared' : ch.repos[0]) : TYPES.includes(ch.type) ? ch.type : 'other');
+    const axisOf = (type, layer) => (B.colour === 'layer' ? (LAYERS.includes(layer) ? layer : 'other') : TYPES.includes(type) ? type : 'other');
+    const groupOf = (n) => (B.colour === 'repo' ? clOf(n) : axisOf(n.type, n.layer));
+    const chGroup = (ch) => (B.colour === 'repo' ? ((ch.path || '').startsWith('shared/') || (ch.repos || []).length !== 1 ? 'shared' : ch.repos[0]) : axisOf(ch.type, ch.layer));
     const laneNames = D.repos.map((r) => r.slug);
     D.specs.forEach((s) => s.milestones.forEach((m) => { if (!laneNames.includes(m.track)) laneNames.push(m.track); }));
     const laneColor = (l) => (l === 'shared' ? 'var(--gs)' : `var(--g${Math.max(0, laneNames.indexOf(l)) % 6})`);
-    const groupColor = (k) => (B.colour === 'repo' ? laneColor(k) : `var(--t-${TYPES.includes(k) ? k : 'other'})`);
+    const groupColor = (k) => (B.colour === 'repo' ? laneColor(k) : B.colour === 'layer' ? `var(--l-${LAYERS.includes(k) ? k : 'other'})` : `var(--t-${TYPES.includes(k) ? k : 'other'})`);
 
     root.innerHTML = `
 <div class="pd-root flex h-full w-full flex-col bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
@@ -268,7 +270,7 @@ const BrainView = (function () {
     // A note deleted in the timeline is in no notes[]: it is rebuilt from its history, and shows only at commits where it lived.
     const deletedNotes = [...hist.keys()].filter((id) => !notesById.has(id) && hist.get(id).some(({ ch }) => ch.action === 'deleted')).map((id) => {
       const last = hist.get(id).filter(({ ch }) => ch.action !== 'deleted').at(-1)?.ch || hist.get(id).at(-1).ch;
-      return { id, type: last.type || 'other', repos: last.repos || [], shared: (last.path || '').startsWith('shared/'), kind: last.kind, links: [], description: 'Deleted from the brain', deletedNote: true };
+      return { id, type: last.type || 'other', layer: last.layer || null, repos: last.repos || [], shared: (last.path || '').startsWith('shared/'), kind: last.kind, links: [], description: 'Deleted from the brain', deletedNote: true };
     });
     const bnodes = [...D.notes.map((n) => ({ id: n.id, n })), ...deletedNotes.map((n) => ({ id: n.id, n, deleted: true })), ...D.ghosts.map((g) => ({ id: g, ghost: true }))];
     const bidx = new Map(bnodes.map((n) => [n.id, n]));
@@ -286,11 +288,8 @@ const BrainView = (function () {
       if (n.supersedes) addLink(n.supersedes, n.id, 'sup');
     });
     const maxDeg = Math.max(1, ...bnodes.map((d) => nb.get(d.id).size));
-    const isTopicD = (d) => d.n && d.n.type === 'topic' && !d.deleted;
-    // Small dots that grow gently with links (a square root, capped), as Obsidian draws them; a topic is a touch larger.
-    bnodes.forEach((d) => { d.deg = nb.get(d.id).size; d.r = d.ghost ? 1.8 : Math.min(7, 2.4 + Math.sqrt(d.deg) * 0.9) * (isTopicD(d) ? 1.2 : 1); });
-    // Topics are a second layer of grouping: each one floats to the middle of its members, and they lean towards it.
-    const topics = bnodes.filter(isTopicD).map((d) => ({ d, members: d.n.links.map((id) => bidx.get(id)).filter(Boolean) }));
+    // Small dots that grow gently with links (a square root, capped), as Obsidian draws them.
+    bnodes.forEach((d) => { d.deg = nb.get(d.id).size; d.r = d.ghost ? 1.8 : Math.min(7, 2.4 + Math.sqrt(d.deg) * 0.9); });
     const repoKeys = D.repos.map((r) => r.slug);
 
     // The layout comes from the links alone, as in Obsidian: no cluster centres, no grouping force. Well-linked notes pull
@@ -310,12 +309,7 @@ const BrainView = (function () {
 
     let bm = new Map(bnodes.map((d) => [d.id, { ex: !d.deleted, hit: true }]));
     let bHover = null, bActs = null;
-    const topicG = bv.g.append('g').style('pointer-events', 'none');
     const linkG = bv.g.append('g'), nodeG = bv.g.append('g'), labG = bv.g.append('g').style('pointer-events', 'none');
-    const topicHullSel = topicG.selectAll('path').data(topics).join('path').attr('fill', 'var(--t-topic)').attr('fill-opacity', 0.04)
-      .attr('stroke', 'var(--t-topic)').attr('stroke-opacity', 0.45).attr('stroke-width', 1.2).attr('stroke-dasharray', '5 4');
-    // A topic's outline shows only while the topic or one of its notes is hovered or selected; the topic's own label names it.
-    const topicFocus = (t, f) => !!f && (t.d.id === f || t.members.some((m) => m.id === f));
     const bLinkSel = linkG.selectAll('line').data(blinks).join('line').attr('class', (l) => 'pd-bl' + (l.kind === 'sup' ? ' pd-bl-sup' : ''))
       .attr('marker-end', (l) => (l.kind === 'sup' ? 'url(#pd-ar-depdone)' : null));
     const bNodeSel = nodeG.selectAll('g').data(bnodes).join('g').style('cursor', (d) => (d.deleted ? 'default' : 'pointer'));
@@ -329,16 +323,9 @@ const BrainView = (function () {
       g.append('title').text(d.ghost ? `${d.id} (not written yet)` : d.deleted ? `${d.id} (deleted)` : `${d.id}: ${d.n.description}`);
     });
     const bLabSel = labG.selectAll('text').data(bnodes).join('text').attr('class', 'pd-lbl').attr('text-anchor', 'middle').attr('fill', 'currentColor')
-      .attr('font-style', (d) => (d.ghost ? 'italic' : null)).attr('font-weight', (d) => (isTopicD(d) ? 700 : null))
+      .attr('font-style', (d) => (d.ghost ? 'italic' : null))
       .attr('text-decoration', (d) => (d.n && (d.n.superseded || d.deleted) ? 'line-through' : null)).style('opacity', 0).text((d) => trunc(d.id, 30));
 
-    // A topic floats to the middle of its notes, and they lean towards it: a theme reads as one knot.
-    const topicForce = (alpha) => topics.forEach(({ d: t, members }) => {
-      if (!members.length) return;
-      const mx = d3.mean(members, (m) => m.x), my = d3.mean(members, (m) => m.y);
-      t.vx += (mx - t.x) * 0.3 * alpha; t.vy += (my - t.y) * 0.3 * alpha;
-      members.forEach((m) => { m.vx += (t.x - m.x) * 0.025 * alpha; m.vy += (t.y - m.y) * 0.025 * alpha; });
-    });
     // Obsidian's forces: links pull (weaker on busy notes, d3's default), every note repels, and a pull to the centre.
     // The whole keeps a round shape: the graph lives inside a disc of radius DISC, sized to the number of notes; notes
     // sit by relevance: each is drawn to a radius that shrinks as its links grow, so the busiest notes hold the centre and
@@ -352,19 +339,9 @@ const BrainView = (function () {
     const sim = d3.forceSimulation(bnodes)
       .force('link', d3.forceLink(blinks).id((d) => d.id).distance(40).strength(0.25))
       .force('charge', d3.forceManyBody().strength((d) => (d.ghost ? -18 : -45)).distanceMax(260))
-      .force('topics', topicForce)
       .force('collide', d3.forceCollide((d) => d.r + 4))
       .force('rim', d3.forceRadial(ringOf).strength((d) => (d.ghost ? 0.12 : 0.09)))
       .force('disc', disc).stop();
-    const hullLine = d3.line().curve(d3.curveCatmullRomClosed.alpha(0.6));
-    const hullOf = (ms, pad) => hullLine(d3.polygonHull(ms.flatMap((m) => d3.range(10).map((i) => [m.x + Math.cos((i / 10) * Math.PI * 2) * (m.r + pad), m.y + Math.sin((i / 10) * Math.PI * 2) * (m.r + pad)]))));
-    const alive = (d) => bm.get(d.id).ex;
-    function drawTopicHulls() {
-      topicHullSel.each(function (t) {
-        const ms = [t.d, ...t.members.filter((m) => !m.ghost)].filter(alive), s = d3.select(this);
-        s.attr('d', ms.length < 2 ? null : hullOf(ms, 16));
-      });
-    }
     function paintBrain() {
       // a superseded-by arrow stops at the new decision's edge, so its head shows
       bLinkSel.attr('x1', (l) => l.source.x).attr('y1', (l) => l.source.y).each(function (l) {
@@ -373,7 +350,6 @@ const BrainView = (function () {
         d3.select(this).attr('x2', x2).attr('y2', y2);
       });
       bNodeSel.attr('transform', (d) => `translate(${d.x},${d.y})`);
-      drawTopicHulls();
       styleBrain();
     }
     const brainBBox = () => {
@@ -395,7 +371,7 @@ const BrainView = (function () {
     const LABEL_ALL = 60;
     function placeLabels(k, fset) {
       const f = 11 / k, placed = [];
-      const pri = (d) => (fset && fset.has(d.id) ? 1e6 : 0) + (isTopicD(d) ? 1e3 : 0) + d.deg;
+      const pri = (d) => (fset && fset.has(d.id) ? 1e6 : 0) + d.deg;
       bnodes.slice().sort((a, b) => pri(b) - pri(a)).forEach((d) => {
         const s = bm.get(d.id); d.lblOk = false; if (!s.ex || !s.hit) return;
         const w = d.id.length * f * 0.56, h = f * 1.15, x = d.x - w / 2, y = d.y + d.r + 2 / k;
@@ -421,10 +397,9 @@ const BrainView = (function () {
       bLabSel.attr('x', (d) => d.x).attr('y', (d) => d.y + d.r + 11 / k).attr('font-size', 11 / k).style('opacity', (d) => {
         const s = bm.get(d.id); if (!s.ex || !s.hit || !d.lblOk) return 0;
         if (fset) return fset.has(d.id) ? 1 : bHover ? 0 : 0.25;
-        if (few) return isTopicD(d) || d.deg >= maxDeg * 0.5 ? 0.95 : d.ghost ? 0.45 : 0.68;
+        if (few) return d.deg >= maxDeg * 0.5 ? 0.95 : d.ghost ? 0.45 : 0.68;
         return clamp01((k - (1.25 + (1 - d.deg / maxDeg) * 1.5) + 0.2) / 0.4);
       });
-      topicHullSel.style('display', (t) => (topicFocus(t, f) ? null : 'none'));
     }
     bv.onzoom = () => styleBrain();
 
@@ -671,12 +646,12 @@ const BrainView = (function () {
     const sw = (c, hollow) => `<span class="h-2.5 w-2.5 shrink-0 rounded-full" style="${hollow ? `border:1.5px solid ${c}` : `background:${c}`}"></span>`;
     const ghostDot = '<span class="h-2 w-2 shrink-0 rounded-full" style="background:var(--pd-ghost)"></span>';
     const noteSw = (n) => sw(groupColor(groupOf(n)), !!n.draft);
-    const groupKeys = () => (B.colour === 'repo' ? [...repoKeys, 'shared'] : TYPES).filter((k) => D.notes.some((n) => groupOf(n) === k));
+    const groupKeys = () => (B.colour === 'repo' ? [...repoKeys, 'shared'] : B.colour === 'layer' ? LAYERS : TYPES).filter((k) => D.notes.some((n) => groupOf(n) === k));
     const groupName = (k) => (k === 'shared' ? 'shared (bridges)' : k);
     function renderRail() {
       if (S.view === 'brain') {
         const sub = (t, c) => `<span class="rounded px-1 text-[10px] ${c}">${t}</span>`;
-        let h = railSec('Colour by', seg('colour', [['type', 'Type'], ['repo', 'Repository']], B.colour));
+        let h = railSec('Colour by', seg('colour', [['type', 'Type'], ['layer', 'Layer'], ['repo', 'Repository']], B.colour));
         h += railSec('Groups', groupKeys().map((k) => row('group', k, B.group === k, sw(groupColor(k)), groupName(k), D.notes.filter((n) => groupOf(n) === k).length)).join(''));
         // the rail filters; the drafts themselves are listed once, in the inspector's summary
         h += railSec('Not shared yet', row('show', 'drafts', B.show === 'drafts', dot(FUCHSIA), 'Drafts on this machine', drafts.length));
@@ -708,7 +683,7 @@ const BrainView = (function () {
       const ln = (k, l, done) => `<span class="inline-flex items-center gap-1.5"><svg width="30" height="10" class="overflow-visible"><path class="pd-e pd-e-${k}${done ? ' pd-dep-done' : ''}" d="M1,5H26"${k === 'owns' ? '' : ` marker-end="url(#pd-ar-${done ? 'depdone' : 'dep'})"`}/></svg>${l}</span>`;
       foot.innerHTML = S.view === 'specs'
         ? `<div class="flex max-h-[52px] max-w-[48%] flex-wrap gap-x-3 gap-y-0.5 overflow-hidden">${ln('owns', 'belongs to')}${ln('sdep', 'waits on · spec')}${ln('lands', 'waits on · milestone')}${ln('tdep', 'waits on · ticket')}${ln('lands', 'already satisfied', true)}</div><div class="max-w-[40%] text-right">colour = status · a waiting line fades from the prerequisite's status to the waiting one's · hover a line to read it</div>`
-        : `<div class="max-w-[48%]">layout = links and relevance: busiest notes in the middle, least linked at the rim · dot size = links · colour = ${B.colour === 'repo' ? 'repository (grey = shared)' : 'type'} · dashed outline = a topic and its notes · dashed arrow = superseded by · ring = draft only · fuchsia halo = a draft changes it · grey = not written yet</div><div class="max-w-[40%] text-right">${S.mode === 'time' ? 'ring colour = what the picked week did: recorded, updated, superseded, deleted, moved' : 'hover a note to focus its neighbours · drag to pull it'}</div>`;
+        : `<div class="max-w-[48%]">layout = links and relevance: busiest notes in the middle, least linked at the rim · dot size = links · colour = ${B.colour === 'repo' ? 'repository (grey = shared)' : B.colour === 'layer' ? 'layer (grey = none yet)' : 'type'} · dashed arrow = superseded by · ring = draft only · fuchsia halo = a draft changes it · grey = not written yet</div><div class="max-w-[40%] text-right">${S.mode === 'time' ? 'ring colour = what the picked week did: recorded, updated, superseded, deleted, moved' : 'hover a note to focus its neighbours · drag to pull it'}</div>`;
     }
     function renderDock() {
       const on = timeOn(); dock.classList.toggle('hidden', !on); if (!on) return;
@@ -755,7 +730,7 @@ ${bar('drafts', 'x', dc, dn, 'Not shared yet', T.drafts, 'outline outline-1 outl
           + `<div class="px-4 pb-3"><button data-act="stub" data-v="Ask Claude to remember ${esc(sel.id)}: it drafts the note here, and /brain sync shares it" class="rounded-md border border-zinc-300 px-2.5 py-1 text-[13px] hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900">Draft this note</button></div>` + sec('Linked from', ls.map(noteItem).join(''), ls.length);
       }
       const showD = n.pendingBody != null && S.showDraft;
-      const badges = [chip(n.type, 'bg-zinc-100 dark:bg-zinc-800'), ...n.repos.map((r) => chip(r)), n.shared ? chip('shared', 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300') : '', n.kind === 'explored' ? chip('explored') : '',
+      const badges = [chip(n.type, 'bg-zinc-100 dark:bg-zinc-800'), n.layer ? chip(n.layer) : '', ...n.repos.map((r) => chip(r)), n.shared ? chip('shared', 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300') : '', n.kind === 'explored' ? chip('explored') : '',
         n.superseded ? chip('superseded', 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300') : '', n.draft ? chip('draft: ' + n.draft, 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-950 dark:text-fuchsia-300') : '', n.pending ? chip('pending ' + n.pending, 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-950 dark:text-fuchsia-300') : ''].join('');
       const out = n.links, inn = (back.get(n.id) || []), h = (hist.get(n.id) || []).slice().reverse();
       return head(n.kind === 'explored' ? 'Explored note' : 'Note', n.id, badges, showD && n.pendingDescription ? n.pendingDescription : n.description)
@@ -1113,7 +1088,7 @@ function toData(name, files) {
     if (parts[0] === 'repos' && parts.length < 3) return null;
     const id = parts.at(-1).replace(/\.md$/, '');
     return {
-      id, path, type: fm.type || 'other', description: fm.description || '', body: body.trim(),
+      id, path, type: fm.type || 'other', layer: fm.layer || null, description: fm.description || '', body: body.trim(),
       repos: parts[0] === 'repos' ? [parts[1]] : (fm.repos || '').replace(/^\[|\]$/g, '').split(',').map((s) => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean),
       shared: parts[0] === 'shared', kind: parts.includes('explored') ? 'explored' : 'authored', explored: fm.explored || null,
       links: [...new Set([...body.matchAll(WIKI)].map((x) => x[1].trim()))].filter((l) => l !== id),

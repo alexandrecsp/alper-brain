@@ -21,7 +21,7 @@ One sentence: **knowledge is shared, work stays local, and both live in the brai
 
 | | Today | Proposed |
 |---|---|---|
-| Notes (concept, decision, gotcha, contract, how-to) | brain, committed | brain, committed (unchanged) |
+| Notes (feature, concept, decision, how-to, contract) | brain, committed | brain, committed (unchanged) |
 | Commit key pattern | `.sdd/settings.json` in each repo, local | brain `repos/<slug>/REPO.md`, committed |
 | Specs, milestones, tickets, reviews | `.sdd/specs/` in each repo, local | brain `.sdd/specs/`, local |
 | Research, onboarding tours, refactor reports | `.sdd/` in each repo, local | brain `.sdd/`, local |

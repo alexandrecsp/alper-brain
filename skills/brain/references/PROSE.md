@@ -8,7 +8,7 @@ Each surface's sentences are **procedural** (they tell the reader to do, check o
 
 | Surface | Procedural | Descriptive |
 |---|---|---|
-| Brain note or draft, authored or explored | the **How to apply:** line, and a `how-to` note's body | the `description`, the body, the **Why:** line, the **Rules:** list |
+| Brain note or draft, authored or explored | the **How to apply:** line, and the list right after it | the `description`, the body, the **Why:** line, the **Rules:** list |
 | Repository card | | the body |
 | Brainstorm round | each question and each option | each recommendation's reason |
 | `spec.md` | | Problem Statement, Solution, User Stories, Out of Scope, Further Notes |

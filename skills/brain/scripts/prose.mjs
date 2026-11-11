@@ -110,11 +110,14 @@ const shapes = {
       const text = lines[d + 1].replace(/^description:\s*/, '').replace(/^(["'])(.*)\1$/, '$2')
       out.push({ mode: 'desc', list: false, lines: [{ n: d + 2, text }] })
     }
-    const howTo = front.some((l) => /^type:\s*how-to\s*$/.test(l))
+    // The **How to apply:** line is procedural, and so are the list items right after it: a procedure's steps.
+    let applying = false
     for (const b of blocksOf(lines, start, lines.length)) {
       if (NOTE_SKIP.test(b.lines[0].text)) continue
       const label = labelOf(b)
-      out.push({ ...b, mode: label === 'how to apply' || (howTo && label !== 'why') ? 'proc' : 'desc' })
+      if (label) applying = label === 'how to apply'
+      else if (!b.list) applying = false
+      out.push({ ...b, mode: applying ? 'proc' : 'desc' })
     }
     return out
   },

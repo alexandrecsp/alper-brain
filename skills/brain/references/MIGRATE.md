@@ -45,3 +45,14 @@ Move a repository's explored notes from beside its authored ones into `repos/<sl
 
 1. **Find them.** List each note straight under `repos/<slug>/`, other than `REPO.md`, whose frontmatter has an `explored` line. Done when every such note is listed.
 2. **Move them.** Create `repos/<slug>/explored/` when it is missing, then run `git -C <brain> mv repos/<slug>/<name>.md repos/<slug>/explored/<name>.md` for each. Links resolve by name, so no note changes. Done when no note straight under `repos/<slug>/` has an `explored` line.
+
+## Note types
+
+Bring each note RECALL.md's script lists with `--legacy` to FORMAT.md's types and **Layers**. **Sync** in [SKILL.md](../SKILL.md) runs this before it consolidates, as drafts, so the user confirms the migration with the other drafts. A listed note that already has its draft in `.sdd/drafts/` keeps it.
+
+1. **Draft each note's change.** Write one draft per listed note, by FORMAT.md's **Drafts**:
+   - A `gotcha` becomes a `how-to`: an `update` that changes its `type` and keeps its text.
+   - A `topic` is deleted: a `delete` whose reason is that links now gather a theme. When its paragraph holds a fact no member states, first fold that fact into the member it bears on, as that member's `update`.
+   - A note with no `layer` takes one: an `update` that adds it, by FORMAT.md's **Layers**. Every explored note takes `business`, and a `contract` takes `application`.
+
+   One note's changes share one draft. Done when each listed note has exactly one draft, and each `update` holds a `type` and a `layer` FORMAT.md names.

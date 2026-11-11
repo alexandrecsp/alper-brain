@@ -54,7 +54,7 @@ Done when the loop is red on the user's symptom and every remaining element is *
 
 ### 3. Hypothesise
 
-Read the [domain docs](../model-domain/references/DOMAIN-DOCS.md) of each repository on the failing path, which recall the brain's notes on it, when it joins the path. A `gotcha` matching the symptom becomes a hypothesis. A `contract` note names the producer and consumers of a boundary the path crosses, and is what the boundary is checked against.
+Read the [domain docs](../model-domain/references/DOMAIN-DOCS.md) of each repository on the failing path, which recall the brain's notes on it, when it joins the path. A `how-to` whose trap matches the symptom becomes a hypothesis. A `contract` note names the producer and consumers of a boundary the path crosses, and is what the boundary is checked against.
 
 Rank 3–5 hypotheses before testing any, each naming the repository its cause sits in; a single hypothesis anchors on the first plausible idea. Each is **falsifiable**, stated as a prediction: "If X is the cause, then changing Y turns the loop green (or changing Z makes it worse)." A hypothesis whose prediction you cannot state gets sharpened or dropped.
 
@@ -97,6 +97,6 @@ Done when the step 1 loop is green, and the regression test is green or the miss
 2. Run the full suite of each repository the fix changed, from its root.
 3. Commit in each repository the fix changed, one commit each, with the `commit` skill naming that repository, its details naming the hypothesis that proved right, so the next debugger learns from it.
 4. Report to the user: the root cause and the repository it sits in, the fix, the regression test or the missing seam, and the commit SHAs. When the seam was missing, offer `/refactor` to deepen the module so the bug can be locked down.
-5. Invoke the `brain` skill to record the root cause as a `gotcha` by FORMAT.md, in the notes of the repository the cause sits in, or in `shared/` naming both slugs when the trap is how two repositories meet. When a `contract` note on the path was wrong or silent about the trap, propose its fix in the same list. Skip this when no brain is open, or none of those repositories is registered in it.
+5. Invoke the `brain` skill to record the root cause as a `how-to` by FORMAT.md, its trap and what to do about it, in the notes of the repository the cause sits in, or in `shared/` naming both slugs when the trap is how two repositories meet. When a `contract` note on the path was wrong or silent about the trap, propose its fix in the same list. Skip this when no brain is open, or none of those repositories is registered in it.
 
-Done when the tag grep is empty in every instrumented root, each changed repository's suite passes and holds its commit, the user has the report, and the user has confirmed or declined the gotcha, or no brain is open, or no repository on the path is registered in it.
+Done when the tag grep is empty in every instrumented root, each changed repository's suite passes and holds its commit, the user has the report, and the user has confirmed or declined the `how-to`, or no brain is open, or no repository on the path is registered in it.
