@@ -1,0 +1,12 @@
+schema_version: "1.1"
+name: build-ticket
+description: /build builds a milestone's one todo ticket, which builds on a committed one, through a builder sub-agent, which changes the code and commits it. Under WSL2 the commit fails; the kept transcripts still show the builder's reading, for scripts/agent-tokens.mjs.
+tags: [build, builder]
+runs: 1
+expected_outcome: A builder runs ticket 002, greet.sh greets by name, and the ticket is done with its commit recorded.
+context:
+  scaffold_script: fixture.sh
+execution:
+  max_turns: 80
+  timeout_seconds: 1800
+  allowed_tools: [Read, Glob, Grep, Skill, Bash, Edit, Write, Agent]

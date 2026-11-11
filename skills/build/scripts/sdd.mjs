@@ -6,6 +6,9 @@
 //     Prints the spec as JSON: its lines, its dependencies, the cap, and per track its milestones with each one's
 //     state (open, unlanded, landed), the step it resumes at, whether it is ready or landable, and, read from git
 //     through .sdd/links.json, whether its branch exists and the repository is clean.
+//   node sdd.mjs brief <ticket-file> [--no-git]
+//     Prints, as Markdown, what the ticket's builder needs from around it: its milestone's lines, and the Notes and
+//     changed files of each earlier ticket of its milestone and each ticket its Depends on names.
 //   node sdd.mjs set <file> <Line> <value> [--after <Line>]
 //     Sets a `**Line:** value` line; when the file has none, creates it under the --after line, else fails.
 //   node sdd.mjs append <file> <Line> <entry> [--sep '; '] [--after <Line>]
@@ -367,6 +370,67 @@ export const specState = (specDir, { brain = resolve(specDir, '..', '..', '..'),
   }
 }
 
+// --- a builder's digest ---------------------------------------------------------------------------------------
+
+const section = (md, name) => {
+  const m = new RegExp(`^##\\s+${escape(name)}\\s*$([\\s\\S]*?)(?=^##\\s|(?![\\s\\S]))`, 'm').exec(md)
+  return m ? m[1].trim() : ''
+}
+
+/**
+ * What a ticket's builder needs from around it, as Markdown: its milestone's Delivers, Done when and Lands after,
+ * and for each earlier ticket of its milestone and each ticket its Depends on names, its status, commit, Notes and
+ * the files that commit changed. The ticket itself, spec.md and the diffs stay on disk, read on demand.
+ */
+export const ticketDigest = (ticketPath, { useGit = true } = {}) => {
+  const path = resolve(ticketPath)
+  const msDir = resolve(path, '..')
+  const specDir = [resolve(msDir, '..', '..'), resolve(msDir, '..', '..', '..')].find((d) => existsSync(join(d, 'spec.md')))
+  if (!specDir) throw new Error(`No spec.md above ${ticketPath}`)
+  const brain = resolve(specDir, '..', '..', '..')
+  const { layout, tracks } = readTracks(specDir)
+  const links = readLinks(brain)
+  const all = tracks.flatMap((t) => t.milestones.flatMap((m) => m.tickets.map((k) => ({ ...k, track: t.slug, milestone: m }))))
+  const self = all.find((k) => resolve(k.milestone.dir, k.file) === path)
+  if (!self) throw new Error(`${ticketPath} is not a ticket of ${basename(specDir)}`)
+  const m = self.milestone
+  const md = read(join(m.dir, 'milestone.md'))
+
+  const picked = new Map()
+  const add = (k) => { if (k && k !== self) picked.set(`${k.track}/${k.n}`, k) }
+  for (const k of m.tickets) if (k.n < self.n) add(all.find((a) => a.milestone === m && a.n === k.n))
+  for (const id of self.dependsOn) {
+    if (id.bad) continue
+    add(all.find((a) => (layout === 'flat' && id.track === null ? true : a.track === (id.track ?? self.track)) && a.n === id.n))
+  }
+
+  const out = [
+    `# Around ticket ${self.track}/${self.n}: ${self.title}`,
+    '',
+    `Spec \`${basename(specDir)}\`. Read the ticket itself in full; read spec.md, and a commit's diff (\`git -C <root> show <commit> -- <path>\`), only for what this leaves open.`,
+    '',
+    `## Milestone ${m.n}: ${m.title}`,
+    '',
+    ...['Delivers', 'Done when', 'Lands after'].map((f) => `**${f}:** ${lineRe(f).exec(md)?.[1].trim() ?? 'none'}`),
+    '',
+    '## Tickets it builds on',
+    '',
+  ]
+  if (!picked.size) out.push('None: it is the first ticket of its milestone and depends on none.')
+  for (const k of [...picked.values()].sort((a, b) => (a.track + a.n).localeCompare(b.track + b.n))) {
+    const text = read(join(k.milestone.dir, k.file))
+    const root = links[k.track]
+    out.push(`### ${k.track}/${k.n}: ${k.title}`, '', `**Status:** ${k.status} · **Commit:** ${k.commit ?? 'none'}${root ? ` · **Root:** ${root}` : ''}`, '')
+    out.push('Notes:', '', section(text, 'Notes').replace(/^Left empty;.*$/m, '').trim() || 'none', '')
+    if (useGit && k.commit && root) {
+      const r = spawnSync('git', ['-C', root, 'show', '--stat=200', '--format=', k.commit], { encoding: 'utf8' })
+      const files = r.status === 0 ? r.stdout.replace(/^\n+|\s+$/g, '') : null
+      out.push(files ? `Files its commit changed:\n\n\`\`\`\n${files}\n\`\`\`` : `Its commit ${k.commit} is not in ${root}.`, '')
+    }
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n'
+}
+
 // --- writing lines --------------------------------------------------------------------------------------------
 
 /** Sets a `**name:** value` line in md; when absent, inserts it under the `after` line. Returns the new text. */
@@ -406,6 +470,10 @@ const main = (argv) => {
     console.log(JSON.stringify(s, (k, v) => (v === null || (Array.isArray(v) && !v.length) ? undefined : v), 1))
     return
   }
+  if (cmd === 'brief' && pos.length === 1) {
+    process.stdout.write(ticketDigest(pos[0], { useGit: !opts.noGit }))
+    return
+  }
   if ((cmd === 'set' || cmd === 'append') && pos.length === 3) {
     const [file, name, value] = pos
     const md = read(file)
@@ -416,6 +484,7 @@ const main = (argv) => {
     return
   }
   console.error('Usage: node sdd.mjs state <spec-id|spec-folder> [--brain <brain>] [--no-git]\n' +
+    '       node sdd.mjs brief <ticket-file> [--no-git]\n' +
     '       node sdd.mjs set <file> <Line> <value> [--after <Line>]\n' +
     "       node sdd.mjs append <file> <Line> <entry> [--sep '; '] [--after <Line>]")
   process.exit(2)

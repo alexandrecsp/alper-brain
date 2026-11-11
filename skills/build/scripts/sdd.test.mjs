@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { appendLine, ids, readCap, resolveSpec, resumeStep, setLine, specState, unanswered } from './sdd.mjs'
+import { appendLine, ids, readCap, resolveSpec, resumeStep, setLine, specState, ticketDigest, unanswered } from './sdd.mjs'
 
 const put = (path, text) => { mkdirSync(join(path, '..'), { recursive: true }); writeFileSync(path, text) }
 const milestone = ({ n, phase = 'none', squash = 'none', landed = 'none', landsAfter = 'None', repo }) =>
@@ -171,4 +171,31 @@ test('reads git through links.json: branches, idle, cleanliness and squashes on 
   assert.equal(ms(st, 'api', '001').onBase, true)
   assert.equal(track(st, 'api').idle, false)
   assert.equal(track(st, 'api').repo.clean, false)
+})
+
+test('a ticket digest gives its milestone and the Notes and files of the tickets it builds on', () => {
+  const b = brain()
+  const s = twoTracks(b, { apiM1: { phase: 'squash', squash: 'aaaaaaa', t: { status: 'done' } } })
+  const repo = join(b, 'clones/api')
+  mkdirSync(repo, { recursive: true })
+  const g = (...a) => spawnSync('git', ['-C', repo, '-c', 'user.name=t', '-c', 'user.email=t@t', ...a], { encoding: 'utf8' }).stdout.trim()
+  g('init', '-q', '-b', 'main')
+  mkdirSync(join(repo, 'src'))
+  writeFileSync(join(repo, 'src/export.ts'), 'export const v2 = 1\n')
+  g('add', '-A'); g('commit', '-qm', 'adds v2')
+  const sha = g('rev-parse', 'HEAD')
+  put(join(b, '.sdd/links.json'), JSON.stringify({ api: repo }))
+  const t1 = join(s, 'milestones/api/001-expand/001-add-v2.md')
+  writeFileSync(t1, readFileSync(t1, 'utf8').replace('**Commit:** none', `**Commit:** ${sha}`).replace('## Notes\n', '## Notes\n\n- The v2 event keeps the v1 field names.\n'))
+
+  const d = ticketDigest(join(s, 'milestones/web/001-migrate/001-consume-v2.md'))
+  assert.match(d, /^# Around ticket web\/001: T001/)
+  assert.match(d, /## Milestone 001: M001\n\n\*\*Delivers:\*\* x\n\*\*Done when:\*\* y\n\*\*Lands after:\*\* api\/001/)
+  assert.match(d, /### api\/001: T001\n\n\*\*Status:\*\* done · \*\*Commit:\*\* [0-9a-f]{40} · \*\*Root:\*\*/)
+  assert.match(d, /Notes:\n\n- The v2 event keeps the v1 field names\./)
+  assert.match(d, /src\/export\.ts \| 1 \+/)
+
+  const first = ticketDigest(join(s, 'milestones/api/001-expand/001-add-v2.md'), { useGit: false })
+  assert.match(first, /None: it is the first ticket/)
+  assert.match(ticketDigest(join(s, 'milestones/api/002-contract/002-drop-v1.md'), { useGit: false }), /### api\/001: T001/)
 })
