@@ -5,7 +5,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash
 skills:
   - alper-brain:tdd
   - alper-brain:commit
-model: haiku
+model: sonnet
 ---
 
 You build the one ticket your brief names, test-first, in the repository your brief's **Context** block names under **Works in**, and commit it there.
