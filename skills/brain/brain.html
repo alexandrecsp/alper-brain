@@ -44,9 +44,6 @@
 // Specs, every spec as a pipeline of stages, the specs in a band of their own above a band per repository. A left rail filters, the canvas draws, a right
 // inspector reads the selected document. mount() draws a brain's data (toData's shape) and returns a handle whose
 // snapshot() carries selection, filters, zoom and node positions into the next mount, so a live reload never jumps.
-// A started milestone's status is the /build step it stands at, in order: building its tickets (active), then the
-// closing steps by its Phase line; toData sets them, the Specs view gives each its column.
-const STAGES = ['active', 'review', 'decide', 'fix', 'check', 'squash'];
 const BrainView = (function () {
   // Mermaid loads on the first diagram; drawn diagrams are cached by theme and source, across mounts, so a live reload
   // never redraws one (and never reuses a render id).
@@ -58,27 +55,27 @@ const BrainView = (function () {
   const STATUS = {
     attention: { label: 'Needs attention', tone: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300', c: ['#fecaca', '#ef4444', '#7f1d1d', '#7f1d1d', '#f87171', '#fecaca'] },
     blocked: { label: 'Blocked', tone: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300', c: ['#fecaca', '#ef4444', '#7f1d1d', '#7f1d1d', '#f87171', '#fecaca'] },
-    // the in-progress stages, one per step of /build a milestone stands at, all amber like the build pane's running work
-    ...Object.fromEntries(Object.entries({ active: 'Building', review: 'Reviewing', decide: 'Deciding', fix: 'Fixing', check: 'Checking', squash: 'Squashing' })
-      .map(([k, label]) => [k, { label, tone: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300', c: ['#fde68a', '#f59e0b', '#78350f', '#78350f', '#fbbf24', '#fde68a'] }])),
+    active: { label: 'In progress', tone: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300', c: ['#fde68a', '#f59e0b', '#78350f', '#78350f', '#fbbf24', '#fde68a'] },
     landing: { label: 'Ready to land', tone: 'bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300', c: ['#99f6e4', '#14b8a6', '#134e4a', '#134e4a', '#2dd4bf', '#99f6e4'] },
     waiting: { label: 'Waiting', tone: 'bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300', c: ['#ddd6fe', '#8b5cf6', '#4c1d95', '#4c1d95', '#a78bfa', '#ddd6fe'] },
+    frontier: { label: 'Frontier', tone: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300', c: ['#c7d2fe', '#6366f1', '#312e81', '#312e81', '#818cf8', '#c7d2fe'] },
     ready: { label: 'Ready to build', tone: 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300', c: ['#bae6fd', '#0ea5e9', '#0c4a6e', '#0c4a6e', '#38bdf8', '#bae6fd'] },
     draft: { label: 'Needs tickets', tone: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300', c: ['#e4e4e7', '#a1a1aa', '#3f3f46', '#27272a', '#71717a', '#d4d4d8'] },
     done: { label: 'Done', tone: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300', c: ['#a7f3d0', '#10b981', '#064e3b', '#064e3b', '#34d399', '#a7f3d0'] },
     landed: { label: 'Landed', tone: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300', c: ['#6ee7b7', '#059669', '#064e3b', '#065f46', '#10b981', '#d1fae5'] },
     abandoned: { label: 'Abandoned', tone: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400', c: ['#f4f4f5', '#d4d4d8', '#a1a1aa', '#18181b', '#52525b', '#71717a'] },
   };
-  const ORDER = ['attention', 'blocked', ...STAGES, 'landing', 'waiting', 'ready', 'draft', 'done', 'landed', 'abandoned'];
+  const ORDER = ['attention', 'blocked', 'active', 'landing', 'frontier', 'waiting', 'ready', 'draft', 'done', 'landed', 'abandoned'];
   const TICKET_STATUS = { todo: 'draft', doing: 'active', blocked: 'blocked', done: 'done' };
   const TYPES = ['feature', 'concept', 'decision', 'how-to', 'contract', 'other'];
   const LAYERS = ['business', 'application', 'other'];
   const COLS = [
-    { label: 'Needs tickets', of: ['draft'] }, { label: 'Ready · Waiting', of: ['ready', 'waiting'] }, { label: 'Blocked · Attention', of: ['blocked', 'attention'] },
-    ...STAGES.map((k) => ({ label: STATUS[k].label, of: [k] })),
-    { label: 'Ready to land', of: ['landing', 'done'] }, { label: 'Landed', of: ['landed'] }, { label: 'Abandoned', of: ['abandoned'] },
+    { label: 'Needs tickets', of: ['draft'] }, { label: 'Ready · Waiting', of: ['ready', 'waiting'] }, { label: 'Frontier', of: ['frontier'] },
+    { label: 'Blocked · Attention', of: ['blocked', 'attention'] }, { label: 'In progress', of: ['active'] }, { label: 'Ready to land', of: ['landing', 'done'] }, { label: 'Landed', of: ['landed'] }, { label: 'Abandoned', of: ['abandoned'] },
   ];
   const COL = (st) => COLS.findIndex((c) => c.of.includes(st));
+  // the step of /build a started milestone stands at (toData's stage: build while its tickets run, else its Phase)
+  const STAGE_ICON = { build: '🔨', review: '🔍', decide: '⚖️', ask: '✋', fix: '🔧', check: '🧪', waits: '⏳', failed: '❌', squash: '📦' };
   const ACT = { recorded: 'bg-emerald-500', updated: 'bg-sky-500', superseded: 'bg-amber-500', deleted: 'bg-red-500', moved: 'bg-violet-500' };
   const DACT = { record: 'recorded', update: 'updated', supersede: 'superseded', delete: 'deleted' };
   const FUCHSIA = '#d946ef';
@@ -490,7 +487,7 @@ const BrainView = (function () {
     })();
     const stageOfStatus = (stt) => Math.max(0, COLS.findIndex((c) => c.of.includes(stt)));
     // a done ticket rides with its milestone once that one closes, lands or is landed, and otherwise waits in Ready to land
-    const stageOf = (n) => (n.kind === 'ticket' ? ({ todo: COL('ready'), doing: COL('active'), blocked: COL('blocked') }[n.obj.status]
+    const stageOf = (n) => (n.kind === 'ticket' ? ({ todo: COL(n.m.status === 'frontier' ? 'frontier' : 'ready'), doing: COL('active'), blocked: COL('blocked') }[n.obj.status]
       ?? (n.m.status === 'active' ? COL('landing') : stageOfStatus(n.m.status))) : stageOfStatus(n.status));
     const colX = (i) => PADL + i * CW + (i === COL('abandoned') ? 40 : 0);
     const expandedId = () => { const s = S.sel; if (S.view !== 'specs' || !s) return null; return s.kind === 'spec' ? s.id : s.kind === 'milestone' || s.kind === 'ticket' ? s.id.split('|')[0] : null; };
@@ -573,8 +570,8 @@ const BrainView = (function () {
       bandG.selectAll('rect.band').data(slay.bands, (b) => b.lane).join('rect').attr('class', 'band').attr('x', -4000).attr('width', 12000).attr('y', (b) => b.y0).attr('height', (b) => b.y1 - b.y0)
         .attr('fill', (b) => b.color).attr('fill-opacity', (b, i) => (i % 2 ? 0.03 : 0.055));
       bandG.selectAll('line.guide').data(slay.cols).join('line').attr('class', 'guide').attr('x1', (c) => c.x - 8).attr('x2', (c) => c.x - 8).attr('y1', STRIP).attr('y2', slay.bottom)
-        .attr('stroke', 'var(--pd-e1)').attr('stroke-opacity', (c) => (c.i === 6 ? 0.6 : 0.22)).attr('stroke-dasharray', (c) => (c.i === 6 ? '2 4' : null));
-      bandG.selectAll('rect.aside').data(P.scope === 'all' ? [0] : []).join('rect').attr('class', 'aside').attr('x', colX(6) - 20).attr('width', 4000).attr('y', STRIP).attr('height', slay.bottom - STRIP).attr('fill', '#a1a1aa').attr('fill-opacity', 0.07);
+        .attr('stroke', 'var(--pd-e1)').attr('stroke-opacity', (c) => (c.i === COL('abandoned') ? 0.6 : 0.22)).attr('stroke-dasharray', (c) => (c.i === COL('abandoned') ? '2 4' : null));
+      bandG.selectAll('rect.aside').data(P.scope === 'all' ? [0] : []).join('rect').attr('class', 'aside').attr('x', colX(COL('abandoned')) - 20).attr('width', 4000).attr('y', STRIP).attr('height', slay.bottom - STRIP).attr('fill', '#a1a1aa').attr('fill-opacity', 0.07);
       // cards
       const sel = cardG.selectAll('g.pd-card').data(slay.vis, (n) => n.key);
       sel.exit().remove();
@@ -595,8 +592,10 @@ const BrainView = (function () {
           g.append('circle').attr('cx', GX).attr('cy', cy).attr('r', 3.5).style('fill', n.obj.status === 'todo' ? 'none' : 'var(--s)').style('stroke', 'var(--s)').attr('stroke-width', 1.3)
             .attr('class', n.obj.status === 'doing' ? 'pd-doing' : null);
         }
-        g.append('text').attr('class', 'pd-lbl').attr('x', GX + GR[n.kind] + 7).attr('y', cy + 4).attr('font-size', n.kind === 'spec' ? 12 : n.kind === 'milestone' ? 11 : 10.5).attr('font-weight', n.kind === 'spec' ? 600 : 400)
-          .style('fill', n.kind === 'spec' && !ab ? 'currentColor' : 'var(--pd-lab)').text(trunc(n.label, n.kind === 'spec' ? 28 : 30));
+        const icon = n.kind === 'milestone' && STAGE_ICON[n.obj.stage];
+        if (icon) g.append('text').attr('x', GX + GR.milestone + 5).attr('y', cy + 4).attr('font-size', 10).text(icon);
+        g.append('text').attr('class', 'pd-lbl').attr('x', GX + GR[n.kind] + (icon ? 21 : 7)).attr('y', cy + 4).attr('font-size', n.kind === 'spec' ? 12 : n.kind === 'milestone' ? 11 : 10.5).attr('font-weight', n.kind === 'spec' ? 600 : 400)
+          .style('fill', n.kind === 'spec' && !ab ? 'currentColor' : 'var(--pd-lab)').text(trunc(n.label, n.kind === 'spec' ? 28 : icon ? 27 : 30));
         g.append('title').text(`${n.kind === 'spec' ? n.spec.num + ' ' : ''}${n.label} · ${n.kind === 'milestone' && n.obj.phaseLabel ? n.obj.phaseLabel : STATUS[n.status].label}${n.kind === 'spec' ? (sInfo.get(n.spec.id).lanes.length ? ' · ' + sInfo.get(n.spec.id).lanes.join(', ') : '') : n.lane ? ' · ' + n.lane : ''}`);
       });
       sCardSel = en.merge(sel);
@@ -1086,8 +1085,6 @@ function front(t) {
 // step 7 writes decide when the arbiter decides the escalations, and ask when the user does, stopping the track.
 // scripts/check-phases.mjs checks every phase of build's Phase table is a key here.
 const PHASE_LABEL = { check: 'Checking', failed: 'Check failed', waits: 'Waiting on its expand', review: 'In review', decide: 'Deciding escalations', ask: 'Waiting on your answers', fix: 'Fixing review', squash: 'Squashing' };
-// the STAGES status each closing phase stands at; failed, and ask with answers missing, are the user's turn instead
-const PHASE_STAGE = { review: 'review', decide: 'decide', ask: 'decide', fix: 'fix', check: 'check', waits: 'check', squash: 'squash' };
 // How many of a review.md's findings are flagged escalate with no Answer line yet; a finding runs from its ID
 // (ST1, SP2, CN3) to the next. The same rule as hooks/sdd.ts's awaitingOf.
 const awaitingOf = (md) => md.split(/^(?=\s*(?:[-*]\s+|#{1,4}\s+)?(?:\*\*)?(?:ST|SP|CN)\d+\b)/m).slice(1)
@@ -1188,22 +1185,22 @@ function toData(name, files) {
     if (!s.repos.length) s.repos = [...new Set(s.milestones.map((m) => m.track).filter((x) => x !== 'unassigned'))];
     return s;
   });
-  // statuses: a closing milestone (all tickets done, a Phase, no Squash yet) stands at its Phase's stage, or waits on the
-  // user when its check failed or it is at ask with escalations unanswered (decide is the arbiter's: it needs no one);
-  // a squashed one not yet on its base is landing. A spec takes the most urgent of its milestones, and while work runs,
-  // the earliest stage any of them stands at.
+  // statuses: a closing milestone (all tickets done, a Phase, no Squash yet) is active, or waits on the user when its
+  // check failed or it is at ask with escalations unanswered (decide is the arbiter's: it needs no one); its stage is
+  // its Phase, and build while its tickets run. A squashed one not yet on its base is landing. A spec takes the most
+  // urgent of its milestones.
   for (const s of specs) {
     for (const m of s.milestones) {
       const closing = !m.squash && PHASE_LABEL[m.phase] && m.tickets.length && m.tickets.every((t) => t.status === 'done');
       const waits = m.phase === 'failed' || (m.phase === 'ask' && m.awaiting > 0);
-      m.status = m.landed ? 'landed' : closing ? (waits ? 'attention' : PHASE_STAGE[m.phase]) : ticketsStatus(m.tickets);
+      m.status = m.landed ? 'landed' : closing ? (waits ? 'attention' : 'active') : ticketsStatus(m.tickets);
       if (m.status === 'done' && m.squash && !m.landed) m.status = 'landing';
       m.phaseLabel = closing ? (m.phase === 'ask' && !m.awaiting ? 'Answered' : PHASE_LABEL[m.phase]) : null;
+      m.stage = closing ? m.phase : m.status === 'active' ? 'build' : null;
     }
     s.status = ticketsStatus(s.milestones.flatMap((m) => m.tickets));
-    const stage = STAGES.find((k) => s.milestones.some((m) => m.status === k));
     if (s.milestones.some((m) => m.status === 'attention')) s.status = 'attention';
-    else if ((s.status === 'active' || s.status === 'done') && stage) s.status = stage;
+    else if (s.status === 'done' && s.milestones.some((m) => m.phaseLabel)) s.status = 'active';
     else if (s.status === 'done' && !s.landed && s.milestones.some((m) => m.squash && !m.landed)) s.status = 'landing';
     if (s.status === 'done' && s.landed) s.status = 'landed';
   }
@@ -1212,6 +1209,19 @@ function toData(name, files) {
     s.waiting = s.deps.filter((d) => !specs.find((x) => x.id === d)?.landed);
     if (s.waiting.length && (s.status === 'draft' || s.status === 'ready')) s.status = 'waiting';
     if (s.abandoned) s.status = 'abandoned';
+  }
+  // the frontier, what the next /build starts (build's Tracks): each track's first open milestone with no ticket
+  // started, once every milestone of another track its tickets depend on is squashed, in a spec not held by its own
+  // dependencies. A spec with nothing started yet is in the frontier when any of its milestones is.
+  for (const s of specs) {
+    if (s.waiting.length || ['draft', 'abandoned', 'landed'].includes(s.status)) continue;
+    const owner = new Map(s.milestones.flatMap((m) => m.tickets.map((t) => [t.id, m])));
+    for (const track of new Set(s.milestones.map((m) => m.track))) {
+      const m = s.milestones.find((x) => x.track === track && !x.squash);
+      if (!m || m.status !== 'ready') continue;
+      if (m.tickets.every((t) => t.deps.every((d) => { const o = owner.get(d); return !o || o.track === track || o.squash; }))) m.status = 'frontier';
+    }
+    if (s.status === 'ready' && s.milestones.some((m) => m.status === 'frontier')) s.status = 'frontier';
   }
   return { name, repos, notes: [...notes.values()], ghosts, timeline, specs };
 }
@@ -1235,7 +1245,7 @@ const inFlight = (s) => !s.landed && !s.abandoned;
 const brainState = (b) => {
   if (b.status !== 'ok') return null;
   const has = (...ks) => b.data.specs.some((s) => ks.includes(s.status));
-  return has('attention', 'blocked') ? 'attention' : has(...STAGES, 'landing') ? 'active' : has('ready') ? 'ready' : 'quiet';
+  return has('attention', 'blocked') ? 'attention' : has('active', 'landing') ? 'active' : has('ready', 'frontier') ? 'ready' : 'quiet';
 };
 const ORDER = ['attention', 'active', 'ready', 'quiet'];
 
