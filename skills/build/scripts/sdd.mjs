@@ -7,8 +7,9 @@
 //     state (open, unlanded, landed), the step it resumes at, whether it is ready or landable, the frontier a call
 //     builds, and, read from git through .sdd/links.json, whether its branch exists and the repository is clean.
 //   node sdd.mjs brief <ticket-file> [--no-git]
-//     Prints, as Markdown, what the ticket's builder needs from around it: its milestone's lines, and the Notes and
-//     changed files of each earlier ticket of its milestone and each ticket its Depends on names.
+//     Prints, as Markdown, what the ticket's builder needs from around it: its milestone's lines, the Notes and
+//     changed files of each earlier ticket of its milestone and each ticket its Depends on names, and each
+//     milestone its milestone's Builds after names, with its squash's changed files and its tickets' Notes.
 //   node sdd.mjs set <file> <Line> <value> [--after <Line>]
 //     Sets a `**Line:** value` line; when the file has none, creates it under the --after line, else fails.
 //   node sdd.mjs append <file> <Line> <entry> [--sep '; '] [--after <Line>]
@@ -41,7 +42,7 @@ const heading = (md) => (/^#\s+(.*)$/m.exec(md)?.[1] ?? '').trim()
 export const atEntries = (v) =>
   isNone(v) ? {} : Object.fromEntries(v.split(',').map((e) => e.trim()).filter(Boolean).map((e) => e.split('@').map((s) => s.trim())))
 
-/** A **Depends on** or **Lands after** value → [{ track, n }]; track is null for a bare `NNN`. */
+/** A **Depends on**, **Builds after** or **Lands after** value → [{ track, n }]; track is null for a bare `NNN`. */
 export const ids = (v) =>
   isNone(v)
     ? []
@@ -116,6 +117,7 @@ const readMilestone = (dir, track) => {
     phase: field(md, 'Phase') ?? 'none',
     squash: orNull(field(md, 'Squash')),
     landed: orNull(field(md, 'Landed')),
+    buildsAfter: ids(field(md, 'Builds after')),
     landsAfter: ids(field(md, 'Lands after')),
     tickets,
     review: review === null ? null : { head: orNull(field(review, 'Head')), unanswered: unanswered(review) },
@@ -234,36 +236,62 @@ export const derive = ({ tracks, layout, repos, repo = () => ({ git: false }) })
     }
   }
 
-  // Ready: every earlier milestone of its track squashed, and every milestone of another track its tickets reach.
+  // Ready: every earlier milestone of its track squashed, and every milestone its Builds after names. A ticket's
+  // Depends on naming another track's ticket predates Builds after: it holds its milestone the same way, and
+  // `migrate` lists the Builds after it stands for, by MIGRATE.md's **Builds after**.
+  const migrate = []
   for (const t of tracks) {
     t.milestones.forEach((m, i) => {
-      if (m.state !== 'open') return
-      const waits = t.milestones.slice(0, i).filter((e) => e.squash === null).map((e) => msId(t.slug, e))
-      const seen = new Set()
-      const stack = m.tickets.map((k) => ({ track: t.slug, k }))
-      while (stack.length) {
-        const { track, k } = stack.pop()
+      m.after = []
+      for (const id of m.buildsAfter) {
+        if (id.bad) { problems.push(`${msId(t.slug, m)}: Builds after has an unreadable entry "${id.bad}"`); continue }
+        if (id.track === null || id.track === t.slug) { problems.push(`${msId(t.slug, m)}: Builds after ${id.track ? `${id.track}/` : ''}${id.n} names its own track, which builds in number order`); continue }
+        const dep = findMilestone(id)
+        if (!dep) { problems.push(`${msId(t.slug, m)}: Builds after ${id.track}/${id.n} names no milestone`); continue }
+        m.after.push({ track: id.track, m: dep })
+      }
+      const lifted = new Set()
+      for (const k of m.tickets) {
         for (const id of k.dependsOn) {
-          if (id.bad) { problems.push(`${msId(track, m)}: ticket ${k.n} has an unreadable Depends on entry "${id.bad}"`); continue }
-          const found = findTicket(track, id)
+          if (id.bad) { problems.push(`${msId(t.slug, m)}: ticket ${k.n} has an unreadable Depends on entry "${id.bad}"`); continue }
+          const found = findTicket(t.slug, id)
           if (found.length !== 1) {
             problems.push(`${t.slug}/${m.n} ticket ${k.n}: Depends on ${id.track ? `${id.track}/` : ''}${id.n} names ${found.length ? 'several tickets' : 'no ticket'}`)
             continue
           }
           const dep = found[0]
-          const key = `${dep.track}/${dep.n}`
-          if (seen.has(key)) continue
-          seen.add(key)
-          if (dep.track !== t.slug && dep.milestone.squash === null) waits.push(msId(dep.track, dep.milestone))
-          stack.push({ track: dep.track, k: dep })
+          if (dep.track === t.slug) continue
+          lifted.add(msId(dep.track, dep.milestone))
+          if (!m.after.some((a) => a.m === dep.milestone)) m.after.push({ track: dep.track, m: dep.milestone })
         }
       }
+      if (lifted.size && layout === 'tracks') migrate.push({ milestone: msId(t.slug, m), buildsAfter: [...new Set([...m.buildsAfter.filter((id) => !id.bad).map((id) => `${id.track}/${id.n}`), ...[...lifted].sort()])] })
+      if (m.state !== 'open') return
+      const waits = t.milestones.slice(0, i).filter((e) => e.squash === null).map((e) => msId(t.slug, e))
+      for (const a of m.after) if (a.m.squash === null) waits.push(msId(a.track, a.m))
       m.waitsOn = [...new Set(waits)]
       m.ready = m.waitsOn.length === 0
     })
   }
 
-  // Landable: squashed, every earlier milestone of its track landed or landable, every Lands after landed.
+  // A cycle through Builds after and each track's number order leaves every milestone on it waiting forever.
+  const trackOf = new Map(tracks.flatMap((t) => t.milestones.map((m) => [m, t.slug])))
+  const color = new Map()
+  const visit = (m, path) => {
+    color.set(m, 'grey')
+    const t = bySlug.get(trackOf.get(m))
+    const prev = t.milestones[t.milestones.indexOf(m) - 1]
+    for (const next of [...(prev ? [prev] : []), ...m.after.map((a) => a.m)]) {
+      if (color.get(next) === 'grey') {
+        const loop = [...path.slice(path.indexOf(next)), m, next].map((x) => msId(trackOf.get(x), x))
+        problems.push(`Builds after makes a cycle, so none of it can start: ${[...new Set(loop)].join(' → ')}`)
+      } else if (!color.has(next)) visit(next, [...path, m])
+    }
+    color.set(m, 'black')
+  }
+  for (const m of trackOf.keys()) if (!color.has(m)) visit(m, [])
+
+  // Landable: squashed, every earlier milestone of its track landed or landable, every Lands after and Builds after landed.
   for (const t of tracks) {
     let chain = true
     for (const m of t.milestones) {
@@ -271,6 +299,7 @@ export const derive = ({ tracks, layout, repos, repo = () => ({ git: false }) })
       if (m.state === 'open') { chain = false; continue }
       const after = m.landsAfter.filter((id) => !id.bad).map((id) => ({ id, ms: findMilestone(id) }))
       for (const a of after) if (!a.ms) problems.push(`${msId(t.slug, m)}: Lands after ${a.id.track}/${a.id.n} names no milestone`)
+      for (const a of m.after) if (!after.some((b) => b.ms === a.m)) after.push({ id: { track: a.track, n: a.m.n }, ms: a.m })
       m.landsAfterOpen = after.filter((a) => !a.ms || a.ms.landed === null).map((a) => `${a.id.track}/${a.id.n}`)
       m.landable = chain && m.landsAfterOpen.length === 0
       chain = m.landable
@@ -301,6 +330,7 @@ export const derive = ({ tracks, layout, repos, repo = () => ({ git: false }) })
         ...(m.state === 'unlanded' && g.git && g.base ? { onBase: isAncestor(g.root, m.squash, g.base) } : {}),
         squash: m.squash,
         landed: m.landed,
+        buildsAfter: m.buildsAfter.filter((id) => !id.bad && id.track).map((id) => `${id.track}/${id.n}`),
         landsAfter: m.landsAfter.filter((id) => !id.bad).map((id) => `${id.track}/${id.n}`),
         branch: has(m),
         reviewCurrent: m.review?.head && g.git && has(m) ? git(g.root, ['rev-parse', `sdd/${t.specFolder}/${branch(m)}`]) === m.review.head : null,
@@ -330,6 +360,7 @@ export const derive = ({ tracks, layout, repos, repo = () => ({ git: false }) })
     noneOpen: all.every((m) => m.state !== 'open'),
     allLanded: all.length > 0 && all.every((m) => m.state === 'landed'),
     allTodo: all.flatMap((m) => m.tickets).every((k) => k.status === 'todo'),
+    migrate,
     problems: [...new Set(problems)],
   }
 }
@@ -382,10 +413,20 @@ const section = (md, name) => {
   return m ? m[1].trim() : ''
 }
 
+const notesOf = (ticketMd) => section(ticketMd, 'Notes').replace(/^Left empty;.*$/m, '').trim()
+
+/** The files a commit changed, as a fenced `git show --stat`, or a line saying the commit is not in the repository. */
+const changed = (what, sha, root) => {
+  const r = spawnSync('git', ['-C', root, 'show', '--stat=200', '--format=', sha], { encoding: 'utf8' })
+  const files = r.status === 0 ? r.stdout.replace(/^\n+|\s+$/g, '') : null
+  return files ? `Files its ${what} changed:\n\n\`\`\`\n${files}\n\`\`\`` : `Its ${what} ${sha} is not in ${root}.`
+}
+
 /**
- * What a ticket's builder needs from around it, as Markdown: its milestone's Delivers, Done when and Lands after,
- * and for each earlier ticket of its milestone and each ticket its Depends on names, its status, commit, Notes and
- * the files that commit changed. The ticket itself, spec.md and the diffs stay on disk, read on demand.
+ * What a ticket's builder needs from around it, as Markdown: its milestone's Delivers, Done when, Builds after and
+ * Lands after; for each earlier ticket of its milestone and each ticket its Depends on names, its status, commit,
+ * Notes and the files that commit changed; and for each milestone its Builds after names, its Delivers, squash, the
+ * files that squash changed and its tickets' Notes. The ticket itself, spec.md and the diffs stay on disk.
  */
 export const ticketDigest = (ticketPath, { useGit = true } = {}) => {
   const path = resolve(ticketPath)
@@ -416,7 +457,7 @@ export const ticketDigest = (ticketPath, { useGit = true } = {}) => {
     '',
     `## Milestone ${m.n}: ${m.title}`,
     '',
-    ...['Delivers', 'Done when', 'Lands after'].map((f) => `**${f}:** ${lineRe(f).exec(md)?.[1].trim() ?? 'none'}`),
+    ...['Delivers', 'Done when', 'Builds after', 'Lands after'].map((f) => `**${f}:** ${lineRe(f).exec(md)?.[1].trim() ?? 'none'}`),
     '',
     '## Tickets it builds on',
     '',
@@ -426,11 +467,22 @@ export const ticketDigest = (ticketPath, { useGit = true } = {}) => {
     const text = read(join(k.milestone.dir, k.file))
     const root = links[k.track]
     out.push(`### ${k.track}/${k.n}: ${k.title}`, '', `**Status:** ${k.status} · **Commit:** ${k.commit ?? 'none'}${root ? ` · **Root:** ${root}` : ''}`, '')
-    out.push('Notes:', '', section(text, 'Notes').replace(/^Left empty;.*$/m, '').trim() || 'none', '')
-    if (useGit && k.commit && root) {
-      const r = spawnSync('git', ['-C', root, 'show', '--stat=200', '--format=', k.commit], { encoding: 'utf8' })
-      const files = r.status === 0 ? r.stdout.replace(/^\n+|\s+$/g, '') : null
-      out.push(files ? `Files its commit changed:\n\n\`\`\`\n${files}\n\`\`\`` : `Its commit ${k.commit} is not in ${root}.`, '')
+    out.push('Notes:', '', notesOf(text) || 'none', '')
+    if (useGit && k.commit && root) out.push(changed('commit', k.commit, root), '')
+  }
+
+  // The milestones of other tracks its milestone builds after: squashed, so their code is final on their spec branch.
+  const after = ids(field(md, 'Builds after')).filter((id) => !id.bad && id.track && id.track !== self.track)
+  if (after.length) out.push('## Milestones it builds after', '')
+  for (const id of after) {
+    const dep = tracks.find((t) => t.slug === id.track)?.milestones.find((x) => x.n === id.n)
+    if (!dep) { out.push(`### ${id.track}/${id.n}`, '', 'Names no milestone of this spec.', ''); continue }
+    const root = links[id.track]
+    out.push(`### ${id.track}/${dep.n}: ${dep.title}`, '', `**Delivers:** ${field(read(join(dep.dir, 'milestone.md')), 'Delivers') ?? 'none'}`, `**Squash:** ${dep.squash ?? 'none'}${root ? ` · **Root:** ${root}` : ''}`, '')
+    if (useGit && dep.squash && root) out.push(changed('squash', dep.squash, root), '')
+    for (const k of dep.tickets) {
+      const notes = notesOf(read(join(dep.dir, k.file)))
+      if (notes && !/^none\.?$/i.test(notes)) out.push(`Notes of ${id.track}/${k.n} ${k.title}:`, '', notes, '')
     }
   }
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n'

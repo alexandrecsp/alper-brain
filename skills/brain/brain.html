@@ -91,14 +91,16 @@ const BrainView = (function () {
 .pd-lbl{paint-order:stroke;stroke:var(--pd-bg);stroke-width:3px;stroke-linejoin:round}
 /* Spec links come in two families, and colour belongs to status alone (on the glyphs):
    structure, "belongs to" (spec > milestone > ticket): thin neutral grey, no arrow;
-   dependency, "waits on" (Depends on, Lands after): one light neutral, arrow from the prerequisite to the one waiting,
-   thicker the higher the level, solid while it still blocks, dashed and faded once the prerequisite is done. */
+   dependency, "waits on" (spec Depends on, Builds after, Lands after, ticket Depends on): one light neutral, arrow
+   from the prerequisite to the one waiting, thicker the higher the level, solid while it still blocks (Lands after
+   dotted, since it holds only the landing), dashed and faded once the prerequisite is done. Only milestones link
+   across repositories; a ticket links only to tickets of its own. */
 .pd-root{--pd-struct:#d4d4d8;--pd-dep:#3f3f46}
 @media (prefers-color-scheme:dark){.pd-root{--pd-struct:#52525b;--pd-dep:#d4d4d8}}
 .pd-e{fill:none;stroke-width:1}
 .pd-e-trunk,.pd-e-owns{stroke:var(--pd-struct);stroke-width:1}
-.pd-e-sdep,.pd-e-lands,.pd-e-tdep,.pd-e-xdep{stroke:var(--pd-dep)}
-.pd-e-sdep{stroke-width:2.2}.pd-e-lands{stroke-width:1.5}.pd-e-tdep,.pd-e-xdep{stroke-width:1}
+.pd-e-sdep,.pd-e-builds,.pd-e-lands,.pd-e-tdep{stroke:var(--pd-dep)}
+.pd-e-sdep{stroke-width:2.2}.pd-e-builds,.pd-e-lands{stroke-width:1.5}.pd-e-lands{stroke-dasharray:1 3}.pd-e-tdep{stroke-width:1}
 .pd-e.pd-dep-done{stroke-dasharray:4 3;stroke-opacity:.45}
 .pd-m-dep{fill:var(--pd-dep)}.pd-m-depdone{fill:var(--pd-dep);fill-opacity:.45}
 .pd-eg .pd-hit{fill:none;stroke:transparent;stroke-width:10;pointer-events:stroke;cursor:help}
@@ -473,14 +475,15 @@ const BrainView = (function () {
         sInfo.set(s.id, info);
         info.head = mk(info, 'spec', `s:${s.id}`, lane, s.title, s.status, s, -1);
         s.milestones.forEach((m, mi) => {
-          const mn = mk(info, 'milestone', `m:${s.id}|${m.id}`, m.track, `${m.num} ${m.title}`, m.status, m, mi); info.m.set(m.id, mn); mn.after = []; mn.before = [];
+          const mn = mk(info, 'milestone', `m:${s.id}|${m.id}`, m.track, `${m.num} ${m.title}`, m.status, m, mi); info.m.set(m.id, mn); mn.builds = []; mn.after = []; mn.before = [];
           for (const t of m.tickets) { const tn = mk(info, 'ticket', `t:${s.id}|${t.id}`, m.track, `${t.num} ${t.title}`, TICKET_STATUS[t.status] || 'draft', t, mi); tn.m = mn; info.t.set(t.id, tn); E(mn, tn, 'owns'); }
         });
         for (const m of s.milestones) {
           const mn = info.m.get(m.id);
           E(info.head, mn, 'trunk');
-          for (const id of m.landsAfter) { const prev = info.m.get(id); if (prev) { mn.after.push(prev); prev.before.push(mn); E(prev, mn, 'lands'); } }
-          for (const t of m.tickets) { const tn = info.t.get(t.id); t.deps.forEach((d) => { const dn = info.t.get(d); if (dn) E(dn, tn, dn.lane === tn.lane ? 'tdep' : 'xdep'); }); }
+          for (const id of m.buildsAfter) { const prev = info.m.get(id); if (prev) { mn.builds.push(prev); prev.before.push(mn); E(prev, mn, 'builds'); } }
+          for (const id of m.landsAfter) { const prev = info.m.get(id); if (prev && !mn.builds.includes(prev)) { mn.after.push(prev); prev.before.push(mn); E(prev, mn, 'lands'); } }
+          for (const t of m.tickets) { const tn = info.t.get(t.id); t.deps.forEach((d) => { const dn = info.t.get(d); if (dn) E(dn, tn, 'tdep'); }); }
         }
       }
       for (const s of D.specs) for (const d of s.deps) if (sInfo.has(d)) E(sInfo.get(d).head, sInfo.get(s.id).head, 'sdep', { dep: d, spec: s.id });
@@ -551,14 +554,15 @@ const BrainView = (function () {
       const bow = 30 + Math.min(40, Math.abs(by - ay) / 6), ex = bx - r * 0.7, ey = by + (by > ay ? -r * 0.7 : r * 0.7);
       return `M${ax},${ay}C${ax - bow},${ay} ${ex - bow},${ey} ${ex},${ey}`;
     };
-    // A dependency is satisfied once its prerequisite (the edge's source) is done: a spec landed, a milestone landed, a ticket done.
-    const isDep = (e) => e.kind === 'sdep' || e.kind === 'lands' || e.kind === 'tdep' || e.kind === 'xdep';
-    const depDone = (e) => (e.kind === 'sdep' ? !!e.a.spec.landed : e.kind === 'lands' ? !!e.a.obj.landed : e.a.obj.status === 'done');
+    // A dependency is satisfied once its prerequisite (the edge's source) is done: a spec landed, a milestone squashed
+    // (Builds after) or landed (Lands after), a ticket done.
+    const isDep = (e) => e.kind === 'sdep' || e.kind === 'builds' || e.kind === 'lands' || e.kind === 'tdep';
+    const depDone = (e) => (e.kind === 'sdep' ? !!e.a.spec.landed : e.kind === 'builds' ? !!e.a.obj.squash : e.kind === 'lands' ? !!e.a.obj.landed : e.a.obj.status === 'done');
     const nodeName = (n) => (n.kind === 'spec' ? `spec ${n.spec.num} ${n.spec.title}` : `${n.kind} ${n.lane}/${n.obj.num} ${n.obj.title}`);
     const edgeTip = (e) => {
       if (!isDep(e)) return `${nodeName(e.b)}\nbelongs to ${nodeName(e.a)}`;
-      const verb = e.kind === 'lands' ? 'lands after' : 'depends on';
-      const state = depDone(e) ? (e.kind === 'tdep' || e.kind === 'xdep' ? 'satisfied: it is done' : 'satisfied: it landed') : 'still waiting';
+      const verb = e.kind === 'builds' ? 'builds after' : e.kind === 'lands' ? 'lands after' : 'depends on';
+      const state = depDone(e) ? ({ tdep: 'satisfied: it is done', builds: 'satisfied: it is squashed' }[e.kind] || 'satisfied: it landed') : 'still waiting';
       return `${nodeName(e.b)}\n${verb} ${nodeName(e.a)}\n(${state})`;
     };
     function drawSpecs(animate) {
@@ -703,7 +707,7 @@ const BrainView = (function () {
     function renderFoot() {
       const ln = (k, l, done) => `<span class="inline-flex items-center gap-1.5"><svg width="30" height="10" class="overflow-visible"><path class="pd-e pd-e-${k}${done ? ' pd-dep-done' : ''}" d="M1,5H26"${k === 'owns' ? '' : ` marker-end="url(#pd-ar-${done ? 'depdone' : 'dep'})"`}/></svg>${l}</span>`;
       foot.innerHTML = S.view === 'specs'
-        ? `<div class="flex max-h-[52px] max-w-[48%] flex-wrap gap-x-3 gap-y-0.5 overflow-hidden">${ln('owns', 'belongs to')}${ln('sdep', 'waits on · spec')}${ln('lands', 'waits on · milestone')}${ln('tdep', 'waits on · ticket')}${ln('lands', 'already satisfied', true)}</div><div class="max-w-[40%] text-right">colour = status · a waiting line fades from the prerequisite's status to the waiting one's · hover a line to read it</div>`
+        ? `<div class="flex max-h-[52px] max-w-[48%] flex-wrap gap-x-3 gap-y-0.5 overflow-hidden">${ln('owns', 'belongs to')}${ln('sdep', 'waits on · spec')}${ln('builds', 'builds after · milestone')}${ln('lands', 'lands after · milestone')}${ln('tdep', 'waits on · ticket, in its repository')}${ln('builds', 'already satisfied', true)}</div><div class="max-w-[40%] text-right">colour = status · a waiting line fades from the prerequisite's status to the waiting one's · hover a line to read it</div>`
         : `<div class="max-w-[48%]">layout = links and relevance: busiest notes in the middle, least linked at the rim · dot size = links · colour = ${B.colour === 'repo' ? 'repository (grey = shared)' : B.colour === 'layer' ? 'layer (grey = none yet)' : 'type'} · dashed arrow = superseded by · ring = draft only · fuchsia halo = a draft changes it · grey = not written yet</div><div class="max-w-[40%] text-right">${S.mode === 'time' ? 'ring colour = what the picked week did: recorded, updated, superseded, deleted, moved' : 'hover a note to focus its neighbours · drag to pull it'}</div>`;
     }
     function renderDock() {
@@ -788,7 +792,7 @@ ${bar('drafts', 'x', dc, dn, 'Not shared yet', T.drafts, 'outline outline-1 outl
     function inspSpecSummary() {
       const ts = snodes.filter((n) => n.kind === 'ticket'), done = ts.filter((n) => n.status === 'done').length;
       const needs = D.specs.filter((s) => s.status === 'attention' || s.status === 'blocked'), wait = D.specs.filter((s) => s.status === 'waiting');
-      const sdeps = sedges.filter((e) => e.kind === 'sdep').length, xl = sedges.filter((e) => e.kind === 'xdep' || e.kind === 'lands').length;
+      const sdeps = sedges.filter((e) => e.kind === 'sdep').length, xl = sedges.filter((e) => e.kind === 'builds' || e.kind === 'lands').length;
       return head('The specs', 'Across ' + D.repos.length + ' repositories', '', 'Select a card in the pipeline, or a spec in the rail, to read it here and expand its tickets.')
         + sec('Progress', `<div class="mb-1 flex justify-between text-xs text-zinc-500"><span>${done} of ${ts.length} tickets done</span><span>${sdeps} spec deps · ${xl} cross-repo links</span></div><div class="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800"><div class="h-full bg-emerald-500" style="width:${ts.length ? (done / ts.length) * 100 : 0}%"></div></div>`)
         + sec('Needs you', needs.map((s) => item('spec', s.id, `<span class="font-mono text-[11px] text-zinc-500">${s.num}</span>`, s.title, pill(s.status))).join('') || none('Nothing is waiting on you.'), needs.length)
@@ -805,21 +809,22 @@ ${bar('drafts', 'x', dc, dn, 'Not shared yet', T.drafts, 'outline outline-1 outl
         + (ts.length ? `<div class="px-4 pb-3"><div class="mb-1 text-xs text-zinc-500">${done} of ${ts.length} tickets done</div><div class="h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800"><div class="h-full bg-emerald-500" style="width:${(done / ts.length) * 100}%"></div></div></div>` : '')
         + sec('Depends on', deps.map((d, i) => d ? item('spec', d.id, `<span class="font-mono text-[11px] text-zinc-500">${d.num}</span>`, d.title, pill(d.status) + (d.landed ? '' : chip('not landed', 'bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300'))) : item('', s.deps[i], '', s.deps[i] + ' (missing)')).join('') || none(), deps.length)
         + sec('Needed by', after.map(specLine).join('') || none(), after.length)
-        + sec('Milestones', info.nodes.filter((n) => n.kind === 'milestone').map((n) => msLine(n) + (n.after.length ? `<div class="pl-6 text-[11px] text-violet-700 dark:text-violet-300">lands after ${n.after.map((a) => esc(a.obj.id)).join(', ')}</div>` : '')).join('') || none('No milestones yet.'), s.milestones.length)
+        + sec('Milestones', info.nodes.filter((n) => n.kind === 'milestone').map((n) => msLine(n) + [['builds after', n.builds], ['lands after', n.after]].filter(([, l]) => l.length).map(([v, l]) => `<div class="pl-6 text-[11px] text-violet-700 dark:text-violet-300">${v} ${l.map((a) => esc(a.obj.id)).join(', ')}</div>`).join('')).join('') || none('No milestones yet.'), s.milestones.length)
         + `<section class="border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">${md(s.body)}</section>`;
     }
     function inspMilestone(n) {
       const m = n.obj, tks = sInfo.get(n.spec.id).nodes.filter((x) => x.kind === 'ticket' && x.m === n);
       return head(`Milestone ${m.num} · ${m.track}`, m.title, pill(n.status, n.status === 'landed' ? 'Landed' : undefined) + (m.phase ? chip('phase: ' + m.phase) : '') + (m.phaseLabel ? chip(m.phaseLabel, 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300') : '') + (m.squash ? chip('squash ' + m.squash) : '') + (m.landed ? chip('landed ' + m.landed) : ''), m.delivers)
         + `<div class="px-4 pb-2 text-xs"><a href="#" data-act="spec" data-v="${esc(n.spec.id)}" class="text-indigo-600 hover:underline dark:text-indigo-300">Spec ${n.spec.num} ${esc(n.spec.title)}</a></div>`
-        + sec('Lands after', n.after.map(msLine).join('') || none('Nothing, it can start at once.'), n.after.length)
+        + sec('Builds after', n.builds.map(msLine).join('') || none('Nothing, it can start at once.'), n.builds.length)
+        + sec('Lands after', n.after.map(msLine).join('') || none(), n.after.length)
         + sec('Unblocks', n.before.map(msLine).join('') || none(), n.before.length)
         + sec('Tickets', tks.map(tkLine).join('') || none('No tickets yet.'), tks.length)
         + `<section class="border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">${md(m.body)}</section>`
         + (m.review ? `<details class="border-t border-zinc-200 px-4 py-3 dark:border-zinc-800"><summary class="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Review${m.awaiting ? ` · ${m.awaiting} awaiting you` : ''}</summary>${md(m.review)}</details>` : '');
     }
     function inspTicket(n) {
-      const t = n.obj, into = adj.get(n.key).filter((e) => e.b === n && (e.kind === 'tdep' || e.kind === 'xdep')).map((e) => e.a), out = adj.get(n.key).filter((e) => e.a === n && (e.kind === 'tdep' || e.kind === 'xdep')).map((e) => e.b);
+      const t = n.obj, into = adj.get(n.key).filter((e) => e.b === n && e.kind === 'tdep').map((e) => e.a), out = adj.get(n.key).filter((e) => e.a === n && e.kind === 'tdep').map((e) => e.b);
       return head(`Ticket ${t.num} · ${n.lane}`, t.title, pill(n.status, t.status) + (t.commit ? chip('commit ' + t.commit) : ''), '')
         + `<div class="px-4 pb-2 text-xs"><a href="#" data-act="milestone" data-v="${esc(n.spec.id + '|' + n.m.obj.id)}" class="text-indigo-600 hover:underline dark:text-indigo-300">Milestone ${n.m.obj.num} ${esc(n.m.obj.title)}</a> · <a href="#" data-act="spec" data-v="${esc(n.spec.id)}" class="text-indigo-600 hover:underline dark:text-indigo-300">Spec ${n.spec.num}</a></div>`
         + sec('Depends on', into.map(tkLine).join('') || none(), into.length) + sec('Blocks', out.map(tkLine).join('') || none(), out.length)
@@ -1164,13 +1169,14 @@ function toData(name, files) {
     for (const mm of [...ms.values()].sort((a, b) => (a.track || '').localeCompare(b.track || '') || a.mdir.localeCompare(b.mdir))) {
       const mt = read(`${mm.base}/milestone.md`) || '', review = read(`${mm.base}/review.md`) ?? null;
       const track = mm.track || (field(mt, 'Repo') || '').replace(/`/g, '').trim() || 'unassigned';
-      const after = field(mt, 'Lands after') || '';
+      const after = field(mt, 'Lands after') || '', builds = field(mt, 'Builds after') || '';
+      const msIds = (v) => (/^none/i.test(v) ? [] : (v.match(/[\w.-]+\/\d+/g) || []).map((d) => d.replace(/\/(\d+)$/, (_, n) => '/' + n.padStart(3, '0'))));
       const m = {
         id: `${track}/${numOf(mm.mdir)}`, track, num: numOf(mm.mdir), title: (heading(mt) || mm.mdir).replace(/^Milestone\s+\d+:\s*/i, ''),
         path: `${mm.base}/milestone.md`, body: mt, review, reviewPath: review != null ? `${mm.base}/review.md` : null, awaiting: review ? awaitingOf(review) : 0,
         delivers: field(mt, 'Delivers'), phase: (field(mt, 'Phase') || '').replace(/`/g, '').toLowerCase() || null,
         squash: shaOf(field(mt, 'Squash')), landed: shaOf(field(mt, 'Landed')),
-        landsAfter: /^none/i.test(after) ? [] : after.match(/[\w.-]+\/\d+/g) || [], tickets: [],
+        buildsAfter: msIds(builds), landsAfter: msIds(after), tickets: [],
       };
       for (const tf of mm.tickets.sort()) {
         const tt = read(`${mm.base}/${tf}`), deps = field(tt, 'Depends on') || '';
@@ -1182,6 +1188,15 @@ function toData(name, files) {
       }
       s.milestones.push(m);
     }
+    // tracks wait on each other only at milestones: a ticket's Depends on another track's ticket, from before Builds
+    // after, is read as its milestone's Builds after that ticket's milestone, as build moves it
+    const ownerOf = new Map(s.milestones.flatMap((m) => m.tickets.map((t) => [t.id, m])));
+    for (const m of s.milestones) for (const t of m.tickets) t.deps = t.deps.filter((d) => {
+      const o = ownerOf.get(d);
+      if (!o || o.track === m.track) return true;
+      if (!m.buildsAfter.includes(o.id)) m.buildsAfter.push(o.id);
+      return false;
+    });
     if (!s.repos.length) s.repos = [...new Set(s.milestones.map((m) => m.track).filter((x) => x !== 'unassigned'))];
     return s;
   });
@@ -1211,15 +1226,14 @@ function toData(name, files) {
     if (s.abandoned) s.status = 'abandoned';
   }
   // the frontier, what the next /build starts (build's Tracks): each track's first open milestone with no ticket
-  // started, once every milestone of another track its tickets depend on is squashed, in a spec not held by its own
-  // dependencies. A spec with nothing started yet is in the frontier when any of its milestones is.
+  // started, once every milestone its Builds after names is squashed, in a spec not held by its own dependencies.
+  // A spec with nothing started yet is in the frontier when any of its milestones is.
   for (const s of specs) {
     if (s.waiting.length || ['draft', 'abandoned', 'landed'].includes(s.status)) continue;
-    const owner = new Map(s.milestones.flatMap((m) => m.tickets.map((t) => [t.id, m])));
     for (const track of new Set(s.milestones.map((m) => m.track))) {
       const m = s.milestones.find((x) => x.track === track && !x.squash);
       if (!m || m.status !== 'ready') continue;
-      if (m.tickets.every((t) => t.deps.every((d) => { const o = owner.get(d); return !o || o.track === track || o.squash; }))) m.status = 'frontier';
+      if (m.buildsAfter.every((id) => { const o = s.milestones.find((x) => x.id === id); return !o || o.squash; })) m.status = 'frontier';
     }
     if (s.status === 'ready' && s.milestones.some((m) => m.status === 'frontier')) s.status = 'frontier';
   }

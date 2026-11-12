@@ -83,6 +83,8 @@ cat > "$ms/milestone.md" <<EOF
 
 **Done when:** \`sh test.sh\` prints \`ok\`.
 
+**Builds after:** None
+
 **Lands after:** None
 
 **Phase:** $PHASE

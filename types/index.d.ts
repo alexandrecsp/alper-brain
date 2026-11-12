@@ -38,7 +38,7 @@ export type Ticket = {
   title: string
   status: string
   commit: string | null
-  /** Its **Depends on** entries: `003` in its own track, `web-app/002` in another. */
+  /** Its **Depends on** entries, tickets of its own track such as `003`; a spec from before **Builds after** may hold `web-app/002`. */
   dependsOn: string[]
   /** The last line of its Notes, which says what stopped it once it is `blocked`. */
   note: string
@@ -63,6 +63,8 @@ export type Build = {
   squash: string | null
   /** Its **Landed** commit; its Squash where milestone.md has no Landed line (an old spec); null until it lands. */
   landed: string | null
+  /** Its **Builds after** ids, other tracks' milestones it starts building after they squash. */
+  buildsAfter: string[]
   /** Its **Lands after** ids, other tracks' milestones it lands after. */
   landsAfter: string[]
   findings: Findings

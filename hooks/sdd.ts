@@ -140,14 +140,14 @@ export const lastNote = (md: string) => {
  * one), the agent running for it and the other tracks' open tickets. The
  * files say landing, ask, failed, waits and blocked; a running agent says
  * busy; the rest is closing (a Phase past none, which the main session
- * works), paused (begun by an earlier call), after (a ticket depends on
- * another track's ticket not squashed yet) or ready.
+ * works), paused (begun by an earlier call), after (its Builds after names
+ * another track's milestone not squashed yet) or ready.
  */
 export const trackStateOf = (
-  b: Pick<Build, 'phase' | 'squash' | 'awaiting' | 'landsAfter' | 'tickets'>,
+  b: Pick<Build, 'phase' | 'squash' | 'awaiting' | 'buildsAfter' | 'landsAfter' | 'tickets'>,
   running: { role: string; ticket?: string; activity: string } | undefined,
-  // Each other track's lowest open ticket number, by its slug; absent once it has no open milestone.
-  openFrom: Record<string, string>,
+  // Each other track's open milestone and lowest open ticket number, by its slug; absent once it has no open milestone.
+  openFrom: Record<string, { milestone: string; ticket: string }>,
 ): { state: TrackState; detail: string } => {
   if (b.squash !== null) {
     return b.phase === 'failed'
@@ -173,12 +173,17 @@ export const trackStateOf = (
   if (b.phase !== 'none') return { state: 'closing', detail: `${b.phase}, by the main session` }
   if (b.tickets.some(t => t.status !== 'todo')) return { state: 'paused', detail: 'paused, no agent running' }
 
-  // A ticket of another track is squashed once it numbers below that track's lowest open ticket.
-  const waitsOn = b.tickets.flatMap(t => t.dependsOn).filter(dep => {
-    const [slug, num] = dep.split('/')
-    const from = slug === undefined ? undefined : openFrom[slug]
+  // A milestone of another track is squashed once it numbers below that track's open one. A ticket's Depends
+  // on another track's ticket, from before Builds after, holds it the same way, by that track's lowest open ticket.
+  const open = (id: string, of: 'milestone' | 'ticket') => {
+    const [slug, num] = id.split('/')
+    const from = slug === undefined ? undefined : openFrom[slug]?.[of]
     return num !== undefined && from !== undefined && num >= from
-  })
+  }
+  const waitsOn = [
+    ...b.buildsAfter.filter(id => open(id, 'milestone')),
+    ...b.tickets.flatMap(t => t.dependsOn).filter(id => open(id, 'ticket')),
+  ]
 
   return waitsOn.length > 0
     ? { state: 'after', detail: `after ${[...new Set(waitsOn)].join(', ')}` }

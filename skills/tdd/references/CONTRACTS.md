@@ -10,7 +10,7 @@ Stand the producer in with a fake at a port, shaped by [MOCKING.md](MOCKING.md)'
 
 Otherwise build each fake answer from the first source below that applies, and name that source in a comment beside the fixture, so the next contract change finds it. Read the producer's code only with `git -C <root> show <commit>:<path>`, `<root>` from your brief's **Also reads**, else the brain's `.sdd/links.json`: its working tree may hold another branch mid-build.
 
-1. Your ticket's **Depends on** names a ticket in the producer's track: the producer's code at that ticket's **Commit**. Name the file and commit.
+1. Your milestone's **Builds after** names a milestone in the producer's track: the producer's code at that milestone's **Squash**. Name the file and commit.
 2. `spec.md`'s API contracts entry for this interface pins its new shape (the route, event, queue message or schema, and each field with its type and whether it is optional), as a migrate building beside its producer's expand has it: that entry alone, even with the producer under **Also reads**, since its side may not be built yet. Name `spec.md` and the entry.
 3. The producer is linked: its code on its base branch, the producer's entry in `spec.md`'s **Base** line, else its remote's default (`git -C <root> symbolic-ref --short refs/remotes/origin/HEAD`, without `origin/`). Name the file and commit.
 4. Otherwise: the `contract` note. Report the fake as unverified against the code.

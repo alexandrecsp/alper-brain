@@ -49,8 +49,8 @@ const engine = (on: On, tree: Record<string, string>, agents: unknown[] = []) =>
 }
 
 const SPEC = 'C:/repo/.sdd/specs/003-invoice-export'
-const milestone = (title: string, phase: string, squash = 'none', landed = 'none') =>
-  `# Milestone 001: ${title}\n\n**Lands after:** None\n\n**Phase:** ${phase}\n\n**Squash:** ${squash}\n\n**Landed:** ${landed}\n`
+const milestone = (title: string, phase: string, squash = 'none', landed = 'none', buildsAfter = 'None') =>
+  `# Milestone 001: ${title}\n\n**Builds after:** ${buildsAfter}\n\n**Lands after:** None\n\n**Phase:** ${phase}\n\n**Squash:** ${squash}\n\n**Landed:** ${landed}\n`
 const ticket = (title: string, status: string, depends = 'None', notes = '', commit = 'none') =>
   `# Ticket 001: ${title}\n\n**Status:** ${status}\n\n**Depends on:** ${depends}\n\n**Commit:** ${commit}\n\n## Notes\n\n${notes}\n`
 
@@ -61,8 +61,8 @@ test('every track of the spec shows on top, and what waits on the user heads the
     [`${SPEC}/milestones/billing-api/001-parse/001-read.md`]: ticket('Read rows', 'done'),
     [`${SPEC}/milestones/billing-api/001-parse/review.md`]:
       '# Review\n\nST1. parse.ts: renames a field. Judgement call, **escalate**.\n',
-    [`${SPEC}/milestones/web-app/001-show/milestone.md`]: milestone('Show totals', 'none'),
-    [`${SPEC}/milestones/web-app/001-show/001-page.md`]: ticket('Totals page', 'todo', 'billing-api/001'),
+    [`${SPEC}/milestones/web-app/001-show/milestone.md`]: milestone('Show totals', 'none', 'none', 'none', 'billing-api/001'),
+    [`${SPEC}/milestones/web-app/001-show/001-page.md`]: ticket('Totals page', 'todo'),
     [`${SPEC}/milestones/worker/001-sync/milestone.md`]: milestone('Sync', 'none'),
     [`${SPEC}/milestones/worker/001-sync/001-job.md`]: ticket('Sync job', 'blocked', 'None', '- The queue client is missing'),
     [`${SPEC}/milestones/mailer/001-send/milestone.md`]: milestone('Send', 'landed', 'c0ffee12', 'c0ffee12'),
@@ -77,7 +77,7 @@ test('every track of the spec shows on top, and what waits on the user heads the
   ).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /⚠ worker M001: T001 blocked: The queue client is missing/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /3 of 4 in flight/ })).toBeDefined()
-  // web-app's ticket needs billing-api's 001, whose milestone is still open.
+  // web-app's milestone builds after billing-api's 001, still open.
   expect(await ui.find({ type: 'Text', text: /^after billing-api\/001$/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /^landed c0ffee1$/ })).toBeDefined()
   // The blocked worker track is followed too: its ticket shows with what stopped it.

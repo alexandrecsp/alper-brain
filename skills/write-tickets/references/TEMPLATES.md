@@ -9,7 +9,9 @@ Replace each guidance line with its content. Name an interface between repositor
 
 **Done when:** a check the builder can run. The check proves the increment works once the last ticket lands. Name a test at a seam the spec names, or a command and its expected output.
 
-**Lands after:** the milestones of other tracks this one reaches its base after, by [CONTRACT-CHANGE.md](CONTRACT-CHANGE.md), as `<slug>/NNN, <slug>/NNN`; or "None".
+**Builds after:** the milestones of other tracks whose code this one builds on, so it starts once they squash and lands after them, as `<slug>/NNN, <slug>/NNN`; or "None".
+
+**Lands after:** the milestones of other tracks this one reaches its base after while building beside them, by [CONTRACT-CHANGE.md](CONTRACT-CHANGE.md), as `<slug>/NNN, <slug>/NNN`; or "None".
 
 **Phase:** none
 
@@ -31,7 +33,7 @@ The **milestone shape**, by [DIAGRAMS.md](../../write-spec/references/DIAGRAMS.m
 
 **Status:** todo
 
-**Depends on:** the tickets this one builds on directly: lower-numbered ones in its own track as `NNN`, ones in another track as `<slug>/NNN`, such as `003, web-app/002`; or "None".
+**Depends on:** the lower-numbered tickets of its own track this one builds on directly, as `NNN`, such as `002, 003`; or "None".
 
 **Commit:** none
 

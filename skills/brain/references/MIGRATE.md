@@ -33,11 +33,17 @@ When track folders already sit beside flat ones, an earlier run stopped halfway.
    - each ticket, as `<new NNN>-<ticket-slug>.md`, with its title and **Milestone** line renumbered and its **Depends on** rewritten in new numbers: `NNN` for a ticket in its own track, `<slug>/NNN` for one in another;
    - its `review.md` and any other file, unchanged.
 
-   When `spec.md` has no **Landings** line and some milestone's **Landed** names a commit, write one under its **Base** line: take the milestones whose **Landed** names a commit, in their old order, and group them into runs of the same track; each run is one entry, in FORMAT.md's form, with the new numbers. Done when every milestone has its copy in its track, every **Depends on** names a ticket that exists in its own track or the track it names, and the **Landings** line, when one was due, names every landed milestone once.
+   When `spec.md` has no **Landings** line and some milestone's **Landed** names a commit, write one under its **Base** line: take the milestones whose **Landed** names a commit, in their old order, and group them into runs of the same track; each run is one entry, in FORMAT.md's form, with the new numbers. Done when every milestone has its copy in its track, every **Depends on** names a ticket that exists in its own track or the track it names, and the **Landings** line, when one was due, names every landed milestone once. `build` then moves the waits on other tracks onto the milestones, by **Builds after** below.
 
 3. **Rename the branches.** In each track's repository, take the milestones whose number changed in increasing order of the old number, so each new name is free at its turn: when `sdd/<spec-folder>/M<old>` exists and `sdd/<spec-folder>/M<new>` does not, run `git -C <root> branch -m sdd/<spec-folder>/M<old> sdd/<spec-folder>/M<new>`; when `M<new>` exists, an earlier run already renamed it, so leave both. Leave the `sdd/<spec-folder>/pr-M*` branches as they are: a PR opened from one keeps its branch's name. Done when every changed milestone that had a branch has one under its new name.
 
 4. **Remove the flat folders.** Delete each milestone folder straight under `milestones/`. Report the spec's tracks, each milestone with its old and new number, and each `pr-M` branch whose number now names a different milestone, so the user closes or renames it before `/open-pr`. Done when `milestones/` holds only track folders.
+
+## Builds after
+
+Move a spec's waits on other tracks from its tickets onto its milestones, by FORMAT.md's **Specs**. `sdd state`'s `migrate` lists each milestone holding a ticket whose **Depends on** names another track's ticket, with the **Builds after** it stands for; the build waits the same before and after, so this runs at any **Phase**.
+
+For each entry, write its `buildsAfter` ids into the milestone's **Builds after** line, creating it under **Done when**, above any **Lands after**, then remove every entry that names another track's ticket from its tickets' **Depends on**, leaving "None" where nothing stays. Done when `sdd state` prints no `migrate`.
 
 ## Explored notes
 

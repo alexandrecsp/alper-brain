@@ -1,6 +1,6 @@
 # Tracks: one line of milestones per repository
 
-**Status:** proposed, 2026-11-05, with its open decisions settled the same day; rollout steps 1 to 3 built. Builds on [DESIGN.md](DESIGN.md)'s **Cross-repo specs**. Where it and the skills disagree, the skills win.
+**Status:** proposed, 2026-11-05, with its open decisions settled the same day; rollout steps 1 to 3 built. Revised 2026-11-11: the build tie moved from a ticket's cross-track **Depends on** to a milestone's **Builds after**, since the build already held the whole milestone, and a ticket-level link drew a precision the build never had. Builds on [DESIGN.md](DESIGN.md)'s **Cross-repo specs**. Where it and the skills disagree, the skills win.
 
 A spec that changes several repositories becomes one **track** per repository. Each track is the repository's own numbered milestones and tickets, built in order. The tracks run side by side, and each lands on its own base as it goes. The tracks are tied together in only two ways: a ticket that builds on another track's code, and a milestone that must land after another track's milestone. Today both ties are inferred from one global milestone number. Under this proposal, each one is written down where it applies.
 
@@ -44,10 +44,11 @@ The two ties between tracks are different relations, so each gets its own line:
 
 | Relation | Line | Between | Means | Who writes it |
 |---|---|---|---|---|
-| **Depends on** | ticket | tickets, `NNN` or `<slug>/NNN` | this ticket's code builds on that one | write-tickets step 3 |
+| **Builds after** | `milestone.md` | milestones in other tracks, `<slug>/NNN` | this milestone's code builds on that one, so it starts once that one squashes, and lands after it | write-tickets step 2 |
+| **Depends on** | ticket | tickets of its own track, `NNN` | this ticket's code builds on that one | write-tickets step 3 |
 | **Lands after** | `milestone.md` | milestones in other tracks, `<slug>/NNN` | this milestone reaches its base only after that one reached its own | write-tickets step 2, by CONTRACT-CHANGE.md |
 
-Inside a track, order needs no line: the track builds and lands in number order. Across tracks, a **Depends on** holds the ticket until the milestone it names is squashed, so the builder reads reviewed, final code. **Lands after** never holds a build back: it orders the landing, and holds a migrate at its contract check (`waits`) until its expand is squashed. (Step 2, still landing on a repository switch, needed a stopgap: a milestone also waited on whatever its **Lands after** target waited on, so a migrate never built ahead of its expand. Step 3's per-track landing and the `waits` phase made it unneeded.)
+Inside a track, order needs no line: the track builds and lands in number order. Across tracks, a **Builds after** holds the milestone until the milestone it names is squashed, so the builder reads reviewed, final code. **Lands after** never holds a build back: it orders the landing, and holds a migrate at its contract check (`waits`) until its expand is squashed. (Step 2, still landing on a repository switch, needed a stopgap: a milestone also waited on whatever its **Lands after** target waited on, so a migrate never built ahead of its expand. Step 3's per-track landing and the `waits` phase made it unneeded.)
 
 ```mermaid
 flowchart LR
@@ -94,10 +95,10 @@ A milestone is **landable** when all three hold: it is squashed, every earlier m
 The order stays the same: **expand → migrates → contract**. What changes is where the order lives: it moves from build to landing.
 
 1. **write-spec pins the shape.** Each entry under API contracts gives the route or event, every field with its type and whether it is optional, and the old shape it replaces. The entry must be precise enough for a consumer to fake. The **Done when** of write-spec step 6 checks for this.
-2. **write-tickets cuts by Lands after.** Each migrate has **Lands after** the expand, and the contract has **Lands after** every migrate. No **Depends on** crosses tracks just to hold that order.
+2. **write-tickets cuts by Lands after.** Each migrate has **Lands after** the expand, and the contract has **Lands after** every migrate. No **Builds after** holds a build just to keep that order.
 3. **The consumer builds against the spec.** Its fake comes from the pinned shape, and the fixture's comment names the spec and the section the fake was built from (CONTRACTS.md changes accordingly).
 4. **The contract check gate.** Once the expand is squashed, the migrate's check (build step 9) adds one step. A `spec-reviewer` compares each fake against the producer's code at the expand's **Squash**, read with `git show`. When they drift, a fixer runs in the consumer before the squash, so the milestone still squashes into a single commit.
-5. **Fallback.** When the shape cannot be pinned before building, because it is still being discovered, the migrate keeps today's cross-track **Depends on** on the expand's last ticket, and the quiz says why.
+5. **Fallback.** When the shape cannot be pinned before building, because it is still being discovered, the migrate takes a **Builds after** the expand, and the quiz says why.
 
 ## Context in the orchestrator, and the handoff
 

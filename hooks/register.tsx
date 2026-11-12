@@ -127,6 +127,7 @@ const loadBuild = async (
     squash,
     // A milestone written before the Landed line ends at its squash.
     landed: /^\*\*Landed:\*\*/m.test(milestoneMd) ? shortSha(field(milestoneMd, 'Landed')) : squash,
+    buildsAfter: listField(milestoneMd, 'Builds after'),
     landsAfter: listField(milestoneMd, 'Lands after'),
     findings: findingsOf(reviewMd),
     awaiting: awaitingOf(reviewMd),
@@ -245,10 +246,12 @@ const refreshTracks = async ($: EngineInterface) => {
     current.push({ repo, build: pick ?? unlanded, last })
   }
 
-  // Each open track's lowest ticket number: a ticket of its track below that is squashed.
+  // Each open track's open milestone, and its lowest ticket number: a milestone or ticket of its track below that is squashed.
   const openFrom = Object.fromEntries(
     current.flatMap(({ repo, build }) =>
-      build !== null && build.squash === null && build.tickets[0] !== undefined ? [[repo, build.tickets[0].num]] : [],
+      build !== null && build.squash === null
+        ? [[repo, { milestone: build.milestone.slice(0, 3), ticket: build.tickets[0]?.num ?? '999' }]]
+        : [],
     ),
   )
   const lines: TrackLine[] = current.map(({ repo, build, last }) => {

@@ -8,8 +8,8 @@ import { join } from 'node:path'
 import { appendLine, ids, readCap, resolveSpec, resumeStep, setLine, specState, ticketDigest, unanswered } from './sdd.mjs'
 
 const put = (path, text) => { mkdirSync(join(path, '..'), { recursive: true }); writeFileSync(path, text) }
-const milestone = ({ n, phase = 'none', squash = 'none', landed = 'none', landsAfter = 'None', repo }) =>
-  `# Milestone ${n}: M${n}\n\n**Delivers:** x\n\n**Done when:** y\n\n${repo ? `**Repo:** ${repo}\n\n` : ''}**Lands after:** ${landsAfter}\n\n**Phase:** ${phase}\n\n**Squash:** ${squash}\n\n**Landed:** ${landed}\n`
+const milestone = ({ n, phase = 'none', squash = 'none', landed = 'none', buildsAfter = 'None', landsAfter = 'None', repo }) =>
+  `# Milestone ${n}: M${n}\n\n**Delivers:** x\n\n**Done when:** y\n\n${repo ? `**Repo:** ${repo}\n\n` : `**Builds after:** ${buildsAfter}\n\n`}**Lands after:** ${landsAfter}\n\n**Phase:** ${phase}\n\n**Squash:** ${squash}\n\n**Landed:** ${landed}\n`
 const ticket = ({ n, status = 'todo', deps = 'None', commit = 'none' }) =>
   `# Ticket ${n}: T${n}\n\n**Milestone:** 001 M\n\n**Status:** ${status}\n\n**Depends on:** ${deps}\n\n**Commit:** ${commit}\n\n## Notes\n`
 const spec = (lines) => `# Invoice export\n\n**Repos:** api, web\n\n**Key:** None\n\n**Depends on:** None\n\n**Brain notes:** None\n${lines ?? ''}\n## Problem Statement\n`
@@ -30,8 +30,8 @@ const twoTracks = (b, { apiM1 = {}, apiM2 = {}, webM1 = {}, webT = {} } = {}) =>
   put(join(a2, 'milestone.md'), milestone({ n: '002', landsAfter: 'web/001', ...apiM2 }))
   put(join(a2, '002-drop-v1.md'), ticket({ n: '002', deps: '001', ...(apiM2.t ?? {}) }))
   const w1 = join(s, 'milestones/web/001-migrate')
-  put(join(w1, 'milestone.md'), milestone({ n: '001', landsAfter: 'api/001', ...webM1 }))
-  put(join(w1, '001-consume-v2.md'), ticket({ n: '001', deps: 'api/001', ...webT }))
+  put(join(w1, 'milestone.md'), milestone({ n: '001', buildsAfter: 'api/001', landsAfter: 'api/001', ...webM1 }))
+  put(join(w1, '001-consume-v2.md'), ticket({ n: '001', ...webT }))
   return s
 }
 
@@ -50,7 +50,7 @@ test('parses ids, resume steps and unanswered escalations', () => {
   assert.deepEqual(unanswered(review), ['SP1'])
 })
 
-test('a fresh spec: api is dispatchable, web waits on the api ticket it depends on', () => {
+test('a fresh spec: api is dispatchable, web waits on the api milestone it builds after', () => {
   const st = specState(twoTracks(brain()), { useGit: false })
   assert.equal(st.layout, 'tracks')
   assert.deepEqual(st.base, { api: 'main', web: 'main' })
@@ -92,9 +92,38 @@ test("the frontier holds each track's next milestone that is ready or already st
   assert.deepEqual(st.dispatchable, [{ track: 'api', milestone: '001', ticket: '001' }])
 })
 
-test('reports a Depends on that names no ticket', () => {
-  const st = specState(twoTracks(brain(), { webT: { deps: 'api/009' } }), { useGit: false })
-  assert.match(st.problems[0], /api\/009 names no ticket/)
+test('reports a Depends on that names no ticket, and a Builds after that names no milestone or its own track', () => {
+  let st = specState(twoTracks(brain(), { webT: { deps: '009' } }), { useGit: false })
+  assert.match(st.problems[0], /web\/001 ticket 001: Depends on 009 names no ticket/)
+  st = specState(twoTracks(brain(), { webM1: { buildsAfter: 'api/009' } }), { useGit: false })
+  assert.match(st.problems[0], /web\/001: Builds after api\/009 names no milestone/)
+  st = specState(twoTracks(brain(), { apiM2: { buildsAfter: 'api/001' } }), { useGit: false })
+  assert.match(st.problems[0], /api\/002: Builds after api\/001 names its own track/)
+})
+
+test('a Builds after cycle through the tracks is a problem', () => {
+  // web 001 builds after api 001, and api 001 after web 001
+  const st = specState(twoTracks(brain(), { apiM1: { buildsAfter: 'web/001' } }), { useGit: false })
+  assert.match(st.problems.join('\n'), /Builds after makes a cycle.*(api\/001.*web\/001|web\/001.*api\/001)/)
+  assert.deepEqual(st.frontier, [])
+})
+
+test('a Builds after also orders the landing', () => {
+  const st = specState(twoTracks(brain(), {
+    apiM1: { phase: 'squash', squash: 'aaaaaaa', t: { status: 'done' } },
+    webM1: { landsAfter: 'None', phase: 'squash', squash: 'ccccccc' },
+    webT: { status: 'done' },
+  }), { useGit: false })
+  assert.deepEqual(ms(st, 'web', '001').buildsAfter, ['api/001'])
+  assert.deepEqual(ms(st, 'web', '001').landsAfterOpen, ['api/001'])
+  assert.equal(ms(st, 'web', '001').landable, false)
+})
+
+test("a ticket's Depends on another track's ticket, from before Builds after, holds its milestone and lists its migration", () => {
+  const st = specState(twoTracks(brain(), { webM1: { buildsAfter: 'None' }, webT: { deps: 'api/002' } }), { useGit: false })
+  assert.deepEqual(ms(st, 'web', '001').waitsOn, ['api/002'])
+  assert.deepEqual(st.migrate, [{ milestone: 'web/001', buildsAfter: ['api/002'] }])
+  assert.deepEqual(specState(twoTracks(brain()), { useGit: false }).migrate, [])
 })
 
 test('reads the flat layout, its track from each Repo line', () => {
@@ -194,15 +223,18 @@ test('a ticket digest gives its milestone and the Notes and files of the tickets
   g('add', '-A'); g('commit', '-qm', 'adds v2')
   const sha = g('rev-parse', 'HEAD')
   put(join(b, '.sdd/links.json'), JSON.stringify({ api: repo }))
+  const m1 = join(s, 'milestones/api/001-expand/milestone.md')
+  writeFileSync(m1, readFileSync(m1, 'utf8').replace('**Squash:** aaaaaaa', `**Squash:** ${sha}`))
   const t1 = join(s, 'milestones/api/001-expand/001-add-v2.md')
   writeFileSync(t1, readFileSync(t1, 'utf8').replace('**Commit:** none', `**Commit:** ${sha}`).replace('## Notes\n', '## Notes\n\n- The v2 event keeps the v1 field names.\n'))
 
   const d = ticketDigest(join(s, 'milestones/web/001-migrate/001-consume-v2.md'))
   assert.match(d, /^# Around ticket web\/001: T001/)
-  assert.match(d, /## Milestone 001: M001\n\n\*\*Delivers:\*\* x\n\*\*Done when:\*\* y\n\*\*Lands after:\*\* api\/001/)
-  assert.match(d, /### api\/001: T001\n\n\*\*Status:\*\* done · \*\*Commit:\*\* [0-9a-f]{40} · \*\*Root:\*\*/)
-  assert.match(d, /Notes:\n\n- The v2 event keeps the v1 field names\./)
-  assert.match(d, /src\/export\.ts \| 1 \+/)
+  assert.match(d, /## Milestone 001: M001\n\n\*\*Delivers:\*\* x\n\*\*Done when:\*\* y\n\*\*Builds after:\*\* api\/001\n\*\*Lands after:\*\* api\/001/)
+  assert.match(d, /None: it is the first ticket/)
+  assert.match(d, /## Milestones it builds after\n\n### api\/001: M001\n\n\*\*Delivers:\*\* x\n\*\*Squash:\*\* [0-9a-f]{40} · \*\*Root:\*\*/)
+  assert.match(d, /Files its squash changed:\n\n```\n src\/export\.ts \| 1 \+/)
+  assert.match(d, /Notes of api\/001 T001:\n\n- The v2 event keeps the v1 field names\./)
 
   const first = ticketDigest(join(s, 'milestones/api/001-expand/001-add-v2.md'), { useGit: false })
   assert.match(first, /None: it is the first ticket/)
