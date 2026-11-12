@@ -102,7 +102,7 @@ const BrainView = (function () {
 .pd-e-sdep,.pd-e-builds,.pd-e-lands,.pd-e-tdep{stroke:var(--pd-dep)}
 .pd-e-sdep{stroke-width:2.2}.pd-e-builds,.pd-e-lands{stroke-width:1.5}.pd-e-lands{stroke-dasharray:1 3}.pd-e-tdep{stroke-width:1}
 .pd-e.pd-dep-done{stroke-dasharray:4 3;stroke-opacity:.45}
-.pd-m-dep{fill:var(--pd-dep)}.pd-m-depdone{fill:var(--pd-dep);fill-opacity:.45}
+.pd-m-dep,.pd-m-depdone{fill:var(--pd-dep)}
 .pd-eg .pd-hit{fill:none;stroke:transparent;stroke-width:10;pointer-events:stroke;cursor:help}
 .pd-eg:hover .pd-e{stroke-opacity:1;stroke-width:2.6}
 .pd-bl{fill:none;stroke:var(--pd-bl);stroke-width:.8}
@@ -242,6 +242,22 @@ const BrainView = (function () {
     });
 
     // ---------- shared canvas plumbing ----------
+    // Arrowheads live once, in a zero-size svg that is always rendered: every view's lines point at them by id, and
+    // Chrome draws no marker whose definition sits inside a hidden view (the other tab's canvas is display:none).
+    // how far an arrowhead's tip reaches past its line's end: (10 - refX 3.75) of the marker's 9.6px over its viewBox of 10
+    const ARROW_TIP = 6;
+    {
+      const mdefs = d3.select(root.querySelector('.pd-root')).append('svg').attr('width', 0).attr('height', 0).attr('aria-hidden', 'true')
+        .style('position', 'absolute').style('overflow', 'hidden').append('defs');
+      // a fixed 9.6px in user space, so it stays visible on the thinnest line. The line ends inside the head's body
+      // (refX 3.75, past the notch), not at its tip, so a hovered, thicker line never shows around the point;
+      // edgePath stops dependency lines ARROW_TIP short to keep the tip where it was.
+      const arrow = (id) => mdefs.append('marker').attr('id', id).attr('viewBox', '0 0 10 10').attr('refX', 3.75).attr('refY', 5).attr('markerUnits', 'userSpaceOnUse').attr('markerWidth', 9.6).attr('markerHeight', 9.6).attr('orient', 'auto').append('path').attr('d', 'M0,0L10,5L0,10L2.5,5z');
+      ['dep', 'depdone'].forEach((k) => arrow('pd-ar-' + k).attr('class', 'pd-m-' + k));
+      // every dependency ends in an arrowhead of the waiting node's status colour, as its gradient does, kept opaque
+      // once satisfied so the direction still reads while the line itself fades
+      Object.keys(STATUS).forEach((k) => arrow('pd-ar-st-' + k).attr('class', 'pd-s-' + k).style('fill', 'var(--s)'));
+    }
     function makeView(wrap) {
       const svg = d3.select(wrap).append('svg').style('width', '100%').style('height', '100%').style('display', 'block');
       const defs = svg.append('defs');
@@ -251,10 +267,6 @@ const BrainView = (function () {
       // detached view (one being remounted) cannot resolve
       v.zoom = d3.zoom().extent(() => { const r = wrap.getBoundingClientRect(); return [[0, 0], [Math.max(1, r.width), Math.max(1, r.height)]]; }).scaleExtent([0.1, 6]).on('zoom', (e) => { if (e.sourceEvent) v.touched = true; g.attr('transform', e.transform); v.t = e.transform; if (v.onzoom) v.onzoom(e.transform); });
       svg.call(v.zoom).on('dblclick.zoom', null);
-      // one arrowhead for every dependency, in strokeWidth units so it grows with the line; a faded one once satisfied
-      ['dep', 'depdone'].forEach((k) => defs.append('marker').attr('id', 'pd-ar-' + k).attr('viewBox', '0 0 10 10').attr('refX', 9).attr('refY', 5).attr('markerWidth', 6).attr('markerHeight', 6).attr('orient', 'auto').append('path').attr('d', 'M0,0L10,5L0,10z').attr('class', 'pd-m-' + k));
-      // a dependency still blocking ends in an arrowhead of the waiting node's status colour, as its gradient does
-      Object.keys(STATUS).forEach((k) => defs.append('marker').attr('id', 'pd-ar-st-' + k).attr('viewBox', '0 0 10 10').attr('refX', 9).attr('refY', 5).attr('markerWidth', 6).attr('markerHeight', 6).attr('orient', 'auto').append('path').attr('d', 'M0,0L10,5L0,10z').attr('class', 'pd-s-' + k).style('fill', 'var(--s)'));
       defs.append('filter').attr('id', 'pd-blur').attr('x', '-30%').attr('y', '-30%').attr('width', '160%').attr('height', '160%').append('feGaussianBlur').attr('stdDeviation', 18);
       v.fit = (anim, opts = {}) => {
         if (!v.bbox) return;
@@ -354,7 +366,7 @@ const BrainView = (function () {
       // a superseded-by arrow stops at the new decision's edge, so its head shows
       bLinkSel.attr('x1', (l) => l.source.x).attr('y1', (l) => l.source.y).each(function (l) {
         let x2 = l.target.x, y2 = l.target.y;
-        if (l.kind === 'sup') { const dx = x2 - l.source.x, dy = y2 - l.source.y, d = Math.hypot(dx, dy) || 1, cut = l.target.r + 4; x2 -= (dx / d) * cut; y2 -= (dy / d) * cut; }
+        if (l.kind === 'sup') { const dx = x2 - l.source.x, dy = y2 - l.source.y, d = Math.hypot(dx, dy) || 1, cut = l.target.r + 4 + ARROW_TIP; x2 -= (dx / d) * cut; y2 -= (dy / d) * cut; }
         d3.select(this).attr('x2', x2).attr('y2', y2);
       });
       bNodeSel.attr('transform', (d) => `translate(${d.x},${d.y})`);
@@ -548,7 +560,7 @@ const BrainView = (function () {
     // Glyph to glyph: a horizontal S-curve across columns, a bow to the left within one column, stopping short of the target glyph.
     const GR = { spec: 12, milestone: 8, ticket: 6 };
     const edgePath = (e) => {
-      const a = e.a, b = e.b, ax = a.x + GX, ay = a.y + a.h / 2, bx = b.x + GX, by = b.y + b.h / 2, r = GR[b.kind] + 3;
+      const a = e.a, b = e.b, ax = a.x + GX, ay = a.y + a.h / 2, bx = b.x + GX, by = b.y + b.h / 2, r = GR[b.kind] + 3 + (isDep(e) ? ARROW_TIP : 0);
       // on one row, arc over the glyphs between instead of running through their labels
       if (Math.abs(bx - ax) > 40) { const s = Math.sign(bx - ax), ex = bx - s * r, dx = (ex - ax) / 2, lift = Math.abs(by - ay) < 6 ? 26 : 0; return `M${ax},${ay}C${ax + dx},${ay - lift} ${ex - dx},${by - lift} ${ex},${by}`; }
       const bow = 30 + Math.min(40, Math.abs(by - ay) / 6), ex = bx - r * 0.7, ey = by + (by > ay ? -r * 0.7 : r * 0.7);
@@ -633,7 +645,7 @@ const BrainView = (function () {
       sEdgeSel.select('.pd-line').attr('d', edgePath)
         .attr('class', (e) => `pd-line pd-e pd-e-${e.kind}` + (isDep(e) && depDone(e) ? ' pd-dep-done' : ''))
         .style('stroke', (e) => (isDep(e) ? `url(#${gid(e)})` : null))
-        .attr('marker-end', (e) => (!isDep(e) ? null : depDone(e) ? 'url(#pd-ar-depdone)' : `url(#pd-ar-st-${e.b.status})`));
+        .attr('marker-end', (e) => (isDep(e) ? `url(#pd-ar-st-${e.b.status})` : null));
       sEdgeSel.select('title').text(edgeTip);
       drawOverlay();
     }
@@ -705,7 +717,7 @@ const BrainView = (function () {
 <div class="ml-auto flex items-center gap-3 text-xs text-zinc-500"><span title="Watching this brain for changes" class="inline-flex items-center gap-1.5"><span class="h-2 w-2 animate-pulse rounded-full bg-emerald-500"></span>Live</span>${S.view === 'brain' ? `${D.notes.length} notes · ${D.ghosts.length} not written · ${drafts.length} not shared · ${commits.length} commits` : `${D.specs.length} specs · ${ms} milestones · ${tk} tickets · ${D.repos.length} repositories`}</div></div>`;
     }
     function renderFoot() {
-      const ln = (k, l, done) => `<span class="inline-flex items-center gap-1.5"><svg width="30" height="10" class="overflow-visible"><path class="pd-e pd-e-${k}${done ? ' pd-dep-done' : ''}" d="M1,5H26"${k === 'owns' ? '' : ` marker-end="url(#pd-ar-${done ? 'depdone' : 'dep'})"`}/></svg>${l}</span>`;
+      const ln = (k, l, done) => `<span class="inline-flex items-center gap-1.5"><svg width="30" height="10" class="overflow-visible"><path class="pd-e pd-e-${k}${done ? ' pd-dep-done' : ''}" d="M1,5H${k === 'owns' ? 26 : 20}"${k === 'owns' ? '' : ` marker-end="url(#pd-ar-${done ? 'depdone' : 'dep'})"`}/></svg>${l}</span>`;
       foot.innerHTML = S.view === 'specs'
         ? `<div class="flex max-h-[52px] max-w-[48%] flex-wrap gap-x-3 gap-y-0.5 overflow-hidden">${ln('owns', 'belongs to')}${ln('sdep', 'waits on · spec')}${ln('builds', 'builds after · milestone')}${ln('lands', 'lands after · milestone')}${ln('tdep', 'waits on · ticket, in its repository')}${ln('builds', 'already satisfied', true)}</div><div class="max-w-[40%] text-right">colour = status · a waiting line fades from the prerequisite's status to the waiting one's · hover a line to read it</div>`
         : `<div class="max-w-[48%]">layout = links and relevance: busiest notes in the middle, least linked at the rim · dot size = links · colour = ${B.colour === 'repo' ? 'repository (grey = shared)' : B.colour === 'layer' ? 'layer (grey = none yet)' : 'type'} · dashed arrow = superseded by · ring = draft only · fuchsia halo = a draft changes it · grey = not written yet</div><div class="max-w-[40%] text-right">${S.mode === 'time' ? 'ring colour = what the picked week did: recorded, updated, superseded, deleted, moved' : 'hover a note to focus its neighbours · drag to pull it'}</div>`;
