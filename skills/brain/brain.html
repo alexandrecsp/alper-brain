@@ -646,13 +646,12 @@ const BrainView = (function () {
         g.append('text').attr('class', 'pd-lbl').attr('x', GX + GR[n.kind] + (icon ? 21 : 7)).attr('y', cy + 4).attr('font-size', n.kind === 'spec' ? 12 : n.kind === 'milestone' ? 11 : 10.5).attr('font-weight', n.kind === 'spec' ? 600 : 400)
           .style('fill', n.kind === 'spec' && !ab ? 'currentColor' : 'var(--pd-lab)').text(trunc(n.label, n.kind === 'spec' ? 28 : icon ? 27 : 30));
         if (n.badge) {
-          // done of total tickets, the bar behind the text filled in the milestone's status colour
+          // done of total tickets: a thin bar filled in the milestone's status colour, the count beside it on the canvas
           const ts = n.obj.tickets, done = ts.filter((t) => t.status === 'done').length, pct = Math.round((done / ts.length) * 100);
-          const txt = `${done}/${ts.length} · ${pct}%`, bw = txt.length * 6 + 14, bx = GX + GR.milestone + 7, by = n.h - 3;
-          const b = g.append('g').attr('transform', `translate(${bx},${by})`);
-          b.append('rect').attr('width', bw).attr('height', 15).attr('rx', 7.5).style('fill', 'var(--s)').attr('fill-opacity', 0.32);
-          b.append('rect').attr('width', bw * done / ts.length).attr('height', 15).attr('rx', 7.5).style('fill', 'var(--s)').attr('fill-opacity', 0.6);
-          b.append('text').attr('x', bw / 2).attr('y', 11).attr('text-anchor', 'middle').attr('font-size', 10).attr('font-weight', 600).style('fill', n.status === 'active' ? '#18181b' : 'var(--pd-lab)').text(txt);
+          const BW = 46, b = g.append('g').attr('transform', `translate(${GX + GR.milestone + 7},${n.h + 1})`);
+          b.append('rect').attr('width', BW).attr('height', 6).attr('rx', 3).style('fill', 'var(--s)').attr('fill-opacity', 0.3);
+          if (done) b.append('rect').attr('width', Math.max(6, (BW * done) / ts.length)).attr('height', 6).attr('rx', 3).style('fill', 'var(--s)');
+          b.append('text').attr('class', 'pd-lbl').attr('x', BW + 7).attr('y', 6.5).attr('font-size', 10.5).attr('font-weight', 600).style('fill', 'var(--pd-lab)').text(`${done}/${ts.length} · ${pct}%`);
         }
         g.append('title').text(`${n.kind === 'spec' ? n.spec.num + ' ' : ''}${n.label} · ${n.kind === 'milestone' && n.obj.phaseLabel ? n.obj.phaseLabel : STATUS[n.status].label} · ${n.kind === 'spec' ? fronts(sInfo.get(n.spec.id)) : n.cyc ? 'frontier ' + n.cyc : 'built'}${n.kind === 'spec' ? (sInfo.get(n.spec.id).lanes.length ? ' · ' + sInfo.get(n.spec.id).lanes.join(', ') : '') : n.lane ? ' · ' + n.lane : ''}`);
       });
