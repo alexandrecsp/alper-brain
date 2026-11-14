@@ -147,12 +147,17 @@ const App = (function () {
     // the scope toggle, for a page header; the shell's click handler reads data-scope
     scopeSeg: () => `<div class="seg text-[12px]" title="To-do: specs with work left · In flight: every spec not landed or abandoned · All">${[['todo', 'To-do'], ['flight', 'In flight'], ['all', 'All']].map(([k, l]) => `<button data-scope="${k}" class="${S.scope === k ? 'on' : ''}">${l}</button>`).join('')}</div>`,
     repoDot: (slug) => `<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background:${repoColor(slug)}"></span>`,
+    // the command that moves a spec on, to paste into Claude Code: tickets for a spec without them, else its next /build
+    nextCmd: (sp) => (sp.landed || sp.abandoned || sp.status === 'waiting' ? null
+      : !sp.milestones.length ? { cmd: `/write-tickets ${sp.num}`, label: 'Ticket it' }
+      : { cmd: `/build ${sp.num}`, label: sp.status === 'landing' ? 'Land it' : sp.status === 'attention' || sp.status === 'blocked' ? 'Unblock it' : 'Build its next frontier' }),
+    copyBtn: (cmd, label) => `<button class="btn text-[12px]" data-copy="${esc(cmd)}" title="Copy, then paste it into Claude Code">${label ? `<span class="muted">${esc(label)}</span>` : ''}<span class="mono">${esc(cmd)}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="faint"><path d="M8 8h12v12H8zM4 16V4h12"/></svg></button>`,
   };
 
   const screens = {};
   const NAV = [['overview', 'Overview', 'M3 3h7v7H3zM14 3h7v4h-7zM14 10h7v11h-7zM3 13h7v8H3z'], ['board', 'Board', 'M4 4h5v16H4zM10 4h5v10h-5zM16 4h4v13h-4z'], ['notes', 'Notes graph', 'M4 4h4v4H4zM16 5h4v4h-4zM10 16h4v4h-4zM8 6h8M6 8l5 8M18 9l-5 7'], ['activity', 'Activity', 'M3 12h4l3-8 4 16 3-8h4']];
   // scope: 'todo' hides what is landed, abandoned or only waiting to land; 'flight' every spec not landed or abandoned
-  const S = { D: null, brain: null, sel: null, repo: null, q: '', scope: 'flight', showDraft: false };
+  const S = { D: null, brain: null, io: null, sel: null, repo: null, q: '', scope: 'flight', showDraft: false };
   const $ = (id) => document.getElementById(id);
   const route = () => {
     const parts = location.hash.replace(/^#\/b\/[^/]+\/?/, '').split('/').filter(Boolean);
@@ -212,6 +217,97 @@ const App = (function () {
   const head = (kicker, title, sub) => `<div class="px-5 pb-1 pt-4">${kicker}<div class="mt-1 text-[18px] leading-snug">${esc(title)}</div>${sub ? `<p class="muted mt-2 text-[12.5px] leading-relaxed">${esc(sub)}</p>` : ''}</div>`;
   const props = (inner) => `<div class="grid grid-cols-[110px_minmax(0,1fr)] items-center px-5 pb-3 pt-2 text-[12.5px]">${inner}</div>`;
 
+  // ============================================================ actions
+  // The page writes only what the plugin's files already define: an escalated finding's Answer line (build's step 7),
+  // a draft note in .sdd/drafts/ (FORMAT.md's Drafts) and a spec's Abandoned line (under its Key line, by
+  // write-spec's IN-FLIGHT.md). Each write re-reads the file from disk first, so it keeps what a running build wrote
+  // since the page last read it. Everything else is a command to copy into Claude Code.
+  const FINDING_LINE = /^\s*(?:[-*]\s+|#{1,4}\s+)?(?:\*\*)?(?:ST|SP|CN)\d+\b/;
+  // a review's findings, each running from its ID (ST1, SP2, CN3) to the next, the same split as toData's awaitingOf
+  const findings = (md) => (md || '').split(/^(?=\s*(?:[-*]\s+|#{1,4}\s+)?(?:\*\*)?(?:ST|SP|CN)\d+\b)/m).slice(1)
+    .filter((f) => /(?:ST|SP|CN)\d+/.test(f)).map((f) => ({ id: /(?:ST|SP|CN)\d+/.exec(f)[0], text: f.trim(), open: /\bescalate\b/i.test(f) && !/\*\*Answer:\*\*/.test(f) }));
+  // writes `**Answer:** <line>` at the end of finding `id`: indented under a bullet, else as its own paragraph
+  function withAnswer(md, id, line) {
+    const lines = md.split('\n'), start = lines.findIndex((l) => new RegExp(`^\\s*(?:[-*]\\s+|#{1,4}\\s+)?(?:\\*\\*)?${id}\\b`).test(l));
+    if (start < 0) throw new Error(`${id} is no longer in review.md`);
+    let end = start + 1;
+    while (end < lines.length && !FINDING_LINE.test(lines[end]) && !/^#{1,4}\s/.test(lines[end])) end++;
+    while (end > start + 1 && !lines[end - 1].trim()) end--;
+    lines.splice(end, 0, ...(/^\s*[-*]\s/.test(lines[start]) ? [`  **Answer:** ${line}`] : ['', `**Answer:** ${line}`]));
+    return lines.join('\n');
+  }
+  const withAbandoned = (md, why) => {
+    const line = `**Abandoned:** ${why}`, key = /^\*\*Key:\*\*.*$/m.exec(md);
+    if (key) return md.slice(0, key.index + key[0].length) + '\n\n' + line + md.slice(key.index + key[0].length);
+    const h = /^# .*$/m.exec(md); return h ? md.slice(0, h.index + h[0].length) + '\n\n' + line + md.slice(h.index + h[0].length) : line + '\n\n' + md;
+  };
+  const draftNote = ({ name, where, type, layer, description, repos, body }) => `---\nname: ${name}\ndescription: ${description}\ntype: ${type}\nlayer: ${layer}\n${where === 'shared' ? `repos: [${repos.join(', ')}]\n` : ''}target: ${where === 'shared' ? 'shared' : 'repos/' + where}/${name}.md\naction: record\n---\n\n${body.trim()}\n`;
+  async function save(path, change, done) {
+    try { await S.io.edit(path, change); toast(done); } catch (e) { toast('Not saved: ' + (e.message || e)); }
+  }
+  const field = (cls, inner) => `<label class="block"><span class="eyebrow mb-1 block">${cls}</span>${inner}</label>`;
+  const INPUT = 'w-full border px-2 py-1.5 text-[12.5px] outline-none hairline focus:border-white/40';
+  const inputStyle = 'style="background:var(--panel)"';
+
+  // a milestone's escalated findings with no answer yet, as a form: fix as proposed, fix another way, or skip, and why
+  function answerForm(sp, m) {
+    const open = findings(m.review).filter((f) => f.open);
+    if (!open.length) return m.phase === 'ask' ? sec('Waiting on you', `<p class="muted mb-2 text-[12.5px]">Every escalation has its answer. The next build picks them up.</p>${ui.copyBtn(`/build ${sp.num}`, 'Resume')}`) : '';
+    return sec('Waiting on you', `<p class="muted mb-3 text-[12.5px]">${open.length} escalated finding${open.length === 1 ? '' : 's'} need your answer before ${m.phase === 'ask' ? 'this track builds on' : 'the arbiter decides them'}.</p>
+      ${open.map((f) => `<div data-finding="${esc(f.id)}" class="panel-2 mb-2 p-3">
+        <div class="prose-brain text-[12.5px]">${marked.parse(f.text)}</div>
+        <div class="mt-2 flex flex-wrap gap-3 text-[12px]">${[['proposed', 'Fix as proposed'], ['other', 'Fix another way'], ['skip', 'Skip it']].map(([v, l], i) => `<label class="flex cursor-pointer items-center gap-1.5"><input type="radio" name="ans-${esc(m.id + f.id)}" value="${v}" ${i ? '' : 'checked'}>${l}</label>`).join('')}</div>
+        <input data-how placeholder="How to fix it instead (for Fix another way)" class="${INPUT} mt-2" ${inputStyle}>
+        <input data-why placeholder="Why (required)" class="${INPUT} mt-2" ${inputStyle}></div>`).join('')}
+      <div class="mt-3 flex items-center gap-2"><button class="btn btn-accent text-[12px]" data-answer-save="${esc(sp.id + '|' + m.id)}">Save the answers</button><span class="faint text-[11.5px]">writes them into review.md</span></div>`, open.length);
+  }
+  function abandonForm(sp) {
+    if (sp.landed || sp.abandoned) return '';
+    return `<details class="px-5 pb-3"><summary class="faint cursor-pointer text-[12px] hover:text-white">Abandon this spec…</summary>
+      <div class="mt-2 space-y-2"><p class="muted text-[12px]">It stops counting as in flight, and /build refuses it. Say why: the line keeps the reason.</p>
+      <input data-abandon-why placeholder="The reason it will never be built" class="${INPUT}" ${inputStyle}>
+      <button class="btn text-[12px]" style="border-color:color-mix(in srgb, var(--s-blocked) 50%, transparent);color:#fca5a5" data-abandon-save="${esc(sp.id)}">Abandon ${esc(sp.num)}</button></div></details>`;
+  }
+  function draftForm(id) {
+    const repos = S.D.repos.map((r) => r.slug), opt = (v, l = v) => `<option value="${esc(v)}">${esc(l)}</option>`, sel = (attr, opts) => `<select ${attr} class="${INPUT}" ${inputStyle}>${opts}</select>`;
+    const backRepo = S.D.notes.find((x) => x.links.includes(id))?.repos[0];
+    return sec('Draft it here', `<div class="space-y-2.5" data-draft="${esc(id)}">
+      <div class="grid grid-cols-3 gap-2">${field('Where', sel('data-where', [...repos.map((r) => `<option value="${esc(r)}" ${r === backRepo ? 'selected' : ''}>${esc(r)}</option>`), opt('shared', 'shared (several repos)')].join('')))}
+        ${field('Type', sel('data-type', ['concept', 'decision', 'how-to', 'contract'].map((t) => opt(t)).join('')))}${field('Layer', sel('data-layer', opt('application') + opt('business')))}</div>
+      ${field('Repos (shared only)', `<input data-repos placeholder="billing-api, web-app" class="${INPUT}" ${inputStyle}>`)}
+      ${field('Description', `<input data-description placeholder="One line that stands alone" class="${INPUT}" ${inputStyle}>`)}
+      ${field('Body', `<textarea data-body rows="6" placeholder="The fact first. A decision or how-to adds **Why:** and **How to apply:** lines." class="${INPUT}" ${inputStyle}></textarea>`)}
+      <div class="flex flex-wrap items-center gap-2"><button class="btn btn-accent text-[12px]" data-draft-save="${esc(id)}">Save the draft</button><span class="faint text-[11.5px]">into .sdd/drafts/ · /brain sync shares it</span></div>
+      <div class="faint pt-1 text-[11.5px]">Or let Claude write it: ${ui.copyBtn(`/brain remember ${id}`)}</div></div>`);
+  }
+  // reads a form's values and writes the file; a missing value stops it with a toast
+  async function act(t) {
+    if (t.dataset.answerSave) {
+      const [sid, mid] = t.dataset.answerSave.split('|'), sp = S.D.specs.find((x) => x.id === sid), m = sp && msOf(sp, mid);
+      const answers = [];
+      for (const box of document.querySelectorAll('#insp [data-finding]')) {
+        const v = box.querySelector('input[type=radio]:checked').value, how = box.querySelector('[data-how]').value.trim(), why = box.querySelector('[data-why]').value.trim();
+        if (!why) return toast(`${box.dataset.finding} needs a reason`);
+        if (v === 'other' && !how) return toast(`${box.dataset.finding}: say how to fix it instead`);
+        answers.push([box.dataset.finding, `${v === 'proposed' ? 'fix it as proposed' : v === 'skip' ? 'skip it' : 'fix it another way: ' + how} — ${why}`]);
+      }
+      return save(m.reviewPath, (md) => answers.reduce((acc, [id, line]) => withAnswer(acc, id, line), md), `Saved ${answers.length} answer${answers.length === 1 ? '' : 's'}: run /build ${sp.num} to go on`);
+    }
+    if (t.dataset.abandonSave) {
+      const sp = S.D.specs.find((x) => x.id === t.dataset.abandonSave), why = document.querySelector('#insp [data-abandon-why]').value.trim();
+      if (!why) return toast('Say why it will never be built');
+      return save(sp.path, (md) => (/^\*\*Abandoned:\*\*/m.test(md) ? md : withAbandoned(md, why)), `Abandoned ${sp.num}`);
+    }
+    if (t.dataset.draftSave) {
+      const f = document.querySelector('#insp [data-draft]'), v = (k) => f.querySelector(`[data-${k}]`).value.trim();
+      const d = { name: t.dataset.draftSave, where: v('where'), type: v('type'), layer: v('layer'), description: v('description'), body: v('body'), repos: v('repos').split(',').map((x) => x.trim()).filter(Boolean) };
+      if (!d.description || !d.body) return toast('A draft needs its description and body');
+      if (d.type === 'contract' && d.where !== 'shared') return toast('A contract lives in shared: pick shared and name its repos');
+      if (d.where === 'shared' && d.repos.length < 2) return toast('A shared note names the repos it spans, at least two');
+      return save(`.sdd/drafts/${d.name}.md`, (old) => { if (old != null) throw new Error('a draft of that name already exists'); return draftNote(d); }, `Drafted ${d.name}: /brain sync shares it`);
+    }
+  }
+
   function inspSpec(sp) {
     const D = S.D, tk = sp.milestones.flatMap((m) => m.tickets), done = tk.filter((t) => t.status === 'done').length;
     const after = D.specs.filter((x) => x.deps.includes(sp.id));
@@ -219,7 +315,8 @@ const App = (function () {
       + props(prop('Status', ui.pill(sp.status)) + prop('Repos', `<div class="flex flex-wrap gap-1">${sp.repos.map(repoTag).join('') || '<span class="faint">—</span>'}</div>`)
         + prop('Progress', tk.length ? `<div class="flex items-center gap-2"><div class="w-40">${ui.bar(tk, 6)}</div><span class="mono muted text-[11px]">${done}/${tk.length}</span></div>` : '<span class="faint">no tickets yet</span>')
         + (sp.landed ? prop('Landed', `<span class="mono">${esc(sp.landed)}</span>`) : '') + (sp.base ? prop('Base', `<span class="mono text-[11.5px]">${esc(sp.base)}</span>`) : ''))
-      + `<div class="px-5 pb-3"><button class="btn text-[12px]" data-go="specs/${esc(sp.id)}">Open its milestone pipeline →</button></div>`
+      + `<div class="flex flex-wrap gap-2 px-5 pb-3"><button class="btn text-[12px]" data-go="specs/${esc(sp.id)}">Open its milestone pipeline →</button>${(() => { const n = ui.nextCmd(sp); return n ? ui.copyBtn(n.cmd, n.label) : ''; })()}</div>`
+      + abandonForm(sp)
       + sec('Depends on', sp.deps.map((d) => { const o = D.specs.find((x) => x.id === d); return o ? row(`spec|${o.id}`, `<span class="mono faint text-[11px]">${o.num}</span>`, o.title, ui.pill(o.landed ? 'landed' : o.status) + (o.landed ? '' : ' ' + tag('not landed'))) : row('', '', d + ' (missing)'); }).join('') || none(), sp.deps.length)
       + sec('Needed by', after.map(specRow).join('') || none(), after.length)
       + sec('Milestones', sp.milestones.map((m) => msRow(sp, m) + (m.buildsAfter.length ? `<div class="faint pb-1 pl-7 text-[11px]">builds after ${m.buildsAfter.map(esc).join(', ')}</div>` : '')).join('') || none('No milestones yet.'), sp.milestones.length)
@@ -232,6 +329,7 @@ const App = (function () {
         + prop('Stage', m.stage ? `${STAGE_ICON[m.stage] || ''} ${esc(m.phaseLabel || m.stage)}` : '<span class="faint">—</span>')
         + prop('Tickets', `<div class="flex flex-wrap gap-1">${m.tickets.map((t) => ui.cell(t, true)).join('') || '<span class="faint">none yet</span>'}</div>`)
         + (m.squash ? prop('Squash', `<span class="mono">${esc(m.squash)}</span>`) : '') + (m.landed ? prop('Landed', `<span class="mono">${esc(m.landed)}</span>`) : ''))
+      + answerForm(sp, m)
       + sec('Builds after', m.buildsAfter.map((id) => { const o = msOf(sp, id); return o ? msRow(sp, o) : row('', '', id); }).join('') || none('Nothing, it can start at once.'), m.buildsAfter.length)
       + (m.landsAfter.length ? sec('Lands after', m.landsAfter.map((id) => { const o = msOf(sp, id); return o ? msRow(sp, o) : row('', '', id); }).join(''), m.landsAfter.length) : '')
       + sec('Unblocks', unblocks.map((x) => msRow(sp, x)).join('') || none(), unblocks.length)
@@ -250,7 +348,7 @@ const App = (function () {
   function inspNote(id) {
     const D = S.D, nb = notesById(), n = nb.get(id), back = D.notes.filter((x) => x.links.includes(id)).map((x) => x.id);
     if (!n) return head('<div class="eyebrow">Not written yet</div>', id, 'Other notes link to this name, but no note exists for it.')
-      + `<div class="px-5 pb-3"><button class="btn text-[12px]" data-toast="Ask Claude to remember ${esc(id)}: it drafts the note, and /brain sync shares it">Draft this note</button></div>`
+      + draftForm(id)
       + sec('Linked from', back.map((x) => noteRow(x, nb)).join('') || none(), back.length);
     const showD = n.pendingBody != null && S.showDraft;
     const hist = D.timeline.commits.flatMap((c) => c.changes.filter((ch) => ch.note === id).map((ch) => ({ c, ch }))).sort((a, b) => (a.c.date < b.c.date ? 1 : -1));
@@ -275,7 +373,7 @@ const App = (function () {
       + sec('Notes', ns.map((n) => noteRow(n.id, nb)).join('') || none(), ns.length);
   }
 
-  let lastSel = '';
+  let lastSel = '', lastHtml = '';
   function renderInspector() {
     const el = $('insp'), s = S.sel, wrap = $('insp-wrap');
     if (!s) { wrap.classList.add('hidden'); lastSel = ''; return; }
@@ -290,7 +388,9 @@ const App = (function () {
     // a selection this data no longer holds (after a live reload) closes the panel
     if (!h) { S.sel = null; wrap.classList.add('hidden'); return; }
     wrap.classList.remove('hidden');
-    el.innerHTML = `<div class="sticky top-0 z-10 flex items-center gap-2 border-b px-5 py-2.5 hairline" style="background:var(--rail)"><span class="eyebrow">Details</span><button data-expand title="${expanded ? 'Back to the side (E)' : 'Expand to read (E)'}" class="btn ml-auto px-2 py-0.5">${expanded ? '⤡' : '⤢'}</button><button data-close title="Close (Esc)" class="btn px-2 py-0.5">✕</button></div>${h}<div class="h-8"></div>`;
+    const html = `<div class="sticky top-0 z-10 flex items-center gap-2 border-b px-5 py-2.5 hairline" style="background:var(--rail)"><span class="eyebrow">Details</span><button data-expand title="${expanded ? 'Back to the side (E)' : 'Expand to read (E)'}" class="btn ml-auto px-2 py-0.5">${expanded ? '⤡' : '⤢'}</button><button data-close title="Close (Esc)" class="btn px-2 py-0.5">✕</button></div>${h}<div class="h-8"></div>`;
+    if (html === lastHtml && el.innerHTML) return;
+    lastHtml = html; el.innerHTML = html;
     const key = JSON.stringify(s); if (key !== lastSel) el.scrollTop = 0; lastSel = key;
     drawMermaid(el);
   }
@@ -356,10 +456,20 @@ const App = (function () {
     if (screens[r.screen]) screens[r.screen].render(el, ctx());
   }
 
+  function copy(cmd) {
+    const fallback = () => { const ta = document.createElement('textarea'); ta.value = cmd; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); };
+    if (navigator.clipboard) navigator.clipboard.writeText(cmd).catch(fallback); else fallback();
+    toast(`Copied ${cmd}: paste it into Claude Code`);
+  }
+
   // one click handler for the data attributes every screen uses
   document.addEventListener('click', (e) => {
     if (!S.D || $('view').classList.contains('hidden')) return;
     if (e.target.closest('[data-expand]')) return toggleExpand();
+    const c = e.target.closest('[data-copy]');
+    if (c) return copy(c.dataset.copy);
+    const w = e.target.closest('[data-answer-save],[data-abandon-save],[data-draft-save]');
+    if (w) return act(w);
     const t = e.target.closest('[data-go],[data-repo],[data-scope],[data-sel],[data-close],[data-draftbody],[data-toast],[data-home]'); if (!t) return;
     if (t.dataset.go) go(t.dataset.go);
     else if (t.dataset.repo != null) { S.repo = S.repo === t.dataset.repo ? null : t.dataset.repo; render(); }
@@ -384,7 +494,8 @@ const App = (function () {
   return {
     register: (k, v) => { screens[k] = v; },
     // a new brain starts clean; the same brain again (a live reload) keeps the screen, selection and filters
-    load: (brain, D) => { if (S.brain !== brain) Object.assign(S, { brain, sel: null, repo: null, q: '', showDraft: false }); S.D = D; render(); },
+    // io: { edit(path, change) } for the open brain, by the page; change gets the file's text (undefined when absent)
+    load: (brain, D, io) => { if (S.brain !== brain) Object.assign(S, { brain, sel: null, repo: null, q: '', showDraft: false }); S.D = D; S.io = io; render(); },
     render, state: S,
   };
 })();
@@ -607,7 +718,7 @@ App.register('overview', {
           <div>
             <button class="muted text-[12px] hover:text-white" data-go="overview">← Overview</button>
             <div class="mt-2 flex flex-wrap items-center gap-3"><span class="mono muted text-[13px]">${esc(s.num)}</span><h1 class="text-[22px] font-semibold tracking-tight">${esc(s.title)}</h1>${ui.pill(s.status)}
-              <button class="btn ml-auto text-[12px]" data-sel="spec|${esc(s.id)}">Details</button></div>
+              <span class="ml-auto flex gap-2">${(() => { const n = ui.nextCmd(s); return n ? ui.copyBtn(n.cmd, n.label) : ''; })()}<button class="btn text-[12px]" data-sel="spec|${esc(s.id)}">Details</button></span></div>
             <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
               <div class="flex flex-wrap items-center gap-1.5">${s.repos.map((r) => `<span class="chip" style="background:var(--panel-2)">${ui.repoDot(r)}${esc(r)}</span>`).join('') || '<span class="faint">no repositories</span>'}</div>
               ${s.deps.length ? `<div class="flex flex-wrap items-center gap-1.5"><span class="eyebrow">Depends on</span>${s.deps.map(specChip).join('')}</div>` : ''}
@@ -1062,7 +1173,7 @@ App.register('overview', {
         <div class="grid grid-cols-4 gap-3">${ui.kpi('Commits', commits.length, `${authors.length} authors`)}${ui.kpi('Recorded', count('recorded'), 'new notes', 'done')}${ui.kpi('Updated', count('updated'), 'notes changed', 'ready')}${ui.kpi('Superseded', count('superseded') + count('deleted'), 'retired', 'active')}</div>
         <div class="panel">${ui.panelHead('Commit calendar', 'one square per day', day ? `<button data-day="" class="btn py-0.5 text-[12px]">Clear ${esc(day)} ✕</button>` : '')}
           <div class="flex items-start gap-3 overflow-x-auto px-4 pb-4 pt-3"><div class="faint mono flex flex-col gap-[3px] pt-px text-[9.5px] leading-[13px]">${['Mon', '', 'Wed', '', 'Fri', '', 'Sun'].map((d) => `<span>${d}&nbsp;</span>`).join('')}</div>${cal}</div></div>
-        ${drafts.length ? `<div class="panel">${ui.panelHead('Not shared yet', `${drafts.length} draft${drafts.length === 1 ? '' : 's'} on this machine · /brain sync shares them`)}
+        ${drafts.length ? `<div class="panel">${ui.panelHead('Not shared yet', `${drafts.length} draft${drafts.length === 1 ? '' : 's'} on this machine`, ui.copyBtn('/brain sync', 'Share them'))}
           <div class="flex flex-wrap gap-1.5 px-4 pb-4 pt-3">${drafts.map((n) => `<span class="chip clickable" data-sel="note|${esc(n.id)}" style="background:var(--panel-2)">${(n.repos || []).slice(0, 1).map(ui.repoDot).join('')}${esc(n.id)}<span class="faint">${esc(n.draft ? 'new' : 'changes ' + n.pending)}</span></span>`).join('')}</div></div>` : ''}
         <div class="panel">${ui.panelHead(day ? 'Commits on ' + day : 'Latest commits', day ? '' : `the last ${shown.length}`)}
           <div class="px-4 pb-3 pt-2">${groups.map(([d, cs]) => `<div class="eyebrow mt-3 mb-1.5">${new Date(d + 'T00:00:00Z').toLocaleDateString('en', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' })}</div>
@@ -1407,7 +1518,27 @@ function showBrain() {
     return;
   }
   $('view').classList.remove('hidden');
-  App.load(b.id, b.data);
+  App.load(b.id, b.data, ioFor(b));
+}
+
+// Writing: the first write asks the browser for write access to the brain's folder (it must follow a click). An edit
+// reads the file from disk, not from the page's last read, so it keeps what a build wrote since; then the page re-reads.
+function ioFor(b) {
+  const file = async (path, create) => {
+    const parts = path.split('/'); let d = b.handle;
+    for (const p of parts.slice(0, -1)) d = await d.getDirectoryHandle(p, { create });
+    return d.getFileHandle(parts.at(-1), { create });
+  };
+  return {
+    async edit(path, change) {
+      if ((await b.handle.queryPermission({ mode: 'readwrite' })) !== 'granted' && (await b.handle.requestPermission({ mode: 'readwrite' })) !== 'granted') throw new Error('the browser was not allowed to write to this folder');
+      let old;
+      try { old = await (await (await file(path, false)).getFile()).text(); } catch {}
+      const text = change(old);
+      const w = await (await file(path, true)).createWritable(); await w.write(text); await w.close();
+      await refresh();
+    },
+  };
 }
 
 // ---------- reading, adding, removing ----------

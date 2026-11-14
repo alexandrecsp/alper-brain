@@ -12,6 +12,7 @@ The `view` branch of [`brain`](../SKILL.md): open the brain page, [brain.html](.
    - **Board**: the specs, or their milestones, as a kanban from **Needs tickets** to **Landed**.
    - **Notes graph**: every note as a square in its repository's box, every `[[link]]` as a line. A dashed square is a note not written yet; a dashed outline a draft only this machine holds. Hover a note to light its neighbours.
    - **Activity**: the brain's commits from its `timeline.json` (written by the first `/brain sync`), on a calendar and by day, and the drafts not shared yet.
+   - The panel also acts, writing into the brain's files (the browser asks once for write access): answer a milestone's escalated findings, abandon a spec, or draft a note not written yet. What needs Claude is a button that copies its command (`/build`, `/write-tickets`, `/brain sync`) to paste into Claude Code.
    - After a browser restart, click **Reconnect** on the brain's card.
 
    Done when the user has the URL.
