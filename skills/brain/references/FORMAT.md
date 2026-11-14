@@ -200,7 +200,7 @@ An explored note is **current** while the repository's default branch still poin
 
 ## Timeline
 
-`timeline.json` at the brain's root holds every committed change to the notes in `repos/` and `shared/`, oldest first, for the brain page's **Timeline**. It is committed, so every teammate's page draws the same history. The brain skill's `scripts/timeline.mjs` writes it from the brain's git history alone, so the same history always writes the same file; **Sync** in [SKILL.md](../SKILL.md) runs it.
+`timeline.json` at the brain's root holds every committed change to the notes in `repos/` and `shared/`, oldest first, for the brain page's **Activity**. It is committed, so every teammate's page draws the same history. The brain skill's `scripts/timeline.mjs` writes it from the brain's git history alone, so the same history always writes the same file; **Sync** in [SKILL.md](../SKILL.md) runs it.
 
 ```json
 { "version": 1, "commits": [

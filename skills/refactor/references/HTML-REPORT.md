@@ -7,7 +7,7 @@ Built on the [report theme](../../brain/references/THEME.md): its scaffold, hero
 - **Report name**: "Refactor review".
 - **Nav**: one anchor per candidate: `#1`, `#2`, …
 - **Sections**: `<section id="candidates" class="space-y-8">`.
-- **Own classes**: `.seam { stroke-dasharray: 4 4; }` and `.leak { stroke: rgb(239 68 68); }`.
+- **Own classes**: `.seam { stroke-dasharray: 4 4; }` and `.leak { stroke: var(--red); }`.
 
 ## Hero
 
@@ -15,17 +15,17 @@ Built on the [report theme](../../brain/references/THEME.md): its scaffold, hero
 - **Headline**: the count ("7 refactor candidates"), and under it one line naming the scanned areas.
 - **Stat tiles**: Candidates, Strong, Worth exploring, Speculative.
 - **Start here** row: the candidate to tackle first by number and title, one sentence on why, linking to its card's anchor.
-- **Legend** row: `text-xs text-zinc-500` swatches: solid box = module, dashed line = seam, red arrow = leak, dark box = deep module.
+- **Legend** row: `text-xs muted` swatches: solid box = module, dashed line = seam, red arrow = leak, light box = deep module.
 
 ## Candidate card
 
-One `<article id="c{{n}}">` card per candidate, in number order, its accent bar in its strength's gradient:
+One `<article id="c{{n}}">` card per candidate, in number order, its top edge and its strength pill in its strength's colour:
 
-| Strength          | Accent bar                   | Pill                                                                     |
-| ----------------- | ---------------------------- | ------------------------------------------------------------------------ |
-| `Strong`          | `from-emerald-400 to-teal-500` | `bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300` |
-| `Worth exploring` | `from-amber-400 to-orange-500` | `bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300`         |
-| `Speculative`     | `from-zinc-300 to-zinc-400 dark:from-zinc-700 dark:to-zinc-600` | `bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300` |
+| Strength          | Colour         |
+| ----------------- | -------------- |
+| `Strong`          | `var(--green)` |
+| `Worth exploring` | `var(--amber)` |
+| `Speculative`     | `var(--grey)`  |
 
 In order:
 
@@ -50,10 +50,10 @@ Match the pattern to the candidate, and vary them across the report.
 - **Mass diagram**: two rectangles per module, interface beside implementation. Shallow: the interface nearly as tall as the implementation; deep: a short interface over a tall implementation.
 - **Call-graph collapse**: before, a tree of calls as nested boxes; after, one box with the now-internal calls faded inside it.
 
-Beside the theme's module and arrow, in light and dark:
+Beside the theme's module and arrow:
 
-- **Deep module**: `rounded-lg border-2 border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900`, the brain page's primary-button pair.
-- **Seam**: a `.seam` dashed line in `zinc-400`.
+- **Deep module**: `border-2 px-3 py-2` in `var(--text)`, filled `var(--text)` with `color:var(--bg)`, the brain page's primary-button pair.
+- **Seam**: a `.seam` dashed line in `var(--muted)`.
 - **Leak**: a `.leak` arrow in red, and red only there.
 - **Faded internals**: `opacity-40`.
 

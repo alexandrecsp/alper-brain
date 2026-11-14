@@ -1,8 +1,8 @@
 # Tour HTML
 
-Built on the [report theme](../../brain/references/THEME.md): its scaffold, hero, card and diagram canvas, filled as below. The tour reads top to bottom as its stops, each a `<section>` headed by its name in `text-2xl font-semibold tracking-tight`. Diagrams carry the big picture and the journeys; the cards and tables carry the detail.
+Built on the [report theme](../../brain/references/THEME.md): its scaffold, hero, card and diagram canvas, filled as below. The tour reads top to bottom as its stops, each a `<section>` headed by its name in `h text-2xl`. Diagrams carry the big picture and the journeys; the cards and tables carry the detail.
 
-Every file path is a **file link**: `font-mono text-xs text-zinc-500`, its `href` the file's absolute `file:///` URL under the repository's root (`file:///C:/work/acme/billing-api/src/orders/intake.ts`), so it opens from the page. The tour sits in the brain, not the repository, so a relative path never reaches the code.
+Every file path is a **file link**: `mono text-xs muted`, its `href` the file's absolute `file:///` URL under the repository's root (`file:///C:/work/acme/billing-api/src/orders/intake.ts`), so it opens from the page. The tour sits in the brain, not the repository, so a relative path never reaches the code.
 
 ## Scaffold
 
@@ -23,20 +23,20 @@ A **context map** on a diagram canvas: a Mermaid `flowchart LR` with one node pe
 
 ## Journeys
 
-One card per journey, accent bar `from-sky-400 to-indigo-500`:
+One card per journey, its top edge `var(--sky)`:
 
 - **Meta row**: the entry point's kind as a chip.
 - **Title**: "What happens when…", in the glossary's terms ("What happens when a customer places an Order").
 - **Sequence diagram**: a Mermaid `sequenceDiagram` on a canvas, one participant per area the journey crosses, prefixed with its repository's slug when the journey leaves this one, one message per hop.
-- **Hops**: an ordered list, each hop its function in `font-mono`, its file link, and its area as a chip linking to the area's card.
+- **Hops**: an ordered list, each hop its function in `mono`, its file link, and its area as a chip linking to the area's card.
 
 ## Areas
 
-One `<article id="area-{{slug}}">` card per area, accent bar `from-emerald-400 to-sky-500`, in the context map's left-to-right order:
+One `<article id="area-{{slug}}">` card per area, its top edge `var(--green)`, in the context map's left-to-right order:
 
 - **Meta row**: the kinds of its entry points as chips.
 - **Title**: the area's name, and its purpose under it.
-- **Key modules**: a two-column `dl`, the module's name in `font-mono` with its file link, beside its interface in one line.
+- **Key modules**: a two-column `dl`, the module's name in `mono` with its file link, beside its interface in one line.
 - **Entry points**: each with its kind and file link.
 - **Talks to**: the areas and external systems it depends on as chips, each area chip linking to that area's card, with how it calls.
 - **Data**: the entities it owns and where they are stored.
@@ -48,7 +48,7 @@ A table with one row per change from the reports, grouped by area: **To change**
 
 ## Vocabulary
 
-- **Terms**: a `dl` of every glossary term and its definition. Terms the code uses beside them that the glossary lacks carry an amber `not in glossary` pill, with the definition the code implies.
+- **Terms**: a `dl` of every glossary term and its definition. Terms the code uses beside them that the glossary lacks carry an amber (`var(--amber)`) `not in glossary` pill, with the definition the code implies.
 - **Decisions**: one row per ADR: its number, title and decision in one line, linking to the ADR's file. Undocumented decisions follow, each in a callout naming the decision and its file.
 
 ## Run and test
