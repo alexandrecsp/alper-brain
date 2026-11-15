@@ -131,6 +131,7 @@ Related: [[invoice-event-contract]]
 - `layer`: `business` or `application`, by **Layers**.
 - `repos`: in `shared/` only, the slugs the note spans, as `[billing-api, web-app]`. A note in `repos/<slug>/` belongs to that slug.
 - `explored`: on explored notes only, the short SHA of the commit the note was read at.
+- `aliases`: optional, 3 to 6 other words for the note's subject that its name and description leave out: business wording, the symptom a user reports, and the code's English terms. Recall ranks them like the description, so a search in other words still reaches the note. Write one `  - <alias>` line each under `aliases:`, as Obsidian does, or `[a, b]`.
 - `status` and `supersededBy`: on a superseded `decision` only, `status: superseded` and the name of the decision that replaced it, by **When a note stops being true**.
 
 | type | holds |

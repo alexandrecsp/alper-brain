@@ -4,13 +4,13 @@ Read what the active brain knows about the repositories the work touches. The `b
 
 As a sub-agent, read only the notes your brief's Context block lists, and skip the steps below: the skill that dispatched you recalled them, and you have no user to offer fixes to, so report a note the code contradicts instead.
 
-`node <this file's folder>/../scripts/recall.mjs <brain> [--repo <slug>]... [--layer business|application] [--query "<words>"] [--top <n>]` lists the notes a step needs, so recall reads a short list instead of every description:
+`node <this file's folder>/../scripts/recall.mjs <brain> [--repo <slug>]... [--layer business|application] [--query "<words>"]... [--top <n>]` lists the notes a step needs, so recall reads a short list instead of every description:
 
 - **cards**, when no `--repo` is given: each registered repository with its summary.
 - **contracts**: every `contract` note on those repositories, never ranked out.
 - **notes**: the rest, drafts included, best match first, `--top` of them (15 by default). It leaves out a superseded decision and lists the decision that replaced it.
 
-Write the **query** as the words the notes would use for the work: its domain terms, the modules and interfaces it names, and their synonyms, in the notes' language. Pass `--layer` when the skill that runs recall names one; a contract is listed under either layer. When the last notes listed still bear on the work, run the script again with the `--top` it suggests.
+Write the **query** as three phrasings, each its own `--query`, in the notes' language: the work in its own words, then in the domain terms and module names the notes would use, then in synonyms and the code's likely English terms. The script ranks each phrasing and fuses the rankings, so a note that only one phrasing reaches still rises. Pass `--layer` when the skill that runs recall names one; a contract is listed under either layer. When the last notes listed still bear on the work, run the script again with the `--top` it suggests.
 
 1. **Pull**, once per conversation: `git pull --rebase --quiet`. When it fails (offline, or no remote yet), work from the local copy and say so. Done when the pull ran or failed.
 2. **Pick the repositories**, when the work has not named them all: a topic can reach repositories nobody has opened. Run the script with the query and no `--repo`, and put every registered repository in or out, from its card, the notes that match, and the `repos` of each contract that bears on the work. FORMAT.md's working repository rules pick the one repository a skill acts in; this step picks every repository the work reaches. Done when every registered repository is in or out, each with a one-line reason.

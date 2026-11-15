@@ -6,6 +6,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { parse, listOf } from './notes.mjs'
 
 const brain = resolve(process.argv[2] ?? '.')
 if (!existsSync(join(brain, 'BRAIN.md'))) {
@@ -64,22 +65,10 @@ if (wanted.length) {
   }
 }
 
-function frontmatter(text) {
-  const m = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(text ?? '')
-  const fm = {}
-  if (m) for (const line of m[1].split(/\r?\n/)) {
-    const kv = /^([\w-]+):\s*(.*)$/.exec(line)
-    if (kv) fm[kv[1]] = kv[2].trim().replace(/^["']|["']$/g, '')
-  }
-  return fm
-}
-
 function meta(path, text) {
-  const fm = frontmatter(text)
+  const { fm } = parse(text)
   const parts = path.split('/')
-  const repos = parts[0] === 'repos'
-    ? [parts[1]]
-    : (fm.repos ?? '').replace(/^\[|\]$/g, '').split(',').map((r) => r.trim().replace(/^["']|["']$/g, '')).filter(Boolean)
+  const repos = parts[0] === 'repos' ? [parts[1]] : listOf(fm.repos)
   return {
     note: parts.at(-1).replace(/\.md$/, ''),
     type: fm.type || 'other',

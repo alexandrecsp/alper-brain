@@ -1,22 +1,21 @@
 #!/usr/bin/env node
 // Lists the brain's notes a piece of work needs, by the brain's RECALL.md, so recall reads a short ranked list
 // instead of every description. It filters by repository, layer and type, ranks the rest by BM25 against the
-// query (over each note's name, description and body), and always lists every contract on those repositories,
-// since a contract must never be ranked out. A superseded decision gives way to the decision that replaced it.
+// query (over each note's name, aliases, description and body), and always lists every contract on those
+// repositories, since a contract must never be ranked out. Several --query phrasings are each ranked, then fused
+// by reciprocal rank. A superseded decision gives way to the decision that replaced it.
 // Drafts in .sdd/drafts/ are listed beside the notes, marked as drafts.
 // Run: node recall.mjs <brain> [--repo <slug>]... [--layer business|application] [--type <type>]...
-//                              [--query "<words>"] [--top <n>]
+//                              [--query "<words>"]... [--top <n>]
 //      node recall.mjs <brain> --legacy   (lists the notes FORMAT.md's types and layers do not yet describe)
-import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-
-const TYPES = new Set(['feature', 'concept', 'decision', 'how-to', 'contract'])
-const LAYERS = new Set(['business', 'application'])
+import { TYPES, LAYERS, loadBrain, parse } from './notes.mjs'
 
 // ---- Arguments
 
 const argv = process.argv.slice(2)
-const opts = { repos: [], types: [], layer: null, query: '', top: 15, legacy: false }
+const opts = { repos: [], types: [], layer: null, queries: [], top: 15, legacy: false }
 let brain = null
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i]
@@ -27,7 +26,7 @@ for (let i = 0; i < argv.length; i++) {
   if (a === '--repo') opts.repos.push(value())
   else if (a === '--type') opts.types.push(value())
   else if (a === '--layer') opts.layer = value()
-  else if (a === '--query') opts.query = value()
+  else if (a === '--query') opts.queries.push(value())
   else if (a === '--top') opts.top = Number(value())
   else if (a === '--legacy') opts.legacy = true
   else if (a.startsWith('--')) fail(`unknown option ${a}`)
@@ -36,7 +35,7 @@ for (let i = 0; i < argv.length; i++) {
 }
 function fail(message) {
   console.error(`recall: ${message}`)
-  console.error('Usage: node recall.mjs <brain> [--repo <slug>]... [--layer business|application] [--type <type>]... [--query "<words>"] [--top <n>] | --legacy')
+  console.error('Usage: node recall.mjs <brain> [--repo <slug>]... [--layer business|application] [--type <type>]... [--query "<words>"]... [--top <n>] | --legacy')
   process.exit(2)
 }
 if (!brain) fail('name the brain folder')
@@ -47,55 +46,7 @@ if (!(opts.top > 0)) fail('--top takes a positive number')
 
 // ---- Reading the notes
 
-const list = (dir) => (existsSync(dir) && statSync(dir).isDirectory() ? readdirSync(dir) : [])
-const mdIn = (rel) => list(join(brain, rel)).filter((f) => f.endsWith('.md')).map((f) => `${rel}/${f}`)
-
-function parse(text) {
-  const lines = text.replace(/\r\n?/g, '\n').split('\n')
-  const fm = {}
-  let end = 0
-  if (lines[0]?.trim() === '---') {
-    end = lines.findIndex((l, i) => i > 0 && l.trim() === '---')
-    for (const line of lines.slice(1, end < 0 ? 0 : end)) {
-      const kv = /^([\w-]+):\s*(.*)$/.exec(line)
-      if (kv) fm[kv[1]] = kv[2].trim().replace(/^(["'])(.*)\1$/, '$2')
-    }
-    end = end < 0 ? 0 : end + 1
-  }
-  return { fm, body: lines.slice(end).join('\n').trim() }
-}
-const reposOf = (path, fm) => {
-  const parts = path.split('/')
-  if (parts[0] === 'repos') return [parts[1]]
-  return (fm.repos ?? '').replace(/^\[|\]$/g, '').split(',').map((r) => r.trim().replace(/^["']|["']$/g, '')).filter(Boolean)
-}
-
-const slugs = list(join(brain, 'repos')).filter((d) => existsSync(join(brain, 'repos', d, 'REPO.md')))
-const paths = [
-  ...slugs.flatMap((s) => [...mdIn(`repos/${s}`).filter((p) => !p.endsWith('/REPO.md')), ...mdIn(`repos/${s}/explored`)]),
-  ...mdIn('shared'),
-]
-const notes = paths.map((path) => {
-  const { fm, body } = parse(readFileSync(join(brain, path), 'utf8'))
-  return note(path, path, fm, body, null)
-})
-const drafts = mdIn('.sdd/drafts').map((path) => {
-  const { fm, body } = parse(readFileSync(join(brain, path), 'utf8'))
-  return note(path, fm.target ?? path, fm, body, fm.action || 'record')
-})
-function note(path, target, fm, body, draft) {
-  return {
-    path, target, draft, body,
-    name: fm.name || path.split('/').at(-1).replace(/\.md$/, ''),
-    description: fm.description ?? '',
-    type: fm.type ?? '',
-    layer: fm.layer ?? '',
-    explored: !!fm.explored || target.split('/')[2] === 'explored',
-    repos: reposOf(target, fm),
-    superseded: fm.status === 'superseded',
-    supersededBy: fm.supersededBy || null,
-  }
-}
+const { slugs, notes, drafts } = loadBrain(brain)
 
 // ---- Legacy: the notes to migrate by MIGRATE.md's **Note types**
 
@@ -135,32 +86,47 @@ const terms = (text) =>
     .filter((w) => w.length > 1 && !STOP.has(w))
     .map(stem)
 
-let ranked = pool.map((n) => ({ n, score: 0 }))
-const query = [...new Set(terms(opts.query))]
-if (opts.query && !query.length) fail(`--query "${opts.query}" holds no word to search by`)
-if (query.length) {
+const queries = opts.queries.map((q) => {
+  const words = [...new Set(terms(q))]
+  if (!words.length) fail(`--query "${q}" holds no word to search by`)
+  return words
+})
+const byPath = (x, y) => x.n.path.localeCompare(y.n.path)
+let ranked = pool.map((n) => ({ n, score: 0 })).sort(byPath)
+if (queries.length) {
+  // The aliases name the note's subject in other words, so they weigh as much as its description.
   const docs = pool.map((n) => {
-    const words = [...terms(n.name.replace(/-/g, ' ')), ...Array(3).fill(terms(n.description)).flat(), ...terms(n.body)]
+    const words = [...terms(n.name.replace(/-/g, ' ')), ...Array(3).fill(terms([n.description, ...n.aliases].join(' '))).flat(), ...terms(n.body)]
     const tf = new Map()
     for (const w of words) tf.set(w, (tf.get(w) ?? 0) + 1)
     return { tf, len: words.length }
   })
   const avg = docs.reduce((s, d) => s + d.len, 0) / (docs.length || 1)
-  const df = new Map(query.map((q) => [q, docs.filter((d) => d.tf.has(q)).length]))
   const k1 = 1.2
   const b = 0.75
-  ranked = pool.map((n, i) => {
-    const { tf, len } = docs[i]
-    const score = query.reduce((s, q) => {
-      const f = tf.get(q) ?? 0
-      if (!f) return s
-      const idf = Math.log(1 + (docs.length - df.get(q) + 0.5) / (df.get(q) + 0.5))
-      return s + (idf * f * (k1 + 1)) / (f + k1 * (1 - b + (b * len) / avg))
-    }, 0)
-    return { n, score }
-  })
-  ranked = ranked.filter((r) => r.score > 0).sort((x, y) => y.score - x.score || x.n.path.localeCompare(y.n.path))
-} else ranked.sort((x, y) => x.n.path.localeCompare(y.n.path))
+  const bm25 = (query) => {
+    const df = new Map(query.map((q) => [q, docs.filter((d) => d.tf.has(q)).length]))
+    return pool.map((n, i) => {
+      const { tf, len } = docs[i]
+      const score = query.reduce((s, q) => {
+        const f = tf.get(q) ?? 0
+        if (!f) return s
+        const idf = Math.log(1 + (docs.length - df.get(q) + 0.5) / (df.get(q) + 0.5))
+        return s + (idf * f * (k1 + 1)) / (f + k1 * (1 - b + (b * len) / avg))
+      }, 0)
+      return { n, score }
+    }).filter((r) => r.score > 0).sort((x, y) => y.score - x.score || byPath(x, y))
+  }
+  const lists = queries.map(bm25)
+  if (lists.length === 1) ranked = lists[0]
+  else {
+    // Reciprocal rank fusion, k = 60: a note's score is the sum of 1 / (60 + its rank) over the phrasings
+    // that match it, so a note every phrasing finds rises, and no phrasing's common words drown the others.
+    const fused = new Map()
+    for (const list of lists) list.forEach(({ n }, i) => fused.set(n, (fused.get(n) ?? 0) + 1 / (60 + i + 1)))
+    ranked = [...fused].map(([n, score]) => ({ n, score })).sort((x, y) => y.score - x.score || byPath(x, y))
+  }
+}
 
 // A superseded decision gives way to the head of its supersededBy chain, listed once, at the best rank either holds.
 const byName = new Map(notes.map((n) => [n.name, n]))
@@ -180,7 +146,7 @@ for (const { n } of ranked) {
   if (head !== n) listed.get(head.path).replaces.push(n.name)
 }
 const all = [...listed.values()]
-const shown = query.length ? all.slice(0, opts.top) : all
+const shown = queries.length ? all.slice(0, opts.top) : all
 
 // ---- Output
 
@@ -201,7 +167,8 @@ if (!opts.repos.length) {
 out.push(`contracts${opts.repos.length ? ` on ${opts.repos.join(', ')}` : ''}:`)
 out.push(...(contracts.length ? contracts.map((n) => `  ${n.path} · repos ${n.repos.join(', ')} · ${n.description}`) : ['  none']))
 const scope = [opts.layer, ...opts.types].filter(Boolean).join(', ')
-out.push(`notes${scope ? ` (${scope})` : ''}: ${shown.length} of ${all.length}${query.length ? ' matching, best first' : ''}`)
+const fusedFrom = queries.length > 1 ? `, fused from ${queries.length} queries` : ''
+out.push(`notes${scope ? ` (${scope})` : ''}: ${shown.length} of ${all.length}${queries.length ? ` matching${fusedFrom}, best first` : ''}`)
 out.push(...shown.map(({ n, replaces }) => line(n) + (replaces.length ? ` · supersedes ${replaces.join(', ')}` : '')))
 if (shown.length < all.length) out.push(`  … ${all.length - shown.length} more: run again with --top ${opts.top * 2}`)
 console.log(out.join('\n'))
