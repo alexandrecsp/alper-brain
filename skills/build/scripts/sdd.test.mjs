@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { appendLine, ids, readCap, resolveSpec, resumeStep, setLine, specState, ticketDigest, unanswered } from './sdd.mjs'
+import { appendLine, assembleReview, commitKey, ids, markFinding, readCap, resolveSpec, resumeStep, setLine, specState, squash, ticketDigest, toFix, unanswered, verify } from './sdd.mjs'
 
 const put = (path, text) => { mkdirSync(join(path, '..'), { recursive: true }); writeFileSync(path, text) }
 const milestone = ({ n, phase = 'none', squash = 'none', landed = 'none', buildsAfter = 'None', landsAfter = 'None', repo }) =>
@@ -239,4 +239,100 @@ test('a ticket digest gives its milestone and the Notes and files of the tickets
   const first = ticketDigest(join(s, 'milestones/api/001-expand/001-add-v2.md'), { useGit: false })
   assert.match(first, /None: it is the first ticket/)
   assert.match(ticketDigest(join(s, 'milestones/api/002-contract/002-drop-v1.md'), { useGit: false }), /### api\/001: T001/)
+})
+
+test('picks the findings to fix, and marks a finding', () => {
+  const review = [
+    '## Standards', '',
+    '- **ST1** Hard violation. No in-memory adapter.',
+    '- **ST2** Judgement call, **keep**. Plain strings match the ports.',
+    '- **ST3** Judgement call, **fix**. Duplicated zod refine.',
+    '- **ST4** Judgement call, **escalate**. Changes a seam.',
+    '  **Answer:** skip it — the spec names it',
+    '- **ST5** Judgement call, **escalate**. Renames a port.',
+    '  **Answer:** fix it as proposed — no caller outside',
+    '- **ST6** Judgement call, **escalate**. Unanswered.', '',
+    '## Spec', '',
+    '- **SP1** Missing: the extraction point is never compared.',
+    '  **Fixed:** abc1234',
+    '- **SP2** Scope creep, **keep**. Harmless test.', '',
+    '### Checked and fine', '', 'Everything else; keep it.', '',
+  ].join('\n')
+  assert.deepEqual(toFix(review), ['ST1', 'ST3', 'ST5'])
+  assert.deepEqual(unanswered(review), ['ST6'])
+  let md = markFinding(review, 'ST3', 'Fixed', 'def5678')
+  md = markFinding(md, 'ST1', 'Not fixed', 'needs a port change')
+  assert.match(md, /- \*\*ST3\*\* Judgement call, \*\*fix\*\*\. Duplicated zod refine\.\n\n  \*\*Fixed:\*\* def5678\n- \*\*ST4\*\*/)
+  assert.match(md, /- \*\*ST1\*\* Hard violation\. No in-memory adapter\.\n\n  \*\*Not fixed:\*\* needs a port change\n/)
+  assert.match(markFinding(md, 'SP1', 'Fixed', 'fff0000'), /  \*\*Fixed:\*\* fff0000\n- \*\*SP2\*\*/)
+  assert.deepEqual(toFix(md), ['ST5'])
+  assert.throws(() => markFinding(md, 'ST9', 'Fixed', 'x'), /No finding ST9/)
+  const paragraphs = '## Standards\n\n**ST1** (hard violation). Add adapters.\n\n**ST2** (judgement call). Move errors.\n'
+  assert.match(markFinding(paragraphs, 'ST1', 'Fixed', 'abc'), /\*\*ST1\*\* \(hard violation\)\. Add adapters\.\n\n\*\*Fixed:\*\* abc\n\n\*\*ST2\*\*/)
+})
+
+test('assembles a review from its sub-agents files, numbering each axis straight on', () => {
+  const r = assembleReview({
+    title: 'Invoice export', fixed: 'api@aaa, web@bbb', head: 'api@ccc, web@ddd',
+    summary: '## Summary\n\nStandards: 3 findings.\n',
+    sections: [
+      { axis: 'standards', slug: 'api', text: '- **ST1** Hard violation. A.\n- **ST2** Judgement call, **keep**. B, like ST1.\n' },
+      { axis: 'standards', slug: 'web', text: '- **ST1** Judgement call, **fix**. C, unlike ST2 in api.\n' },
+      { axis: 'spec', slug: null, text: '- **SP1** Missing. D.\n' },
+    ],
+  })
+  assert.deepEqual(r.counts, { Standards: 3, Spec: 1 })
+  assert.deepEqual(r.renumbered, ['web: ST1 → ST3'])
+  assert.match(r.text, /^# Review: Invoice export\n\n\*\*Fixed point:\*\* api@aaa, web@bbb\n\n\*\*Head:\*\* api@ccc, web@ddd\n\n## Summary\n\nStandards: 3 findings\.\n\n## Standards\n\n### api\n\n- \*\*ST1\*\*/)
+  assert.match(r.text, /### web\n\n- \*\*ST3\*\* Judgement call, \*\*fix\*\*\. C, unlike ST2 in api\.\n\n## Spec\n\n- \*\*SP1\*\* Missing\. D\.\n$/)
+  assert.deepEqual(toFix(r.text), ['ST1', 'ST3', 'SP1'])
+})
+
+test('finds the commit key by the commit skill', () => {
+  assert.equal(commitKey('None', 'api', null), null)
+  assert.equal(commitKey('FUNC-12', 'api', 'commitKeyPattern: "FUNC-\\\\d+"\n'), 'FUNC-12')
+  assert.equal(commitKey('FUNC-12', 'api', 'commitKeyPattern: null\n'), null)
+  assert.equal(commitKey('api: FUNC-12, web: None', 'web', null), null)
+  assert.equal(commitKey('api: FUNC-12, web: None', 'api', null), 'FUNC-12')
+  assert.throws(() => commitKey('BAD', 'api', 'commitKeyPattern: "FUNC-\\\\d+"\n'), /does not fully match/)
+})
+
+test('squashes a milestone into the spec branch and verifies where a sub-agent wrote', () => {
+  const b = brain()
+  const s = twoTracks(b, { apiM1: { t: { status: 'done' } } })
+  const repo = join(b, 'clones/api')
+  mkdirSync(repo, { recursive: true })
+  for (const [k, v] of Object.entries({ GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' })) process.env[k] = v
+  const g = (...a) => spawnSync('git', ['-C', repo, ...a], { encoding: 'utf8' }).stdout.trim()
+  g('init', '-q', '-b', 'main')
+  writeFileSync(join(repo, 'f'), '1')
+  g('add', '-A'); g('commit', '-qm', 'start')
+  g('checkout', '-qb', 'sdd/004-invoice-export/spec')
+  g('checkout', '-qb', 'sdd/004-invoice-export/M001')
+  writeFileSync(join(repo, 'f'), '2')
+  g('commit', '-qam', 'ticket 001')
+  const ticketSha = g('rev-parse', 'HEAD')
+  put(join(b, '.brain/links.json'), JSON.stringify({ api: repo }))
+  const t1 = join(s, 'milestones/api/001-expand/001-add-v2.md')
+  writeFileSync(t1, readFileSync(t1, 'utf8').replace('**Commit:** none', `**Commit:** ${ticketSha}`))
+
+  assert.deepEqual(verify(t1).problems, [])
+  assert.equal(verify(t1).status, 'done')
+  writeFileSync(join(repo, 'stray'), 'x')
+  assert.match(verify(t1, { commits: ['0000000'] }).problems.join('\n'), /0000000 is not in[\s\S]*uncommitted/)
+  spawnSync('git', ['-C', repo, 'clean', '-qfd'])
+
+  const m1 = join(s, 'milestones/api/001-expand')
+  assert.throws(() => squash(m1, { title: 'x'.repeat(73) }), /72/)
+  assert.throws(() => squash(m1, { title: 'x'.repeat(66), key: 'FUNC-1' }), /72/)
+  const { sha } = squash(m1, { title: 'Adds the v2 export', details: ['Keeps v1 offered'] })
+  assert.equal(g('rev-parse', '--abbrev-ref', 'HEAD'), 'sdd/004-invoice-export/spec')
+  assert.equal(g('log', '-1', '--format=%B'), 'Adds the v2 export\n\n- Keeps v1 offered\n\nSdd-Milestone: 004-invoice-export/api/M001')
+  const md = readFileSync(join(m1, 'milestone.md'), 'utf8')
+  assert.match(md, /\*\*Phase:\*\* squash/)
+  assert.ok(md.includes(`**Squash:** ${sha}`))
+  assert.deepEqual(squash(m1, { title: 'again' }), { sha, already: true })
+  writeFileSync(t1, readFileSync(t1, 'utf8').replace('**Status:** done', '**Status:** doing'))
+  assert.match(verify(t1).problems.join('\n'), /the ticket is doing with Commit [0-9a-f]{40}, not done/)
+  assert.match(verify(t1).problems.join('\n'), /is on sdd\/004-invoice-export\/spec, not sdd\/004-invoice-export\/M001/)
 })

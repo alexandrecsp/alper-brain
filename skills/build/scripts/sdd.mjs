@@ -14,10 +14,24 @@
 //     Sets a `**Line:** value` line; when the file has none, creates it under the --after line, else fails.
 //   node sdd.mjs append <file> <Line> <entry> [--sep '; '] [--after <Line>]
 //     Appends an entry to a line, skipping one the line already ends with, as LAND.md's **Record it** does.
+//   node sdd.mjs mark <review.md> <ID> "<Line>: <value>" [<ID> "<Line>: <value>"]...
+//     Writes `**Line:** value` under each finding named, replacing that line when the finding already has one:
+//     build's Answer, Fixed and Not fixed lines.
+//   node sdd.mjs review <review.md> --title <t> --fixed <sha> --head <sha> --summary <file> <section-file>...
+//     review-changes' step 6: writes review.md from the Summary file and the section files its sub-agents wrote
+//     (review.<standards|spec|consumers>[.<slug>].md), numbering each axis straight on, then deletes them. Refuses
+//     a review.md that holds Answer lines.
+//   node sdd.mjs squash <milestone-folder|milestone.md> --title <title> [--detail <bullet>]... [--key <key|none>]
+//     Build's step 10: squashes the milestone's branch into the spec's as one commit keyed by
+//     the commit skill's step 1 (or --key, `none` for no key), with its Sdd-Milestone trailer, and writes it into
+//     Phase and Squash. Idempotent.
+//   node sdd.mjs verify <ticket|milestone.md> [--commit <sha>]... [--brain-head <sha>]
+//     BRIEF.md's check after a sub-agent that changes a repository, and for a ticket that it is done with its commit:
+//     prints the ticket's Status and Commit, then `ok`, or each problem and exits 1.
 //
 // Exits 1 with one line on stderr when it cannot read or write what it was given.
 import { spawnSync } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -51,13 +65,48 @@ export const ids = (v) =>
         return m ? { track: m[1] ?? null, n: m[2].padStart(3, '0') } : { bad: t }
       })
 
+const findingStart = /^(?=\s*(?:[-*]\s+|#{1,4}\s+)?(?:\*\*)?(?:ST|SP|CN)\d+\b)/m
+/** A review.md's findings, each from its ID to the next ID or heading: [{ id, text, start }]. */
+const findings = (reviewMd) => {
+  let start = 0
+  return reviewMd.split(findingStart).map((f) => {
+    const at = start
+    start += f.length
+    const id = /^\s*(?:[-*]\s+|#{1,4}\s+)?(?:\*\*)?((?:ST|SP|CN)\d+)\b/.exec(f)?.[1]
+    if (!id) return null
+    const end = f.indexOf(id) + id.length
+    const cut = /^#{1,4}\s/m.exec(f.slice(end))
+    return { id, text: cut ? f.slice(0, end + cut.index) : f, start: at }
+  }).filter(Boolean)
+}
+
 /** The findings in a review.md flagged escalate with no **Answer** line, by their IDs. */
 export const unanswered = (reviewMd) =>
-  reviewMd
-    .split(/^(?=\s*(?:[-*]\s+|#{1,4}\s+)?(?:\*\*)?(?:ST|SP|CN)\d+\b)/m)
-    .slice(1)
-    .filter((f) => /\bescalate\b/i.test(f) && !/\*\*Answer:\*\*/.test(f))
-    .map((f) => /(?:ST|SP|CN)\d+/.exec(f)[0])
+  findings(reviewMd).filter((f) => /\bescalate\b/i.test(f.text) && !/\*\*Answer:\*\*/.test(f.text)).map((f) => f.id)
+
+/**
+ * The findings build's fixer takes, by their IDs: each with no **Fixed** or **Not fixed** line yet, that is not
+ * marked **keep**, and, when flagged escalate, whose **Answer** fixes it rather than skips it.
+ */
+export const toFix = (reviewMd) =>
+  findings(reviewMd)
+    .filter(({ text }) => !/\*\*(?:Fixed|Not fixed):\*\*/i.test(text))
+    .filter(({ text }) => /\bescalate\b/i.test(text)
+      ? /\*\*Answer:\*\*/.test(text) && !/\*\*Answer:\*\*\s*skip/i.test(text)
+      : !/\*\*keep\*\*/i.test(text))
+    .map((f) => f.id)
+
+/** Writes `**<line>:** <value>` under finding `id` of a review.md, replacing that line when the finding has one. */
+export const markFinding = (reviewMd, id, line, value) => {
+  const f = findings(reviewMd).find((x) => x.id === id)
+  if (!f) throw new Error(`No finding ${id} in the review`)
+  const { start } = f
+  const body = f.text.replace(/\s+$/, '')
+  const re = new RegExp(`^([ \\t]*)\\*\\*${escape(line)}:\\*\\*.*$`, 'm')
+  const indent = /^\s*[-*]\s/.test(body) ? '  ' : ''
+  const next = re.test(body) ? body.replace(re, (_, ind) => `${ind}**${line}:** ${value}`) : `${body}\n\n${indent}**${line}:** ${value}`
+  return reviewMd.slice(0, start) + next + reviewMd.slice(start + body.length)
+}
 
 /** The step of build's Phase table a call resumes an open milestone at. */
 export const resumeStep = (phase, ticketsDone) => {
@@ -120,7 +169,7 @@ const readMilestone = (dir, track) => {
     buildsAfter: ids(field(md, 'Builds after')),
     landsAfter: ids(field(md, 'Lands after')),
     tickets,
-    review: review === null ? null : { head: orNull(field(review, 'Head')), unanswered: unanswered(review) },
+    review: review === null ? null : { head: orNull(field(review, 'Head')), unanswered: unanswered(review), toFix: toFix(review) },
   }
 }
 
@@ -335,6 +384,7 @@ export const derive = ({ tracks, layout, repos, repo = () => ({ git: false }) })
         branch: has(m),
         reviewCurrent: m.review?.head && g.git && has(m) ? git(g.root, ['rev-parse', `sdd/${t.specFolder}/${branch(m)}`]) === m.review.head : null,
         unanswered: m.review?.unanswered ?? [],
+        toFix: m.review?.toFix ?? [],
         tickets: m.tickets.map((k) => ({ n: k.n, file: k.file, status: k.status, dependsOn: k.dependsOn.filter((d) => !d.bad).map((d) => (d.track ? `${d.track}/${d.n}` : d.n)), commit: k.commit })),
       })),
     }
@@ -396,6 +446,7 @@ export const specState = (specDir, { brain = resolve(specDir, '..', '..', '..'),
     spec: specFolder,
     dir: specDir,
     brain,
+    brainHead: useGit ? git(brain, ['rev-parse', 'HEAD']) : null,
     layout,
     ...spec,
     cap,
@@ -509,16 +560,202 @@ export const appendLine = (md, name, entry, sep = '; ', after) => {
   return setLine(md, name, `${v}${sep}${entry}`)
 }
 
+// --- assembling a review --------------------------------------------------------------------------------------
+
+const AXES = [['standards', 'Standards', 'ST'], ['spec', 'Spec', 'SP'], ['consumers', 'Consumers', 'CN']]
+
+/**
+ * review-changes' step 6 from the files its sub-agents wrote: `review.<axis>[.<slug>].md`, each numbering its own
+ * findings from 1. Numbers each axis straight on across its files, in the order given, under `## <Axis>` (and a
+ * `### <slug>` per file when an axis has several), below the header and the Summary file. Returns { text, counts,
+ * renumbered }: the findings per axis, and each ID a later file's offset changed.
+ */
+export const assembleReview = ({ title, fixed, head, summary, sections }) => {
+  const counts = {}
+  const renumbered = []
+  const out = [`# Review: ${title}`, '', `**Fixed point:** ${fixed}`, '', `**Head:** ${head}`, '', summary.trim(), '']
+  for (const [axis, name, prefix] of AXES) {
+    const files = sections.filter((s) => s.axis === axis)
+    if (!files.length) continue
+    out.push(`## ${name}`, '')
+    let offset = 0
+    for (const s of files) {
+      const own = [...new Set(findings(s.text).map((f) => f.id).filter((id) => id.startsWith(prefix)))]
+      let text = s.text.trim()
+      if (offset) {
+        text = text.replace(new RegExp(`\\b${prefix}(\\d+)\\b`, 'g'), (id, n) => {
+          if (!own.includes(id)) return id
+          const to = `${prefix}${Number(n) + offset}`
+          renumbered.push(`${s.slug ?? axis}: ${id} → ${to}`)
+          return to
+        })
+      }
+      if (files.length > 1) out.push(`### ${s.slug ?? axis}`, '')
+      out.push(text, '')
+      offset += own.length
+    }
+    counts[name] = offset
+  }
+  return { text: out.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd() + '\n', counts, renumbered }
+}
+
+// --- closing a milestone ----------------------------------------------------------------------------------------
+
+/** The milestone a ticket or milestone path names: { specDir, specFolder, brain, track, m, root, branch }. */
+const locate = (path) => {
+  const p = resolve(path)
+  const msDir = /\.md$/i.test(p) ? resolve(p, '..') : p
+  const specDir = [resolve(msDir, '..', '..'), resolve(msDir, '..', '..', '..')].find((d) => existsSync(join(d, 'spec.md')))
+  if (!specDir) throw new Error(`No spec.md above ${path}`)
+  const brain = resolve(specDir, '..', '..', '..')
+  const t = readTracks(specDir).tracks.find((x) => x.milestones.some((m) => resolve(m.dir) === msDir))
+  if (!t) throw new Error(`${path} is not in a milestone of ${basename(specDir)}`)
+  const m = t.milestones.find((x) => resolve(x.dir) === msDir)
+  const root = readLinks(brain)[t.slug]
+  if (!root) throw new Error(`${t.slug} is not in ${join(brain, '.brain', 'links.json')}`)
+  const specFolder = basename(specDir)
+  return { specDir, specFolder, brain, track: t.slug, m, root, branch: `sdd/${specFolder}/M${m.n}` }
+}
+
+/** The commit key for a repository, by the commit skill's step 1 from spec.md's **Key** line and its card. */
+export const commitKey = (keyLine, slug, card) => {
+  let key = keyLine
+  if (!isNone(key) && /^[\w.-]+:\s/.test(key)) {
+    const entry = key.split(',').map((e) => e.trim()).find((e) => e.startsWith(`${slug}:`))
+    key = entry ? entry.slice(slug.length + 1).trim() : null
+  }
+  if (isNone(key)) return null
+  const p = card === null ? undefined : /^commitKeyPattern:\s*(.*)$/m.exec(card)?.[1].trim()
+  if (p === 'null') return null
+  if (p) {
+    const pattern = p.startsWith('"') ? JSON.parse(p) : p.replace(/^'|'$/g, '')
+    if (!new RegExp(`^(?:${pattern})$`).test(key)) throw new Error(`Key ${key} does not fully match ${slug}'s commitKeyPattern ${pattern}`)
+  }
+  return key
+}
+
+const run = (root, args, input) => {
+  const r = spawnSync('git', ['-C', root, ...args], { encoding: 'utf8', input })
+  if (r.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${(r.stderr || r.stdout).trim().split('\n').slice(-3).join(' / ')}`)
+  return r.stdout.trim()
+}
+
+/**
+ * Build's step 10 in one call: squashes the milestone's branch into the spec's branch as one keyed commit with its
+ * Sdd-Milestone trailer, then writes `squash` into its **Phase** and the commit into **Squash**. Returns the SHA.
+ */
+export const squash = (path, { title, details = [], key: given }) => {
+  const { specDir, specFolder, brain, track, m, root, branch } = locate(path)
+  const msPath = join(m.dir, 'milestone.md')
+  if (m.squash) return { sha: m.squash, already: true }
+  if (!title) throw new Error('No --title for the squash commit')
+  const spec = readSpecLines(specDir)
+  const cardPath = join(brain, 'repos', track, 'REPO.md')
+  const key = commitKey(given ?? spec.key, track, existsSync(cardPath) ? read(cardPath) : null)
+  const subject = key ? `${key}: ${title}` : title
+  if (subject.length > 72) throw new Error(`The subject is ${subject.length} characters; the commit skill allows 72: ${subject}`)
+  if (run(root, ['status', '--porcelain']) !== '') throw new Error(`${root} has uncommitted changes`)
+  const specBranch = `sdd/${specFolder}/spec`
+  run(root, ['checkout', '-q', specBranch])
+  let sha
+  if (run(root, ['diff', specBranch, branch]) === '') sha = run(root, ['rev-parse', 'HEAD'])
+  else {
+    run(root, ['merge', '--squash', branch])
+    const body = details.length ? `\n\n${details.map((d) => `- ${d}`).join('\n')}` : ''
+    run(root, ['commit', '-q', '-F', '-'], `${subject}${body}\n\nSdd-Milestone: ${specFolder}/${track}/M${m.n}\n`)
+    sha = run(root, ['rev-parse', 'HEAD'])
+  }
+  // The lines go last, so a file this process cannot write still leaves the squash committed and its SHA reported.
+  try {
+    writeFileSync(msPath, setLine(setLine(read(msPath), 'Phase', 'squash', 'Lands after'), 'Squash', sha))
+  } catch (e) {
+    throw new Error(`squashed: ${sha}, but ${msPath} could not be written (${e.code ?? e.message}): write **Phase:** squash and **Squash:** ${sha} into it`)
+  }
+  return { sha, already: false }
+}
+
+/**
+ * BRIEF.md's **After a sub-agent that changes a repository reports**, in one call, for the milestone a ticket or
+ * milestone path names: the repository is on its branch and clean, each commit (and a ticket's **Commit**) is on
+ * that branch, and the brain has no change outside `.brain/` and, given one, is still at `brainHead`.
+ */
+export const verify = (path, { commits = [], brainHead } = {}) => {
+  const { root, branch, brain } = locate(path)
+  const problems = []
+  const ticket = /\d{3}-[^/\\]+\.md$/.test(path) && !/milestone\.md$/.test(path) ? read(resolve(path)) : null
+  const shas = [...commits, ...(ticket && orNull(field(ticket, 'Commit')) ? [field(ticket, 'Commit')] : [])]
+  const head = git(root, ['rev-parse', '--abbrev-ref', 'HEAD'])
+  if (head !== branch) problems.push(`${root} is on ${head}, not ${branch}`)
+  for (const sha of new Set(shas)) {
+    if (spawnSync('git', ['-C', root, 'cat-file', '-e', `${sha}^{commit}`]).status !== 0) problems.push(`commit ${sha} is not in ${root}`)
+    else if (!isAncestor(root, sha, 'HEAD')) problems.push(`commit ${sha} is not on ${head}`)
+  }
+  const dirty = git(root, ['status', '--porcelain'])
+  if (dirty) problems.push(`${root} has uncommitted changes: ${dirty.split('\n').slice(0, 5).join(', ')}`)
+  if (git(brain, ['rev-parse', '--git-dir']) !== null) {
+    const changed = git(brain, ['status', '--porcelain', '--', '.', ':!.brain'])
+    if (changed) problems.push(`the brain has changes outside .brain/: ${changed.split('\n').slice(0, 5).join(', ')}`)
+    const bh = git(brain, ['rev-parse', 'HEAD'])
+    if (brainHead && bh !== brainHead) problems.push(`the brain moved from ${brainHead} to ${bh}`)
+  }
+  const status = ticket ? field(ticket, 'Status') : null
+  const commit = ticket ? orNull(field(ticket, 'Commit')) : null
+  if (ticket && (status !== 'done' || !commit)) problems.push(`the ticket is ${status ?? 'without a Status'} with Commit ${commit ?? 'none'}, not done with its commit`)
+  return { problems, status, commit }
+}
+
 // --- the command line -----------------------------------------------------------------------------------------
 
 const main = (argv) => {
   const [cmd, ...rest] = argv
   const opts = {}
   const pos = []
+  const many = { detail: [], commit: [] }
   for (let i = 0; i < rest.length; i++) {
     if (rest[i] === '--no-git') opts.noGit = true
+    else if (rest[i].slice(2) in many) many[rest[i].slice(2)].push(rest[++i])
     else if (rest[i].startsWith('--')) opts[rest[i].slice(2)] = rest[++i]
     else pos.push(rest[i])
+  }
+  if (cmd === 'mark' && pos.length >= 3 && pos.length % 2 === 1) {
+    const [file, ...pairs] = pos
+    let md = read(file)
+    for (let i = 0; i < pairs.length; i += 2) {
+      const m = /^([^:]+):\s*([\s\S]*)$/.exec(pairs[i + 1])
+      if (!m) throw new Error(`"${pairs[i + 1]}" is not "<Line>: <value>"`)
+      md = markFinding(md, pairs[i], m[1].trim(), m[2].trim())
+    }
+    writeFileSync(file, md)
+    console.log(`${file}: marked ${pairs.filter((_, i) => i % 2 === 0).join(', ')}`)
+    return
+  }
+  if (cmd === 'review' && pos.length >= 2 && opts.title && opts.fixed && opts.head && opts.summary) {
+    const [target, ...files] = pos
+    if (existsSync(target) && /\*\*Answer:\*\*/.test(read(target))) throw new Error(`${target} holds Answer lines: keep this report in chat`)
+    const sections = files.map((f) => {
+      const m = /^review\.(standards|spec|consumers)(?:\.([\w.-]+))?\.md$/.exec(basename(f))
+      if (!m) throw new Error(`${f} is not named review.<standards|spec|consumers>[.<slug>].md`)
+      return { axis: m[1], slug: m[2] ?? null, text: read(f) }
+    })
+    const r = assembleReview({ title: opts.title, fixed: opts.fixed, head: opts.head, summary: read(opts.summary), sections })
+    writeFileSync(target, r.text)
+    for (const f of [...files, opts.summary]) if (resolve(f) !== resolve(target)) rmSync(f)
+    console.log(`${target}: ${Object.entries(r.counts).map(([a, n]) => `${a} ${n}`).join(', ')}`)
+    for (const line of r.renumbered) console.log(`renumbered ${line}`)
+    return
+  }
+  if (cmd === 'squash' && pos.length === 1) {
+    const { sha, already } = squash(pos[0], { title: opts.title, details: many.detail, key: opts.key })
+    console.log(already ? `already squashed: ${sha}` : `squashed: ${sha}`)
+    return
+  }
+  if (cmd === 'verify' && pos.length === 1) {
+    const r = verify(pos[0], { commits: many.commit, brainHead: opts['brain-head'] })
+    if (r.status) console.log(`ticket: Status ${r.status}, Commit ${r.commit ?? 'none'}`)
+    for (const p of r.problems) console.log(`problem: ${p}`)
+    if (r.problems.length) process.exit(1)
+    console.log('ok')
+    return
   }
   if (cmd === 'state' && pos.length === 1) {
     const brain = resolve(opts.brain ?? '.')
@@ -543,7 +780,11 @@ const main = (argv) => {
   console.error('Usage: node sdd.mjs state <spec-id|spec-folder> [--brain <brain>] [--no-git]\n' +
     '       node sdd.mjs brief <ticket-file> [--no-git]\n' +
     '       node sdd.mjs set <file> <Line> <value> [--after <Line>]\n' +
-    "       node sdd.mjs append <file> <Line> <entry> [--sep '; '] [--after <Line>]")
+    "       node sdd.mjs append <file> <Line> <entry> [--sep '; '] [--after <Line>]\n" +
+    '       node sdd.mjs mark <review.md> <ID> "<Line>: <value>" [<ID> "<Line>: <value>"]...\n' +
+    '       node sdd.mjs review <review.md> --title <t> --fixed <sha> --head <sha> --summary <file> <review.<axis>[.<slug>].md>...\n' +
+    '       node sdd.mjs squash <milestone-folder|milestone.md> --title <title> [--detail <bullet>]... [--key <key|none>]\n' +
+    '       node sdd.mjs verify <ticket|milestone.md> [--commit <sha>]... [--brain-head <sha>]')
   process.exit(2)
 }
 

@@ -50,6 +50,13 @@ The spec's Design Patterns rows this ticket implements, copied as they are, or "
 - [ ] <behaviour>, proven at <seam>
 - [ ] ...
 
+## Test plan
+
+| Clause | Seam | Test | Assertion |
+|---|---|---|---|
+
+Left empty; the agent that builds this ticket fills it, one row per clause of each acceptance criterion.
+
 ## Notes
 
 Left empty; the agent that builds this ticket fills it.

@@ -38,7 +38,7 @@ When a seam is an interface another repository calls or offers (a `contract` not
 - **Then green.** Write only enough code to pass it, then run the test again.
 - **Vertical slices.** One seam, one test, one minimal implementation per cycle: each test a **tracer bullet** aimed by what the last cycle taught you: write the next test only once the last one is green, never a batch of tests up front.
 - **One logical assertion per test.**
-- **Refactor at review.** Refactoring belongs to the `review-changes` skill's findings, outside the red → green cycle. A builder dispatched by `build` skips this: `build` reviews each milestone. Otherwise end by offering the user a `review-changes` run.
+- **Refactor at review.** Refactoring belongs to the `review-changes` skill's findings, outside the red → green cycle. A builder dispatched by `build` brings only its own changes into line with the standards its brief names, and leaves refactoring to `build`'s milestone review. Otherwise end by offering the user a `review-changes` run.
 
 ## Suites
 
