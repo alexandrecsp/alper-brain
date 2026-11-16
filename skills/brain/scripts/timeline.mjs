@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// Writes <brain>/timeline.json, every committed change to the notes in repos/ and shared/, oldest first, by the
+// Writes <brain>/timeline.json, every committed change to the notes in notes/ (or the legacy repos/ and shared/), oldest first, by the
 // brain's FORMAT.md **Timeline**. It reads git history alone, so the same history always writes the same file,
 // and a conflict in it resolves by running this again.
 // Run: node timeline.mjs <brain>   (prints how many commits and changes it holds, and whether the file changed)
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { parse, listOf } from './notes.mjs'
+import { parse, listOf, placeOf } from './notes.mjs'
 
 const brain = resolve(process.argv[2] ?? '.')
 if (!existsSync(join(brain, 'BRAIN.md'))) {
@@ -26,11 +26,13 @@ const git = (args, input) => {
 const hasCommits = spawnSync('git', ['-C', brain, 'rev-parse', '--verify', '--quiet', 'HEAD']).status === 0
 const RS = '\x1e', US = '\x1f'
 const log = hasCommits
-  ? git(['log', '--reverse', '--no-merges', '-M', '--name-status', `--format=${RS}%H${US}%aI${US}%an${US}%s`, '--', 'repos', 'shared']).toString('utf8')
+  ? git(['log', '--reverse', '--no-merges', '-M', '--name-status', `--format=${RS}%H${US}%aI${US}%an${US}%s`, '--', 'notes', 'repos', 'shared']).toString('utf8')
   : ''
 
-// A note's file: Markdown under repos/<slug>/ (its explored/ too) or shared/, never a repository's card.
-const isNote = (path) => path.endsWith('.md') && !/^repos\/[^/]+\/REPO\.md$/.test(path) && /^(repos\/[^/]+\/|shared\/)/.test(path)
+// A note's file: an authored or explored note in either layout, never a repository's card.
+const isNote = (path) => path.endsWith('.md') && ['authored', 'explored'].includes(placeOf(path)?.kind)
+// MIGRATE.md's **Notes folder** moves every note from the legacy layout into notes/: the same note, so no activity.
+const isMigration = (from, to) => placeOf(from)?.layout === 'legacy' && placeOf(to)?.layout === 'notes'
 
 const commits = []
 for (const block of log.split(RS).slice(1)) {
@@ -67,13 +69,13 @@ if (wanted.length) {
 
 function meta(path, text) {
   const { fm } = parse(text)
-  const parts = path.split('/')
-  const repos = parts[0] === 'repos' ? [parts[1]] : listOf(fm.repos)
+  const place = placeOf(path)
+  const repos = place?.slug ? [place.slug] : listOf(fm.repos)
   return {
-    note: parts.at(-1).replace(/\.md$/, ''),
+    note: path.split('/').at(-1).replace(/\.md$/, ''),
     type: fm.type || 'other',
     layer: fm.layer || null,
-    kind: fm.explored || parts[2] === 'explored' ? 'explored' : 'authored',
+    kind: fm.explored || place?.kind === 'explored' ? 'explored' : 'authored',
     repos,
     superseded: fm.status === 'superseded',
   }
@@ -82,7 +84,12 @@ function meta(path, text) {
 // The last state each path was seen in, so a deletion keeps its note's type and a supersede shows as one.
 const last = new Map()
 const out = commits.map((c) => {
-  const changes = c.changes.map(({ letter, path, from }) => {
+  const changes = c.changes.flatMap(({ letter, path, from }) => {
+    if (letter === 'R' && isMigration(from, path)) {
+      last.delete(from)
+      last.set(path, meta(path, texts.get(`${c.sha}:${path}`)))
+      return []
+    }
     let m, action
     if (letter === 'D') {
       m = last.get(path) ?? meta(path, '')
@@ -97,11 +104,12 @@ const out = commits.map((c) => {
     }
     const change = { note: m.note, path, action, type: m.type, layer: m.layer, kind: m.kind, repos: m.repos }
     if (from) change.from = from
-    return change
+    return [change]
   })
+  if (!changes.length) return null
   // Seven characters on every clone, whatever its core.abbrev, so every clone writes the same file.
   return { sha: c.sha.slice(0, 7), date: new Date(c.date).toISOString().replace(/\.\d{3}Z$/, 'Z'), author: c.author, title: c.title, changes }
-})
+}).filter(Boolean)
 
 // One commit per line, so a teammate's new commits show as new lines in the diff.
 const json = `{ "version": 1, "commits": [\n${out.map((c) => JSON.stringify(c)).join(',\n')}\n] }\n`

@@ -9,11 +9,11 @@ The shape of the second brain: the team's notes on every repository, shared, and
 ├── BRAIN.md                              ← what the brain is, how to join, the repositories it covers
 ├── .gitignore                            ← holds `.brain/`
 ├── timeline.json                         ← every change to the notes, by **Timeline**
-├── repos/<slug>/
-│   ├── REPO.md                           ← the repository's card
-│   ├── <name>.md                         ← authored notes on one repository
-│   └── explored/<name>.md                ← its explored notes
-├── shared/<name>.md                      ← authored notes spanning several repositories
+├── notes/                                ← every note, and the cards
+│   ├── authored/<name>.md                ← authored notes, each naming its repositories in `repos`
+│   └── repos/<slug>/
+│       ├── REPO.md                       ← the repository's card
+│       └── explored/<name>.md            ← its explored notes
 └── .brain/                                 ← this machine's pipeline work, ignored by git
     ├── drafts/<name>.md                  ← notes waiting for `sync` to consolidate them, by **Drafts**
     ├── links.json                        ← where this machine's clones of the repositories are
@@ -35,6 +35,8 @@ The shape of the second brain: the team's notes on every repository, shared, and
 
 Everything outside `.brain/` is the team's and is committed. `.brain/` is this machine's and never leaves it: what it learns reaches the team only as notes.
 
+A brain without `notes/` has the **legacy layout**: cards and authored notes in `repos/<slug>/`, explored notes in `repos/<slug>/explored/`, and authored notes spanning several repositories in `shared/`. The brain skill's scripts and page read either layout; **Sync** in [SKILL.md](../SKILL.md) moves a legacy brain into `notes/` by [MIGRATE.md](MIGRATE.md)'s **Notes folder**. Until it has, read each path in this reference in its legacy form.
+
 ## The open session
 
 The user works from the brain: it is one of the session's **working directories** (the primary one and the additional ones, as the environment lists them), so nothing records where it is. A folder is **open** when a working directory is that folder or holds it.
@@ -51,7 +53,7 @@ A repository moves through three states, each building on the one before:
 
 | State | Holds when | Enough for |
 |---|---|---|
-| **registered** | the brain holds `repos/<slug>/REPO.md` | its notes, and specs that name it |
+| **registered** | the brain holds `notes/repos/<slug>/REPO.md` | its notes, and specs that name it |
 | **linked** | the brain's `.brain/links.json` names this machine's clone of it | reading its code, by that path |
 | **open** | that clone is open in this session | changing its code: building, fixing, committing |
 
@@ -106,8 +108,8 @@ Otherwise ask the user, listing the registered repositories. Its root comes from
 
 One fact per file. Teammates adding notes at the same time never conflict, and the graph shows one node per fact. A note is one of two kinds:
 
-- **Authored**: what a repository cannot tell by looking, such as the reason behind a choice, a trap, or a contract between two repositories. It lives in `repos/<slug>/` or `shared/`. **Record** in [SKILL.md](../SKILL.md) writes it as a draft, and **Consolidate** there commits it once the user confirms it.
-- **Explored**: what the code does, written for an outsider who never opens it. It lives in `repos/<slug>/explored/`. Only `/brain explore` writes it, by [EXPLORE.md](EXPLORE.md), and its next run rewrites it. Its `explored` line marks it.
+- **Authored**: what a repository cannot tell by looking, such as the reason behind a choice, a trap, or a contract between two repositories. It lives in `notes/authored/`, and its `repos` line names the repositories it bears on. **Record** in [SKILL.md](../SKILL.md) writes it as a draft, and **Consolidate** there commits it once the user confirms it.
+- **Explored**: what the code does, written for an outsider who never opens it. It lives in `notes/repos/<slug>/explored/`, its repository's folder. Only `/brain explore` writes it, by [EXPLORE.md](EXPLORE.md), and its next run rewrites it. Its `explored` line marks it.
 
 ```markdown
 ---
@@ -115,6 +117,7 @@ name: billing-retry-idempotency
 description: Billing retries reuse the charge's idempotency key, so a retried charge never bills twice
 type: how-to
 layer: application
+repos: [billing-api]
 ---
 
 A retried charge sends the first attempt's idempotency key, and the provider answers with the first attempt's result.
@@ -125,11 +128,11 @@ A retried charge sends the first attempt's idempotency key, and the provider ans
 Related: [[invoice-event-contract]]
 ```
 
-- `name`: the file name without `.md`, in kebab-case, unique across the **whole brain** and not only its folder, since `[[name]]` resolves by it here and in Obsidian. Prefix the repo slug when a bare name could clash.
+- `name`: the file name without `.md`, in kebab-case, unique across the **whole brain** and not only its folder, since `[[name]]` resolves by it here and in Obsidian. A note naming one repository starts with its slug, as `billing-api-retry-idempotency`, so a folder listing groups it with its repository; the brain page's graph drops the prefix from the label, since the colour already shows the repository. A note naming several takes no prefix. A new note a link already names keeps that name. `scripts/schema.mjs` warns about a name without its prefix and does not fail on it, since a note's name changes only with every link to it.
 - `description`: one line that stands alone. Recall judges relevance from it without opening the note.
 - `type`: one of the types below.
 - `layer`: `business` or `application`, by **Layers**.
-- `repos`: in `shared/` only, the slugs the note spans, as `[billing-api, web-app]`. A note in `repos/<slug>/` belongs to that slug.
+- `repos`: on authored notes only, required, the registered slugs the note bears on, as `[billing-api]` or `[billing-api, web-app]`: one when the fact is about one repository, each one it holds for when it spans several. Recall finds a note for a repository by this line, so add a slug when another repository comes to rely on the fact. An explored note belongs to the repository whose folder holds it.
 - `explored`: on explored notes only, the short SHA of the commit the note was read at.
 - `aliases`: optional, 3 to 6 other words for the note's subject that its name and description leave out: business wording, the symptom a user reports, and the code's English terms. Recall ranks them like the description, so a search in other words still reaches the note. Write one `  - <alias>` line each under `aliases:`, as Obsidian does, or `[a, b]`.
 - `status` and `supersededBy`: on a superseded `decision` only, `status: superseded` and the name of the decision that replaced it, by **When a note stops being true**.
@@ -140,7 +143,7 @@ Related: [[invoice-event-contract]]
 | `concept` | what a term or entity means and the states it moves through (`business`), or how a part of the system works (`application`). When the repository's `GLOSSARY.md` defines the term, link it and record only what the glossary lacks |
 | `decision` | a choice and its reason: a product choice (`business`) or a technical one (`application`). When the repository keeps ADRs, link the ADR's path and record only what it lacks |
 | `how-to` | what to do about a trap or a recurring task: surprising behaviour, a past incident and its lesson, or a procedure no script or doc in the repository runs |
-| `contract` | an interface between repositories (an API, event, queue or shared schema) with its producer and consumers. Lives in `shared/`; always `application` |
+| `contract` | an interface between repositories (an API, event, queue or shared schema) with its producer and consumers. Its `repos` names at least two; always `application` |
 
 Write the `description` and the body in plain prose, by [PROSE.md](PROSE.md). The body states the fact first. A `decision` or `how-to` follows it with **Why:** and **How to apply:** lines; a procedure's steps follow its **How to apply:** line as a numbered list. Link every note it builds on or bears on with `[[name]]`: each link is an edge in the graph. A link to a note not written yet draws as a dashed node, marking a note worth writing.
 
@@ -168,7 +171,7 @@ The note's type decides, so the brain keeps a past only where the past is knowle
 
 A **draft** is a note this machine learned that the team has not yet seen: one file in `.brain/drafts/`, named `<name>.md` after the note it proposes. **Record** writes it, and **Consolidate** in [SKILL.md](../SKILL.md) turns it into a commit, discards it or keeps it. It holds the note's full text as it would land, by the format above, with two more frontmatter lines, and a third on a `supersede`:
 
-- `target`: the path the note lands at, such as `repos/billing-api/billing-retry-idempotency.md`.
+- `target`: the path the note lands at, such as `notes/authored/billing-retry-idempotency.md`.
 - `action`: `record` for a new note, `update` for a new version of the note at `target`, `supersede` for a new decision replacing another, or `delete` for removing the note at `target`, whose body then holds only the reason.
 - `supersedes`: on a `supersede` only, the name of the decision it replaces.
 
@@ -201,16 +204,16 @@ An explored note is **current** while the repository's default branch still poin
 
 ## Timeline
 
-`timeline.json` at the brain's root holds every committed change to the notes in `repos/` and `shared/`, oldest first, for the brain page's **Activity**. It is committed, so every teammate's page draws the same history. The brain skill's `scripts/timeline.mjs` writes it from the brain's git history alone, so the same history always writes the same file; **Sync** in [SKILL.md](../SKILL.md) runs it.
+`timeline.json` at the brain's root holds every committed change to the notes in `notes/`, oldest first, for the brain page's **Activity**. It is committed, so every teammate's page draws the same history. The brain skill's `scripts/timeline.mjs` writes it from the brain's git history alone, so the same history always writes the same file; **Sync** in [SKILL.md](../SKILL.md) runs it.
 
 ```json
 { "version": 1, "commits": [
   { "sha": "a1b2c3d", "date": "2026-11-07T14:02:11Z", "author": "Ana", "title": "Records the traps behind the invoice rounding bug",
-    "changes": [{ "note": "billing-rounding", "path": "repos/billing-api/billing-rounding.md", "action": "recorded", "type": "how-to", "layer": "application", "kind": "authored", "repos": ["billing-api"] }] }
+    "changes": [{ "note": "billing-rounding", "path": "notes/authored/billing-rounding.md", "action": "recorded", "type": "how-to", "layer": "application", "kind": "authored", "repos": ["billing-api"] }] }
 ] }
 ```
 
-A change's `action` is `recorded`, `updated`, `superseded` (a decision's `status` turned `superseded`), `deleted` or `moved` (git sees the file at a new path, the old one in `from`; `note` is the name at the new path). A commit that changes no note is left out, and so is every card.
+A change's `action` is `recorded`, `updated`, `superseded` (a decision's `status` turned `superseded`), `deleted` or `moved` (git sees the file at a new path, the old one in `from`; `note` is the name at the new path). A commit that changes no note is left out, and so is every card. The move of a legacy brain into `notes/` changes no note, so its renames are left out too.
 
 ## Settings
 

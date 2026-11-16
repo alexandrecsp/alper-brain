@@ -2,7 +2,7 @@
 
 The `link` branch of [`brain`](../SKILL.md): find this machine's clone of each repository the active brain registers, and record its path in the brain's `.brain/links.json`, by [FORMAT.md](FORMAT.md). Linking opens nothing: it tells the pipeline where each clone is, so skills can read it and ask for it to be opened when they change it.
 
-1. **Read the cards.** List every `repos/<slug>/REPO.md` with its `remote`, and the brain's `.brain/links.json`. Drop an entry whose path no longer holds a clone matching its card. Done when every registered repository is marked linked or unlinked.
+1. **Read the cards.** List every `notes/repos/<slug>/REPO.md` with its `remote`, and the brain's `.brain/links.json`. Drop an entry whose path no longer holds a clone matching its card. Done when every registered repository is marked linked or unlinked.
 
 2. **Look for clones.** For each unlinked repository, look in order: the open folders; then the folder holding the brain, and the folders holding the linked clones, each two levels deep, for folders that hold a `.git`. A folder is the repository's clone when it matches the card by FORMAT.md. When two folders match, ask the user which one. Done when every unlinked repository has its clone, or none was found.
 

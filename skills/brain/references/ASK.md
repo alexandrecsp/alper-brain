@@ -2,7 +2,7 @@
 
 The `ask` branch of [`brain`](../SKILL.md): answer a question that crosses repositories, from the active brain's notes and the code of every repository registered in it that the question reaches, then offer what the notes lacked as new notes. [FORMAT.md](FORMAT.md) defines the active brain, registered and linked.
 
-1. **Recall across the brain.** Pull once per conversation, as [RECALL.md](RECALL.md) does. Grep the `description:` lines of every note under `repos/` and `shared/`, and read each note that bears on the question, plus the notes those link to. Done when every note bearing on the question is read.
+1. **Recall across the brain.** Pull once per conversation, as [RECALL.md](RECALL.md) does. Grep the `description:` lines of every note under `notes/`, and read each note that bears on the question, plus the notes those link to. Done when every note bearing on the question is read.
 
 2. **Pick the repositories** the question reaches, by RECALL.md's **Pick the repositories**, from the notes read in step 1. Done when every registered repository is in or out, each with a one-line reason.
 

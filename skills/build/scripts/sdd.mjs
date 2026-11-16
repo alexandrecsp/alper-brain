@@ -650,7 +650,8 @@ export const squash = (path, { title, details = [], key: given }) => {
   if (m.squash) return { sha: m.squash, already: true }
   if (!title) throw new Error('No --title for the squash commit')
   const spec = readSpecLines(specDir)
-  const cardPath = join(brain, 'repos', track, 'REPO.md')
+  // A brain keeps its cards in notes/repos/ once MIGRATE.md's **Notes folder** has run, in repos/ before.
+  const cardPath = join(brain, ...(existsSync(join(brain, 'notes')) ? ['notes', 'repos'] : ['repos']), track, 'REPO.md')
   const key = commitKey(given ?? spec.key, track, existsSync(cardPath) ? read(cardPath) : null)
   const subject = key ? `${key}: ${title}` : title
   if (subject.length > 72) throw new Error(`The subject is ${subject.length} characters; the commit skill allows 72: ${subject}`)

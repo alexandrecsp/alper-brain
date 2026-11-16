@@ -241,7 +241,12 @@ const App = (function () {
     if (key) return md.slice(0, key.index + key[0].length) + '\n\n' + line + md.slice(key.index + key[0].length);
     const h = /^# .*$/m.exec(md); return h ? md.slice(0, h.index + h[0].length) + '\n\n' + line + md.slice(h.index + h[0].length) : line + '\n\n' + md;
   };
-  const draftNote = ({ name, where, type, layer, description, repos, body }) => `---\nname: ${name}\ndescription: ${description}\ntype: ${type}\nlayer: ${layer}\n${where === 'shared' ? `repos: [${repos.join(', ')}]\n` : ''}target: ${where === 'shared' ? 'shared' : 'repos/' + where}/${name}.md\naction: record\n---\n\n${body.trim()}\n`;
+  // A draft lands in notes/authored/ with its repos line; a legacy brain puts a one-repository note in repos/<slug>/ instead.
+  const draftNote = ({ name, type, layer, description, repos, body }, layout) => {
+    const own = layout === 'legacy' && repos.length === 1;
+    const target = layout === 'notes' ? `notes/authored/${name}.md` : own ? `repos/${repos[0]}/${name}.md` : `shared/${name}.md`;
+    return `---\nname: ${name}\ndescription: ${description}\ntype: ${type}\nlayer: ${layer}\n${own ? '' : `repos: [${repos.join(', ')}]\n`}target: ${target}\naction: record\n---\n\n${body.trim()}\n`;
+  };
   async function save(path, change, done) {
     try { await S.io.edit(path, change); toast(done); } catch (e) { toast('Not saved: ' + (e.message || e)); }
   }
@@ -272,9 +277,8 @@ const App = (function () {
     const repos = S.D.repos.map((r) => r.slug), opt = (v, l = v) => `<option value="${esc(v)}">${esc(l)}</option>`, sel = (attr, opts) => `<select ${attr} class="${INPUT}" ${inputStyle}>${opts}</select>`;
     const backRepo = S.D.notes.find((x) => x.links.includes(id))?.repos[0];
     return sec('Draft it here', `<div class="space-y-2.5" data-draft="${esc(id)}">
-      <div class="grid grid-cols-3 gap-2">${field('Where', sel('data-where', [...repos.map((r) => `<option value="${esc(r)}" ${r === backRepo ? 'selected' : ''}>${esc(r)}</option>`), opt('shared', 'shared (several repos)')].join('')))}
-        ${field('Type', sel('data-type', ['concept', 'decision', 'how-to', 'contract'].map((t) => opt(t)).join('')))}${field('Layer', sel('data-layer', opt('application') + opt('business')))}</div>
-      ${field('Repos (shared only)', `<input data-repos placeholder="billing-api, web-app" class="${INPUT}" ${inputStyle}>`)}
+      <div class="grid grid-cols-2 gap-2">${field('Type', sel('data-type', ['concept', 'decision', 'how-to', 'contract'].map((t) => opt(t)).join('')))}${field('Layer', sel('data-layer', opt('application') + opt('business')))}</div>
+      ${field('Repos', `<input data-repos value="${esc(backRepo || '')}" placeholder="${esc(repos.slice(0, 2).join(', ') || 'billing-api, web-app')}" class="${INPUT}" ${inputStyle}>`)}
       ${field('Description', `<input data-description placeholder="One line that stands alone" class="${INPUT}" ${inputStyle}>`)}
       ${field('Body', `<textarea data-body rows="6" placeholder="The fact first. A decision or how-to adds **Why:** and **How to apply:** lines." class="${INPUT}" ${inputStyle}></textarea>`)}
       <div class="flex flex-wrap items-center gap-2"><button class="btn btn-accent text-[12px]" data-draft-save="${esc(id)}">Save the draft</button><span class="faint text-[11.5px]">into .brain/drafts/ · /brain sync shares it</span></div>
@@ -300,11 +304,13 @@ const App = (function () {
     }
     if (t.dataset.draftSave) {
       const f = document.querySelector('#insp [data-draft]'), v = (k) => f.querySelector(`[data-${k}]`).value.trim();
-      const d = { name: t.dataset.draftSave, where: v('where'), type: v('type'), layer: v('layer'), description: v('description'), body: v('body'), repos: v('repos').split(',').map((x) => x.trim()).filter(Boolean) };
+      const d = { name: t.dataset.draftSave, type: v('type'), layer: v('layer'), description: v('description'), body: v('body'), repos: v('repos').split(',').map((x) => x.trim()).filter(Boolean) };
       if (!d.description || !d.body) return toast('A draft needs its description and body');
-      if (d.type === 'contract' && d.where !== 'shared') return toast('A contract lives in shared: pick shared and name its repos');
-      if (d.where === 'shared' && d.repos.length < 2) return toast('A shared note names the repos it spans, at least two');
-      return save(`.brain/drafts/${d.name}.md`, (old) => { if (old != null) throw new Error('a draft of that name already exists'); return draftNote(d); }, `Drafted ${d.name}: /brain sync shares it`);
+      if (!d.repos.length) return toast('A draft names the repos it bears on');
+      const unknown = d.repos.find((r) => !S.D.repos.some((x) => x.slug === r));
+      if (unknown) return toast(`${unknown} is not a registered repository`);
+      if (d.type === 'contract' && d.repos.length < 2) return toast('A contract names at least two repos: its producer and a consumer');
+      return save(`.brain/drafts/${d.name}.md`, (old) => { if (old != null) throw new Error('a draft of that name already exists'); return draftNote(d, S.D.layout); }, `Drafted ${d.name}: /brain sync shares it`);
     }
   }
 
@@ -1315,7 +1321,7 @@ const sub = async (dir, ...names) => { for (const n of names) dir = await dir.ge
 const text = async (dir, name) => (await (await dir.getFileHandle(name)).getFile()).text();
 
 // Re-reads one brain and sets its status: 'ok', 'denied' (read permission not granted) or 'missing' (no BRAIN.md at its
-// root). Its files are the specs under .brain/specs, the notes and cards under repos/ and shared/, this machine's drafts
+// root). Its files are the specs under .brain/specs, the notes and cards under notes/ (or the legacy repos/ and shared/), this machine's drafts
 // under .brain/drafts, and timeline.json and .brain/links.json. Returns whether its status or files changed.
 async function readBrain(b) {
   const before = b.status;
@@ -1325,7 +1331,7 @@ async function readBrain(b) {
     else {
       await b.handle.getFileHandle('BRAIN.md');
       try { await walk(await sub(b.handle, '.brain', 'specs'), '.brain/specs/', files); } catch {}
-      for (const top of ['repos', 'shared']) { try { await walk(await sub(b.handle, top), top + '/', files); } catch {} }
+      for (const top of ['notes', 'repos', 'shared']) { try { await walk(await sub(b.handle, top), top + '/', files); } catch {} }
       try { await walk(await sub(b.handle, '.brain', 'drafts'), '.brain/drafts/', files); } catch {}
       try { files.set('timeline.json', await text(b.handle, 'timeline.json')); } catch {}
       try { files.set('.brain/links.json', await text(await sub(b.handle, '.brain'), 'links.json')); } catch {}
@@ -1364,35 +1370,53 @@ const ticketsStatus = (ts) => (!ts.length ? 'draft' : ts.every((t) => t.status =
   : ts.some((t) => t.status === 'doing' || t.status === 'done') ? 'active' : 'ready');
 const WIKI = /\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]/g;
 
+// Where a path sits, as notes.mjs's placeOf reads it: an authored note, an explored note or a card, with the repository
+// its folder names, in the notes/ layout or the legacy repos/ and shared/ one.
+function placeOf(path) {
+  const p = path.split('/');
+  if (p[0] === 'notes') {
+    if (p[1] === 'authored' && p.length === 3) return { kind: 'authored', slug: null, layout: 'notes' };
+    if (p[1] === 'repos' && p.length === 4 && p[3] === 'REPO.md') return { kind: 'card', slug: p[2], layout: 'notes' };
+    if (p[1] === 'repos' && p.length === 5 && p[3] === 'explored') return { kind: 'explored', slug: p[2], layout: 'notes' };
+    return null;
+  }
+  if (p[0] === 'shared' && p.length === 2) return { kind: 'authored', slug: null, layout: 'legacy' };
+  if (p[0] === 'repos' && p.length === 3) return { kind: p[2] === 'REPO.md' ? 'card' : 'authored', slug: p[1], layout: 'legacy' };
+  if (p[0] === 'repos' && p.length === 4 && p[2] === 'explored') return { kind: 'explored', slug: p[1], layout: 'legacy' };
+  return null;
+}
+
 function toData(name, files) {
   const read = (p) => files.get(p);
-  const paths = [...files.keys()];
+  // a brain that holds notes/ reads only it, as notes.mjs's loadBrain does
+  const layout = [...files.keys()].some((p) => p.startsWith('notes/')) ? 'notes' : 'legacy';
+  const paths = [...files.keys()].filter((p) => { const at = placeOf(p); return !at || at.layout === layout; });
   // repositories: one per card
   let links = {};
   try { links = JSON.parse(read('.brain/links.json') || '{}'); } catch {}
-  const repos = paths.filter((p) => /^repos\/[^/]+\/REPO\.md$/.test(p)).sort().map((p) => {
-    const slug = p.split('/')[1], { fm, body } = front(read(p));
+  const repos = paths.filter((p) => placeOf(p)?.kind === 'card').sort().map((p) => {
+    const slug = placeOf(p).slug, { fm, body } = front(read(p));
     return { slug, remote: fm.remote, explored: fm.explored || null, summary: body.trim(), linked: !!links[slug] };
   });
   // notes: a draft is read as the note it would land as, at its target; one that changes a committed note marks it
   const noteOf = (file, draft) => {
     const { fm, body } = front(read(file));
     const path = draft ? fm.target : file;
-    if (!path || /\/REPO\.md$/.test(path)) return null;
-    const parts = path.split('/');
-    if (parts[0] === 'repos' && parts.length < 3) return null;
-    const id = parts.at(-1).replace(/\.md$/, '');
+    const at = path ? placeOf(path) : null;
+    if (!at || at.kind === 'card') return null;
+    const id = path.split('/').at(-1).replace(/\.md$/, '');
+    const repos = at.slug ? [at.slug] : (fm.repos || '').replace(/^\[|\]$/g, '').split(',').map((s) => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
     return {
       id, path, type: fm.type || 'other', layer: fm.layer || null, description: fm.description || '', body: body.trim(),
-      repos: parts[0] === 'repos' ? [parts[1]] : (fm.repos || '').replace(/^\[|\]$/g, '').split(',').map((s) => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean),
-      shared: parts[0] === 'shared', kind: parts.includes('explored') ? 'explored' : 'authored', explored: fm.explored || null,
+      // shared: an authored note bearing on several repositories
+      repos, shared: at.kind === 'authored' && repos.length > 1, kind: at.kind, explored: fm.explored || null,
       links: [...new Set([...body.matchAll(WIKI)].map((x) => x[1].trim()))].filter((l) => l !== id),
       superseded: fm.status === 'superseded', supersededBy: fm.supersededBy || null,
       draft: draft ? fm.action || 'record' : null, supersedes: fm.supersedes || null,
     };
   };
   const notes = new Map();
-  for (const p of paths.filter((p) => /^(repos|shared)\/.*\.md$/.test(p))) { const n = noteOf(p, false); if (n && !notes.has(n.id)) notes.set(n.id, n); }
+  for (const p of paths.filter((p) => ['authored', 'explored'].includes(placeOf(p)?.kind))) { const n = noteOf(p, false); if (n && !notes.has(n.id)) notes.set(n.id, n); }
   for (const p of paths.filter((p) => p.startsWith('.brain/drafts/'))) {
     const d = noteOf(p, true); if (!d) continue;
     const own = notes.get(d.id);
@@ -1503,7 +1527,7 @@ function toData(name, files) {
     }
     if (s.status === 'ready' && s.milestones.some((m) => m.status === 'frontier')) s.status = 'frontier';
   }
-  return { name, repos, notes: [...notes.values()], ghosts, timeline, specs };
+  return { name, layout, repos, notes: [...notes.values()], ghosts, timeline, specs };
 }
 
 // ---------- the brain list ----------

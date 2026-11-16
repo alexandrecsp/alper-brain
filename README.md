@@ -16,8 +16,8 @@ The skills then show up as `/alper-brain:<name>`. Below they are written by thei
 ```
 ~/brains/acme/                   ← the brain: launch Claude here
 ├── BRAIN.md                       what it is, how to join, the repositories it covers
-├── repos/billing-api/             team notes on one repository, beside its REPO.md card
-├── shared/                        notes spanning several (contracts between repositories)
+├── notes/authored/                team notes, each naming the repositories it bears on
+├── notes/repos/billing-api/       a repository's REPO.md card, and what its code does in explored/
 └── .brain/                          this machine's pipeline work, ignored by git
     ├── links.json                 where each repository is cloned here
     ├── config.json                this machine's limits, such as how many tracks build at once

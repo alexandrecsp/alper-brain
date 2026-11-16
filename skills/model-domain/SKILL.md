@@ -61,7 +61,7 @@ When this skill runs beside `brainstorm`, the brainstorm drives: its rounds, pha
 - Read the domain docs of every repository the topic touches alongside `What · Round 1`. They include the brain's recall, so they stand in for brainstorm's own.
 - Each challenge (a conflicting or fuzzy term, an edge-case scenario) enters the current round as a frontier question. Across repositories, challenge a word with two meanings only where the design carries the concept across that boundary, and ask which meaning the contract carries.
 - A claim about how the code works is a fact, checked by brainstorm's **Facts and Decisions**; each contradiction enters the next round as a frontier question.
-- A settled decision that passes the three tests enters the next round as a frontier question, naming where it would go: a repository's `docs/adr/`, a context's, or a `shared/` decision note. Recommend yes or no.
+- A settled decision that passes the three tests enters the next round as a frontier question, naming where it would go: a repository's `docs/adr/`, a context's, or a brain `decision` note whose `repos` names several repositories. Recommend yes or no.
 - Each phase summary ends with **Domain docs**: per repository, the terms written, the ADRs written or declined, and the pending writes with what they wait on; cross-repository terms and decisions under the brain.
 
 ## Done

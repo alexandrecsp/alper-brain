@@ -10,7 +10,7 @@
 //      node recall.mjs <brain> --legacy   (lists the notes FORMAT.md's types and layers do not yet describe)
 import { readFileSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { TYPES, LAYERS, loadBrain, parse } from './notes.mjs'
+import { TYPES, LAYERS, cardOf, loadBrain, parse } from './notes.mjs'
 
 // ---- Arguments
 
@@ -159,7 +159,7 @@ const out = [`brain: ${brain.replace(/\\/g, '/')}`]
 if (!opts.repos.length) {
   out.push('cards:')
   for (const s of slugs) {
-    const { body } = parse(readFileSync(join(brain, 'repos', s, 'REPO.md'), 'utf8'))
+    const { body } = parse(readFileSync(join(brain, cardOf(brain, s)), 'utf8'))
     const summary = body.split('\n').find((l) => l.trim()) ?? ''
     out.push(`  ${s} · ${summary.length > 200 ? `${summary.slice(0, 200)}…` : summary}`)
   }

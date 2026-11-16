@@ -18,8 +18,8 @@ ms="$spec/milestones/demo/001-greeting"
 # The brain.
 printf '# Second brain\n\nEval brain.\n\n## Repositories\n\n- demo: prints a greeting\n' > BRAIN.md
 printf '.brain/\nclones/\n' > .gitignore
-mkdir -p repos/demo shared
-cat > repos/demo/REPO.md <<'EOF'
+mkdir -p notes/repos/demo notes/authored
+cat > notes/repos/demo/REPO.md <<'EOF'
 ---
 slug: demo
 remote: local only

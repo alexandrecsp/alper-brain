@@ -22,7 +22,7 @@ One sentence: **knowledge is shared, work stays local, and both live in the brai
 | | Today | Proposed |
 |---|---|---|
 | Notes (feature, concept, decision, how-to, contract) | brain, committed | brain, committed (unchanged) |
-| Commit key pattern | `.sdd/settings.json` in each repo, local | brain `repos/<slug>/REPO.md`, committed |
+| Commit key pattern | `.sdd/settings.json` in each repo, local | brain `notes/repos/<slug>/REPO.md`, committed |
 | Specs, milestones, tickets, reviews | `.sdd/specs/` in each repo, local | brain `.sdd/specs/`, local |
 | Research, onboarding tours, refactor reports | `.sdd/` in each repo, local | brain `.sdd/`, local |
 | Brains on this machine | one, at `~/.alper/brain.json` → `path` | any number, one per knowledge base, each with its own notes, remote and `.sdd/`. Found by being open, so no path file |

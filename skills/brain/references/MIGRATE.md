@@ -53,9 +53,19 @@ Move a spec's waits on other tracks from its tickets onto its milestones, by FOR
 
 For each entry, write its `buildsAfter` ids into the milestone's **Builds after** line, creating it under **Done when**, above any **Lands after**, then remove every entry that names another track's ticket from its tickets' **Depends on**, leaving "None" where nothing stays. Done when `sdd state` prints no `migrate`.
 
+## Notes folder
+
+Move a brain in FORMAT.md's legacy layout into `notes/`, by its **Layout**. **Sync** in [SKILL.md](../SKILL.md) runs this after its pull, once the user agrees, since every teammate pulls the move. It is one commit of its own: a run that stopped before the commit picks up by running it again, since a moved file is no longer at its old path.
+
+1. **Check the names.** Run `node <the brain skill's folder>/scripts/schema.mjs <brain>`. A name taken twice would land two notes on one path: when it reports one, rename one of the two with the user, and its links with it, before going on. Done when the schema reports no name taken twice.
+2. **Move the cards and explored notes.** For each slug, `git -C <brain> mv repos/<slug>/REPO.md notes/repos/<slug>/REPO.md`, and `git -C <brain> mv` each note in `repos/<slug>/explored/`, and each note straight under `repos/<slug>/` whose frontmatter has an `explored` line, to `notes/repos/<slug>/explored/<name>.md`. Create each folder first. Done when `repos/` holds no card and no explored note.
+3. **Move the authored notes.** `git -C <brain> mv` each remaining note straight under `repos/<slug>/` to `notes/authored/<name>.md`, and add `repos: [<slug>]` under its `layer` line. `git -C <brain> mv` each note in `shared/` to `notes/authored/<name>.md`; it keeps its `repos`. Links resolve by name, so no body changes. Done when `repos/` and `shared/` hold no note.
+4. **Retarget the drafts.** In each draft in `.brain/drafts/`, rewrite a `target` naming a legacy path to the path step 2 or 3 gave its note, and add `repos: [<slug>]` to a draft that was bound for `repos/<slug>/`. Done when no draft's `target` names `repos/` or `shared/`.
+5. **Commit.** Delete `repos/` and `shared/`, their `.gitkeep` files with them, add `notes/authored/.gitkeep`, and stage every path. Commit as `Moves notes into notes/`, with the keyless title by the `commit` skill's format. Done when `node <the brain skill's folder>/scripts/schema.mjs <brain>` prints `schema: ok` (its warnings about a name without its repository's prefix stay: the move renames no note), `git -C <brain> status --porcelain` lists nothing outside `.brain/`, and no `repos/` or `shared/` folder is left.
+
 ## Explored notes
 
-Move a repository's explored notes from beside its authored ones into `repos/<slug>/explored/`, by FORMAT.md's **Layout**. [EXPLORE.md](EXPLORE.md)'s **Commit** runs this for each repository it explores, inside its own commit; a run that stopped halfway picks up by running it again, since a moved note is no longer outside.
+In a legacy brain, move a repository's explored notes from beside its authored ones into `repos/<slug>/explored/`, by FORMAT.md's **Layout**; a brain in `notes/` has none beside them, so this finds nothing there. [EXPLORE.md](EXPLORE.md)'s **Commit** runs this for each repository it explores, inside its own commit; a run that stopped halfway picks up by running it again, since a moved note is no longer outside.
 
 1. **Find them.** List each note straight under `repos/<slug>/`, other than `REPO.md`, whose frontmatter has an `explored` line. Done when every such note is listed.
 2. **Move them.** Create `repos/<slug>/explored/` when it is missing, then run `git -C <brain> mv repos/<slug>/<name>.md repos/<slug>/explored/<name>.md` for each. Links resolve by name, so no note changes. Done when no note straight under `repos/<slug>/` has an `explored` line.

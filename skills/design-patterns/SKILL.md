@@ -24,7 +24,7 @@ Wherever a pattern choice is written down, record it as Pattern, Where and Why, 
 |---|---|---|
 | Strategy | `billing-api` · pricing rules in the Order intake module | Three pricing schemes vary per Customer |
 
-A spec's rows stay on this machine. A choice the next change must repeat outlives it as a brain note, recorded through the `brain` skill: in the `contract` note when it is about one contract (how it is versioned, delivered or deduplicated), as a `decision` note in `shared/` with its `repos` when it spans repositories otherwise, and in the repository's ADR, linked from a `decision` note, when it stays inside one repository that keeps ADRs.
+A spec's rows stay on this machine. A choice the next change must repeat outlives it as a brain note, recorded through the `brain` skill: in the `contract` note when it is about one contract (how it is versioned, delivered or deduplicated), as a `decision` note whose `repos` names each repository when it spans repositories otherwise, and in the repository's ADR, linked from a `decision` note, when it stays inside one repository that keeps ADRs.
 
 ## Catalogue
 
