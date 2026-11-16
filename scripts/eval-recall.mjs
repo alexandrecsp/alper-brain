@@ -4,7 +4,7 @@
 // Run: node scripts/eval-recall.mjs <brain> <queries.json> [--setup <name>]... [--top <n>] [--verbose] [--json <out.json>]
 //
 // queries.json holds [{ "id", "query", "expect": ["note-name", ...], "kind"?, "phrasings"?: ["...", ...] }].
-// Keep it beside the brain it labels (in its .sdd/), never in this repository, since it names the brain's notes.
+// Keep it beside the brain it labels (in its .brain/), never in this repository, since it names the brain's notes.
 // Write the phrasings blind: from the query and the repository cards, never from the expected notes.
 //
 // A query counts a note as found at k when the note is among the first k of recall's `notes:` section, or in its

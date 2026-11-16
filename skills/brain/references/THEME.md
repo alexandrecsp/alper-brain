@@ -1,6 +1,6 @@
 # Report theme
 
-The look shared by every HTML report a skill writes into `.sdd/`, the brain page's ([brain.html](../brain.html)): neutral grey surfaces, dark only, **sharp edges** (no rounded corners), **light headers** (weight 300), mono uppercase eyebrows, and colour that means something (a status, a strength, a leak), never decoration. This file holds the reports' components; when it and the brain page disagree, the page wins.
+The look shared by every HTML report a skill writes into `.brain/`, the brain page's ([brain.html](../brain.html)): neutral grey surfaces, dark only, **sharp edges** (no rounded corners), **light headers** (weight 300), mono uppercase eyebrows, and colour that means something (a status, a strength, a leak), never decoration. This file holds the reports' components; when it and the brain page disagree, the page wins.
 
 A report is one self-contained file. Tailwind, the fonts and Mermaid come from CDNs; everything else is inline and static. The report's own reference fills each `{{slot}}` below, and names colours by the tokens in the scaffold's `:root`.
 

@@ -5,7 +5,7 @@
 //   node sdd.mjs state <spec-id|spec-folder> [--brain <brain>] [--no-git]
 //     Prints the spec as JSON: its lines, its dependencies, the cap, and per track its milestones with each one's
 //     state (open, unlanded, landed), the step it resumes at, whether it is ready or landable, the frontier a call
-//     builds, and, read from git through .sdd/links.json, whether its branch exists and the repository is clean.
+//     builds, and, read from git through .brain/links.json, whether its branch exists and the repository is clean.
 //   node sdd.mjs brief <ticket-file> [--no-git]
 //     Prints, as Markdown, what the ticket's builder needs from around it: its milestone's lines, the Notes and
 //     changed files of each earlier ticket of its milestone and each ticket its Depends on names, and each
@@ -77,14 +77,14 @@ const read = (p) => readFileSync(p, 'utf8')
 const dirs = (p) => (existsSync(p) ? readdirSync(p).filter((n) => statSync(join(p, n)).isDirectory()).sort() : [])
 const numbered = (n) => /^\d{3}/.test(n)
 
-/** The spec folder a spec id names under <brain>/.sdd/specs, by SPEC-ID.md. */
+/** The spec folder a spec id names under <brain>/.brain/specs, by SPEC-ID.md. */
 export const resolveSpec = (arg, brain) => {
   const asPath = resolve(arg)
   if (existsSync(join(asPath, 'spec.md'))) return asPath
   const m = /^s?(\d+)/i.exec(basename(arg.replace(/[\\/]+$/, '')))
   if (!m) throw new Error(`Not a spec id or spec folder: ${arg}`)
   const nnn = m[1].padStart(3, '0')
-  const root = join(brain, '.sdd', 'specs')
+  const root = join(brain, '.brain', 'specs')
   const found = dirs(root).filter((n) => n.startsWith(nnn))
   if (found.length !== 1) throw new Error(`${found.length ? 'Several spec folders' : 'No spec folder'} for ${arg} under ${root}${found.length ? `: ${found.join(', ')}` : ''}`)
   return join(root, found[0])
@@ -159,7 +159,7 @@ const readSpecLines = (specDir) => {
 
 /** The `parallelAgents` setting by FORMAT.md's **Settings**: { cap, problem }. */
 export const readCap = (brain) => {
-  const path = join(brain, '.sdd', 'config.json')
+  const path = join(brain, '.brain', 'config.json')
   if (!existsSync(path)) return { cap: DEFAULT_CAP }
   let cfg
   try { cfg = JSON.parse(read(path)) } catch { return { cap: DEFAULT_CAP, problem: `${path} does not parse as JSON` } }
@@ -170,7 +170,7 @@ export const readCap = (brain) => {
 }
 
 const readLinks = (brain) => {
-  const path = join(brain, '.sdd', 'links.json')
+  const path = join(brain, '.brain', 'links.json')
   if (!existsSync(path)) return {}
   try { return JSON.parse(read(path)) } catch { return {} }
 }

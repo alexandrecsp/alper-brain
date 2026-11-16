@@ -1,5 +1,5 @@
-// Reading the files write-tickets writes into the brain's .sdd/ and /build updates:
-// .sdd/specs/NNN-<spec>/milestones/<repo>/NNN-<milestone>/{milestone.md, review.md, NNN-<ticket>.md}
+// Reading the files write-tickets writes into the brain's .brain/ and /build updates:
+// .brain/specs/NNN-<spec>/milestones/<repo>/NNN-<milestone>/{milestone.md, review.md, NNN-<ticket>.md}
 // A spec ticketed before tracks has no <repo> folder: its milestones sit straight under milestones/.
 
 import type { Build, Findings, Job, TrackState } from '../types'
@@ -17,7 +17,7 @@ export type SddRef = {
 
 // A track folder is a repo slug, so it never starts with a milestone's three digits.
 const SDD_PATH =
-  /((?:[A-Za-z]:)?[\\/][^\s`'"()<>]*?[\\/])?\.sdd[\\/]specs[\\/](\d{3}[\w.-]*)[\\/]milestones[\\/](?:((?!\d{3})[\w.-]+)[\\/])?(\d{3}[\w.-]*)(?:[\\/](?:(\d{3})[\w.-]*\.md|(review)\.md))?/g
+  /((?:[A-Za-z]:)?[\\/][^\s`'"()<>]*?[\\/])?\.brain[\\/]specs[\\/](\d{3}[\w.-]*)[\\/]milestones[\\/](?:((?!\d{3})[\w.-]+)[\\/])?(\d{3}[\w.-]*)(?:[\\/](?:(\d{3})[\w.-]*\.md|(review)\.md))?/g
 
 /**
  * The milestone a text points into, preferring a path that names a ticket,
@@ -31,7 +31,7 @@ export const findRef = (text: string, cwd: string): SddRef | undefined => {
   const prefix = (best[1] ?? `${cwd}/`).replace(/\\/g, '/').replace(/\/*$/, '/')
 
   return {
-    root: `${prefix}.sdd/specs`,
+    root: `${prefix}.brain/specs`,
     spec: best[2] ?? '',
     track: best[3],
     milestone: best[4] ?? '',

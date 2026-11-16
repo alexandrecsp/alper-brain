@@ -46,7 +46,7 @@ export const describe = (tool: string, args: Record<string, unknown>) => {
   return key === undefined ? tool : `${tool} ${String(args[key])}`
 }
 
-/** The arguments of a tool call that name files, joined, for finding .sdd paths. */
+/** The arguments of a tool call that name files, joined, for finding .brain paths. */
 export const pathArgs = (args: Record<string, unknown>) =>
   ['file_path', 'path', 'command', 'pattern', 'notebook_path']
     .map(k => args[k])

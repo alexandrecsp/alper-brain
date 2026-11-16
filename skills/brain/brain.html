@@ -219,7 +219,7 @@ const App = (function () {
 
   // ============================================================ actions
   // The page writes only what the plugin's files already define: an escalated finding's Answer line (build's step 7),
-  // a draft note in .sdd/drafts/ (FORMAT.md's Drafts) and a spec's Abandoned line (under its Key line, by
+  // a draft note in .brain/drafts/ (FORMAT.md's Drafts) and a spec's Abandoned line (under its Key line, by
   // write-spec's IN-FLIGHT.md). Each write re-reads the file from disk first, so it keeps what a running build wrote
   // since the page last read it. Everything else is a command to copy into Claude Code.
   const FINDING_LINE = /^\s*(?:[-*]\s+|#{1,4}\s+)?(?:\*\*)?(?:ST|SP|CN)\d+\b/;
@@ -277,7 +277,7 @@ const App = (function () {
       ${field('Repos (shared only)', `<input data-repos placeholder="billing-api, web-app" class="${INPUT}" ${inputStyle}>`)}
       ${field('Description', `<input data-description placeholder="One line that stands alone" class="${INPUT}" ${inputStyle}>`)}
       ${field('Body', `<textarea data-body rows="6" placeholder="The fact first. A decision or how-to adds **Why:** and **How to apply:** lines." class="${INPUT}" ${inputStyle}></textarea>`)}
-      <div class="flex flex-wrap items-center gap-2"><button class="btn btn-accent text-[12px]" data-draft-save="${esc(id)}">Save the draft</button><span class="faint text-[11.5px]">into .sdd/drafts/ · /brain sync shares it</span></div>
+      <div class="flex flex-wrap items-center gap-2"><button class="btn btn-accent text-[12px]" data-draft-save="${esc(id)}">Save the draft</button><span class="faint text-[11.5px]">into .brain/drafts/ · /brain sync shares it</span></div>
       <div class="faint pt-1 text-[11.5px]">Or let Claude write it: ${ui.copyBtn(`/brain remember ${id}`)}</div></div>`);
   }
   // reads a form's values and writes the file; a missing value stops it with a toast
@@ -304,7 +304,7 @@ const App = (function () {
       if (!d.description || !d.body) return toast('A draft needs its description and body');
       if (d.type === 'contract' && d.where !== 'shared') return toast('A contract lives in shared: pick shared and name its repos');
       if (d.where === 'shared' && d.repos.length < 2) return toast('A shared note names the repos it spans, at least two');
-      return save(`.sdd/drafts/${d.name}.md`, (old) => { if (old != null) throw new Error('a draft of that name already exists'); return draftNote(d); }, `Drafted ${d.name}: /brain sync shares it`);
+      return save(`.brain/drafts/${d.name}.md`, (old) => { if (old != null) throw new Error('a draft of that name already exists'); return draftNote(d); }, `Drafted ${d.name}: /brain sync shares it`);
     }
   }
 
@@ -1241,8 +1241,8 @@ const sub = async (dir, ...names) => { for (const n of names) dir = await dir.ge
 const text = async (dir, name) => (await (await dir.getFileHandle(name)).getFile()).text();
 
 // Re-reads one brain and sets its status: 'ok', 'denied' (read permission not granted) or 'missing' (no BRAIN.md at its
-// root). Its files are the specs under .sdd/specs, the notes and cards under repos/ and shared/, this machine's drafts
-// under .sdd/drafts, and timeline.json and .sdd/links.json. Returns whether its status or files changed.
+// root). Its files are the specs under .brain/specs, the notes and cards under repos/ and shared/, this machine's drafts
+// under .brain/drafts, and timeline.json and .brain/links.json. Returns whether its status or files changed.
 async function readBrain(b) {
   const before = b.status;
   const files = new Map();
@@ -1250,11 +1250,11 @@ async function readBrain(b) {
     if ((await b.handle.queryPermission({ mode: 'read' })) !== 'granted') b.status = 'denied';
     else {
       await b.handle.getFileHandle('BRAIN.md');
-      try { await walk(await sub(b.handle, '.sdd', 'specs'), '.sdd/specs/', files); } catch {}
+      try { await walk(await sub(b.handle, '.brain', 'specs'), '.brain/specs/', files); } catch {}
       for (const top of ['repos', 'shared']) { try { await walk(await sub(b.handle, top), top + '/', files); } catch {} }
-      try { await walk(await sub(b.handle, '.sdd', 'drafts'), '.sdd/drafts/', files); } catch {}
+      try { await walk(await sub(b.handle, '.brain', 'drafts'), '.brain/drafts/', files); } catch {}
       try { files.set('timeline.json', await text(b.handle, 'timeline.json')); } catch {}
-      try { files.set('.sdd/links.json', await text(await sub(b.handle, '.sdd'), 'links.json')); } catch {}
+      try { files.set('.brain/links.json', await text(await sub(b.handle, '.brain'), 'links.json')); } catch {}
       b.status = 'ok';
     }
   } catch { b.status = 'missing'; }
@@ -1295,7 +1295,7 @@ function toData(name, files) {
   const paths = [...files.keys()];
   // repositories: one per card
   let links = {};
-  try { links = JSON.parse(read('.sdd/links.json') || '{}'); } catch {}
+  try { links = JSON.parse(read('.brain/links.json') || '{}'); } catch {}
   const repos = paths.filter((p) => /^repos\/[^/]+\/REPO\.md$/.test(p)).sort().map((p) => {
     const slug = p.split('/')[1], { fm, body } = front(read(p));
     return { slug, remote: fm.remote, explored: fm.explored || null, summary: body.trim(), linked: !!links[slug] };
@@ -1319,7 +1319,7 @@ function toData(name, files) {
   };
   const notes = new Map();
   for (const p of paths.filter((p) => /^(repos|shared)\/.*\.md$/.test(p))) { const n = noteOf(p, false); if (n && !notes.has(n.id)) notes.set(n.id, n); }
-  for (const p of paths.filter((p) => p.startsWith('.sdd/drafts/'))) {
+  for (const p of paths.filter((p) => p.startsWith('.brain/drafts/'))) {
     const d = noteOf(p, true); if (!d) continue;
     const own = notes.get(d.id);
     if (own) { own.pending = d.draft; own.pendingBody = d.body; own.pendingDescription = d.description; }
@@ -1330,21 +1330,21 @@ function toData(name, files) {
   let timeline = { commits: [] };
   try { const t = JSON.parse(read('timeline.json') || '{}'); if (Array.isArray(t.commits)) timeline = { commits: t.commits.map((c) => ({ ...c, changes: Array.isArray(c.changes) ? c.changes : [] })) }; } catch {}
 
-  // specs: .sdd/specs/<spec>/spec.md, and its milestones in one track per repository (milestones/<slug>/NNN-*/), or,
+  // specs: .brain/specs/<spec>/spec.md, and its milestones in one track per repository (milestones/<slug>/NNN-*/), or,
   // ticketed before tracks, straight under milestones/ with a Repo line each (the flat layout)
   const byDir = new Map();
-  for (const p of paths.filter((p) => p.startsWith('.sdd/specs/'))) {
-    const parts = p.slice('.sdd/specs/'.length).split('/');
+  for (const p of paths.filter((p) => p.startsWith('.brain/specs/'))) {
+    const parts = p.slice('.brain/specs/'.length).split('/');
     if (!numOf(parts[0])) continue;
     if (!byDir.has(parts[0])) byDir.set(parts[0], []);
     byDir.get(parts[0]).push(parts);
   }
   const list = (v) => (v || '').split(/[,;]/).map((s) => s.replace(/[`\s]/g, '')).filter(Boolean);
   const specs = [...byDir.keys()].sort().map((dir) => {
-    const t = read(`.sdd/specs/${dir}/spec.md`) || '';
+    const t = read(`.brain/specs/${dir}/spec.md`) || '';
     const landed = (field(t, 'Landed') || '').replace(/`/g, '');
     const s = {
-      id: dir, num: numOf(dir), title: (heading(t) || dir).replace(/^Spec:\s*/i, ''), path: `.sdd/specs/${dir}/spec.md`, body: t,
+      id: dir, num: numOf(dir), title: (heading(t) || dir).replace(/^Spec:\s*/i, ''), path: `.brain/specs/${dir}/spec.md`, body: t,
       repos: list(field(t, 'Repos')), key: field(t, 'Key'), base: field(t, 'Base'),
       deps: list(field(t, 'Depends on')).filter(numOf), landed: /[0-9a-f]{7,40}/i.test(landed) ? landed : null, abandoned: field(t, 'Abandoned'),
       landings: field(t, 'Landings'), summary: section(t, 'Problem Statement').split(/\n\s*\n/)[0], milestones: [],
@@ -1355,7 +1355,7 @@ function toData(name, files) {
       const flat = parts.length === 4 && numOf(parts[2]), tracked = parts.length === 5 && !numOf(parts[2]) && numOf(parts[3]);
       if (!flat && !tracked) continue;
       const mdir = flat ? parts[2] : parts[3], file = parts.at(-1), key = flat ? mdir : `${parts[2]}/${mdir}`;
-      if (!ms.has(key)) ms.set(key, { track: flat ? null : parts[2], mdir, base: `.sdd/specs/${dir}/milestones/${key}`, tickets: [] });
+      if (!ms.has(key)) ms.set(key, { track: flat ? null : parts[2], mdir, base: `.brain/specs/${dir}/milestones/${key}`, tickets: [] });
       if (numOf(file)) ms.get(key).tickets.push(file);
     }
     for (const mm of [...ms.values()].sort((a, b) => (a.track || '').localeCompare(b.track || '') || a.mdir.localeCompare(b.mdir))) {

@@ -4,21 +4,29 @@ Bring work from an older layout into the one [FORMAT.md](FORMAT.md) describes. C
 
 ## A repository's `.sdd/`
 
-Move a repository's old `.sdd/`, from before the brain held the pipeline's work, into the brain's `.sdd/`. [SETUP.md](SETUP.md) runs this once it has registered the repository as `<slug>`.
+Move a repository's old `.sdd/`, from before the brain held the pipeline's work, into the brain's `.brain/`. [SETUP.md](SETUP.md) runs this once it has registered the repository as `<slug>`.
 
 1. **List what is there.** Read the repository's `.sdd/`: its `settings.json`, each spec folder under `specs/`, and the files under `research/`, `tours/` and `refactors/`. Show the user the specs, each with its title and whether its `spec.md` has a **Landed** or **Abandoned** line, and ask which to move: all of them by default. Done when the user has picked.
 
-2. **Place each spec.** Keep a spec folder's name when no folder in the brain's `.sdd/specs/` starts with its number. Otherwise give it the next free number in the brain, keeping its slug, and rename its branches in the repository: `git -C <root> branch -m sdd/<old>/<name> sdd/<new>/<name>` for each branch `git -C <root> branch --list 'sdd/<old>/*'` lists. Done when every picked spec has its folder name in the brain, and no two share a number.
+2. **Place each spec.** Keep a spec folder's name when no folder in the brain's `.brain/specs/` starts with its number. Otherwise give it the next free number in the brain, keeping its slug, and rename its branches in the repository: `git -C <root> branch -m sdd/<old>/<name> sdd/<new>/<name>` for each branch `git -C <root> branch --list 'sdd/<old>/*'` lists. Done when every picked spec has its folder name in the brain, and no two share a number.
 
-3. **Copy and rewrite.** Copy each picked spec folder to the brain's `.sdd/specs/<folder>/`, then rewrite its lines by FORMAT.md's **Specs**:
+3. **Copy and rewrite.** Copy each picked spec folder to the brain's `.brain/specs/<folder>/`, then rewrite its lines by FORMAT.md's **Specs**:
    - `spec.md`: add `**Repos:** <slug>` under its **Key** line; turn a **Base** of `<branch>` into `<slug>@<branch>`; in **Depends on**, rename each spec that step 2 renamed. When it has a **Landed** of `<SHA>`, turn that into `<slug>@<SHA>`, and above it write a **Landings** line holding one entry for all its milestones, in FORMAT.md's form.
    - Its milestones: in the copy, move each milestone folder into `milestones/<slug>/`, keeping its name; they are already numbered in order within one repository, so none is renumbered. Give each `milestone.md` a `**Landed:**` line under its **Squash** line, holding the spec's landed SHA when the spec is landed, else `none`.
 
    Done when every picked spec is in the brain with its lines rewritten and its milestones in their track, and every **Depends on** names a folder that exists.
 
-4. **Copy the reports.** Copy `research/*.md` to the brain's `.sdd/research/`, `tours/*` to `.sdd/tours/<slug>/` and `refactors/*` to `.sdd/refactors/<slug>/`, adding a numeric suffix to a name already taken. Done when every file is copied.
+4. **Copy the reports.** Copy `research/*.md` to the brain's `.brain/research/`, `tours/*` to `.brain/tours/<slug>/` and `refactors/*` to `.brain/refactors/<slug>/`, adding a numeric suffix to a name already taken. Done when every file is copied.
 
 5. **Remove the old folder.** Show the user what was copied, then ask whether to delete the repository's `.sdd/`; delete it when they agree, and leave the line in `.git/info/exclude` alone. Done when the user agreed and the folder is gone, or chose to keep it.
+
+## The brain's `.sdd/`
+
+Rename the brain's local folder from `.sdd/`, its old name, to `.brain/`. FORMAT.md's **The open session** runs this whenever the active brain holds `.sdd/` at its root; a run that stopped halfway picks up by running it again.
+
+1. **Ignore the new name.** Add a `.brain/` line to the brain's `.gitignore` when it lacks one, keeping the `.sdd/` line, so neither folder can be staged while the move runs. Done when `git -C <brain> check-ignore -q .brain/` succeeds.
+2. **Move the folder.** When `.brain/` is missing, run `mv <brain>/.sdd <brain>/.brain`. When it exists, move each entry of `.sdd/` that `.brain/` lacks, then show the user what is left in `.sdd/` and delete it once they agree. Done when `.sdd/` is gone, or the user chose to keep what is left.
+3. **Commit.** Once `.sdd/` is gone, remove its line from `.gitignore`. Commit `.gitignore` alone as `Renames the brain's local folder to .brain`. Done when `git -C <brain> status --porcelain -- .gitignore` lists nothing.
 
 ## Tracks
 
@@ -26,7 +34,7 @@ Move one spec from the flat layout into tracks, by FORMAT.md's **Specs**. A mile
 
 When track folders already sit beside flat ones, an earlier run stopped halfway. When the tracks hold more milestone folders than `milestones/` holds flat ones, step 4 had begun, after every track was complete: go to step 4. Otherwise delete the track folders and start again at step 1; step 3 skips a branch an earlier run already renamed.
 
-1. **Map the numbers.** Each milestone's track is its **Repo** line. Number each track's milestones `001` upwards in their old order, and its tickets `001` upwards in their old order across those milestones. Take each track's root from the brain's `.sdd/links.json`; ask the user, in one message, to run `/brain link` for any repository missing there and `/add-dir <root>` for any not open, and stop until they are. Done when every milestone and ticket has its old number and its new one, and every track's repository is linked and open.
+1. **Map the numbers.** Each milestone's track is its **Repo** line. Number each track's milestones `001` upwards in their old order, and its tickets `001` upwards in their old order across those milestones. Take each track's root from the brain's `.brain/links.json`; ask the user, in one message, to run `/brain link` for any repository missing there and `/add-dir <root>` for any not open, and stop until they are. Done when every milestone and ticket has its old number and its new one, and every track's repository is linked and open.
 
 2. **Write the tracks.** For each milestone, create `milestones/<slug>/<new NNN>-<milestone-slug>/` and copy into it:
    - its `milestone.md`, with its title renumbered (`# Milestone <new NNN>: …`) and its **Repo** line removed;
@@ -54,7 +62,7 @@ Move a repository's explored notes from beside its authored ones into `repos/<sl
 
 ## Note types
 
-Bring each note RECALL.md's script lists with `--legacy` to FORMAT.md's types and **Layers**. **Sync** in [SKILL.md](../SKILL.md) runs this before it consolidates, as drafts, so the user confirms the migration with the other drafts. A listed note that already has its draft in `.sdd/drafts/` keeps it.
+Bring each note RECALL.md's script lists with `--legacy` to FORMAT.md's types and **Layers**. **Sync** in [SKILL.md](../SKILL.md) runs this before it consolidates, as drafts, so the user confirms the migration with the other drafts. A listed note that already has its draft in `.brain/drafts/` keeps it.
 
 1. **Draft each note's change.** Write one draft per listed note, by FORMAT.md's **Drafts**:
    - A `gotcha` becomes a `how-to`: an `update` that changes its `type` and keeps its text.

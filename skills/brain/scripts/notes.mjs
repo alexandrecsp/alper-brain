@@ -73,7 +73,7 @@ export function loadBrain(brain) {
     ...mdIn('shared'),
   ]
   const notes = paths.map((path) => noteOf(path, readFileSync(join(brain, path), 'utf8')))
-  const drafts = mdIn('.sdd/drafts').map((path) => {
+  const drafts = mdIn('.brain/drafts').map((path) => {
     const text = readFileSync(join(brain, path), 'utf8')
     const { fm } = parse(text)
     return noteOf(path, text, { target: typeof fm.target === 'string' && fm.target ? fm.target : path, draft: fm.action || 'record' })

@@ -18,10 +18,10 @@ const PANE = {
 const slash = (path: string) => path.replace(/\\/g, '/')
 
 // A spec's milestones sit in one folder per repository, its track; the folder names the repository.
-const DIR = 'C:/repo/.sdd/specs/003-invoice-export/milestones/billing-api/001-parse-invoices'
+const DIR = 'C:/repo/.brain/specs/003-invoice-export/milestones/billing-api/001-parse-invoices'
 
 const files: Record<string, string> = {
-  'C:/repo/.sdd/specs/003-invoice-export/spec.md': '# Spec: Invoice export\n\n**Key:** None\n',
+  'C:/repo/.brain/specs/003-invoice-export/spec.md': '# Spec: Invoice export\n\n**Key:** None\n',
   [`${DIR}/milestone.md`]: '# Milestone 001: Parse invoices\n\n**Phase:** none\n\n**Squash:** none\n',
   [`${DIR}/001-read-rows.md`]: '# Ticket 001: Read rows\n\n**Status:** done\n\n**Commit:** a1b2c3d4\n',
   [`${DIR}/002-map-columns.md`]: '# Ticket 002: Map columns\n\n**Status:** doing\n\n**Commit:** none\n',
@@ -77,7 +77,7 @@ test("a /build ticket's builder shows under its milestone, with its spending", a
   on('turn.complete', (_, e) => ({ text: e.answer }))
 
   await $.turn.start({
-    text: `## Context\n- **Works in:** billing-api at C:/work/billing-api (open), changes it\n\nBuild this ticket: ${DIR}/002-map-columns.md, ${DIR}/milestone.md, C:/repo/.sdd/specs/003-invoice-export/spec.md`,
+    text: `## Context\n- **Works in:** billing-api at C:/work/billing-api (open), changes it\n\nBuild this ticket: ${DIR}/002-map-columns.md, ${DIR}/milestone.md, C:/repo/.brain/specs/003-invoice-export/spec.md`,
     turnId: 't1',
     agentId: 'a1',
   })
@@ -198,7 +198,7 @@ test('an ask shows as waiting on the user while an escalation has no answer', as
 })
 
 test("each track's milestone shows under its own repository, though both are numbered 001", async ($, on) => {
-  const DIR2 = 'C:/repo/.sdd/specs/003-invoice-export/milestones/web-app/001-show-totals'
+  const DIR2 = 'C:/repo/.brain/specs/003-invoice-export/milestones/web-app/001-show-totals'
   const wave: Record<string, string> = {
     ...files,
     [`${DIR2}/milestone.md`]: '# Milestone 001: Show totals\n\n**Phase:** none\n\n**Squash:** none\n',
@@ -250,9 +250,9 @@ test("each track's milestone shows under its own repository, though both are num
 
 test('the fixer shows as fixing in the fix phase, in a milestone still in the flat layout', async ($, on) => {
   // A spec ticketed before tracks keeps its milestones straight under milestones/, each naming its repository on a Repo line.
-  const FLAT = 'C:/repo/.sdd/specs/002-old-export/milestones/001-parse-invoices'
+  const FLAT = 'C:/repo/.brain/specs/002-old-export/milestones/001-parse-invoices'
   const fixing: Record<string, string> = {
-    'C:/repo/.sdd/specs/002-old-export/spec.md': '# Spec: Old export\n\n**Key:** None\n',
+    'C:/repo/.brain/specs/002-old-export/spec.md': '# Spec: Old export\n\n**Key:** None\n',
     [`${FLAT}/milestone.md`]: '# Milestone 001: Parse invoices\n\n**Repo:** billing-api\n\n**Phase:** fix\n\n**Squash:** none\n',
     [`${FLAT}/001-read-rows.md`]: '# Ticket 001: Read rows\n\n**Status:** done\n\n**Commit:** a1b2c3d4\n',
     [`${FLAT}/review.md`]: '# Review\n',
@@ -291,7 +291,7 @@ test('the fixer shows as fixing in the fix phase, in a milestone still in the fl
 })
 
 test("a migrate waiting on its producer's expand shows at the check stage, waiting", async ($, on) => {
-  const DIR3 = 'C:/repo/.sdd/specs/003-invoice-export/milestones/web-app/001-show-totals'
+  const DIR3 = 'C:/repo/.brain/specs/003-invoice-export/milestones/web-app/001-show-totals'
   const waiting: Record<string, string> = {
     ...files,
     [`${DIR3}/milestone.md`]: '# Milestone 001: Show totals\n\n**Lands after:** billing-api/001\n\n**Phase:** waits\n\n**Squash:** none\n',

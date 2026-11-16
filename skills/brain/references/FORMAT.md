@@ -7,14 +7,14 @@ The shape of the second brain: the team's notes on every repository, shared, and
 ```
 <brain>/
 ├── BRAIN.md                              ← what the brain is, how to join, the repositories it covers
-├── .gitignore                            ← holds `.sdd/`
+├── .gitignore                            ← holds `.brain/`
 ├── timeline.json                         ← every change to the notes, by **Timeline**
 ├── repos/<slug>/
 │   ├── REPO.md                           ← the repository's card
 │   ├── <name>.md                         ← authored notes on one repository
 │   └── explored/<name>.md                ← its explored notes
 ├── shared/<name>.md                      ← authored notes spanning several repositories
-└── .sdd/                                 ← this machine's pipeline work, ignored by git
+└── .brain/                                 ← this machine's pipeline work, ignored by git
     ├── drafts/<name>.md                  ← notes waiting for `sync` to consolidate them, by **Drafts**
     ├── links.json                        ← where this machine's clones of the repositories are
     ├── config.json                       ← this machine's limits on the pipeline, by **Settings**
@@ -33,15 +33,15 @@ The shape of the second brain: the team's notes on every repository, shared, and
     └── explore/<repo-slug>/<area>/       ← the scratch folders `explore`'s scribes write into, only while it runs
 ```
 
-Everything outside `.sdd/` is the team's and is committed. `.sdd/` is this machine's and never leaves it: what it learns reaches the team only as notes.
+Everything outside `.brain/` is the team's and is committed. `.brain/` is this machine's and never leaves it: what it learns reaches the team only as notes.
 
 ## The open session
 
 The user works from the brain: it is one of the session's **working directories** (the primary one and the additional ones, as the environment lists them), so nothing records where it is. A folder is **open** when a working directory is that folder or holds it.
 
-A machine can hold several brains. Each one is a separate **knowledge base**, with its own notes, remote and `.sdd/`: whatever the user keeps apart, such as a company, a client or a field. Brains are **isolated**: a run reads and writes one brain only, and never carries a note, spec or path from one brain into another. A **brain name** is the last segment of the brain's `git remote get-url origin` without `.git`, else its folder's name, in kebab-case.
+A machine can hold several brains. Each one is a separate **knowledge base**, with its own notes, remote and `.brain/`: whatever the user keeps apart, such as a company, a client or a field. Brains are **isolated**: a run reads and writes one brain only, and never carries a note, spec or path from one brain into another. A **brain name** is the last segment of the brain's `git remote get-url origin` without `.git`, else its folder's name, in kebab-case.
 
-The **active brain** is the open folder holding `BRAIN.md`. When several are open, it is the one the user names in this conversation (such as `@side-projects` in a command's arguments), or else the one holding the primary working directory; failing both, ask the user once per conversation. When none is open, the session has no brain: a skill stops and tells the user to launch Claude in the brain's folder or run `/add-dir <brain>`, or to run `/brain setup` when they have no brain yet; only `commit`, `tdd` and `diagnose` run instead, by **With no brain open** in **The working repository**.
+The **active brain** is the open folder holding `BRAIN.md`. When several are open, it is the one the user names in this conversation (such as `@side-projects` in a command's arguments), or else the one holding the primary working directory; failing both, ask the user once per conversation. When none is open, the session has no brain: a skill stops and tells the user to launch Claude in the brain's folder or run `/add-dir <brain>`, or to run `/brain setup` when they have no brain yet; only `commit`, `tdd` and `diagnose` run instead, by **With no brain open** in **The working repository**. When the active brain holds a `.sdd/` folder at its root, the old name of `.brain/`, rename it by [MIGRATE.md](MIGRATE.md)'s **The brain's `.sdd/`** before reading or writing anything in `.brain/`.
 
 ## Repositories
 
@@ -52,14 +52,14 @@ A repository moves through three states, each building on the one before:
 | State | Holds when | Enough for |
 |---|---|---|
 | **registered** | the brain holds `repos/<slug>/REPO.md` | its notes, and specs that name it |
-| **linked** | the brain's `.sdd/links.json` names this machine's clone of it | reading its code, by that path |
+| **linked** | the brain's `.brain/links.json` names this machine's clone of it | reading its code, by that path |
 | **open** | that clone is open in this session | changing its code: building, fixing, committing |
 
-`.sdd/links.json` maps each linked slug to the clone's absolute path, with forward slashes: `{ "billing-api": "C:/work/acme/billing-api" }`. A clone matches a card when its `git remote get-url origin` names the same repository as the card's `remote` (ignoring a trailing `.git`, and whether it is written as SSH or HTTPS), or, for a `local only` repository, when its folder's name is the slug. `/brain setup` registers a repository, and `/brain link` links the registered ones.
+`.brain/links.json` maps each linked slug to the clone's absolute path, with forward slashes: `{ "billing-api": "C:/work/acme/billing-api" }`. A clone matches a card when its `git remote get-url origin` names the same repository as the card's `remote` (ignoring a trailing `.git`, and whether it is written as SSH or HTTPS), or, for a `local only` repository, when its folder's name is the slug. `/brain setup` registers a repository, and `/brain link` links the registered ones.
 
 Read a linked repository that is not open by its path, even though the user may be asked to allow each read. Before changing one, ask the user to run `/add-dir <path>`, and stop until it is open: running the same command again picks up from there.
 
-A **snapshot** reads a linked repository's default branch without touching its clone's working tree, and inside the brain, so no read asks for permission: `git -C <root> fetch --quiet origin` (then `git -C <root> remote set-head origin --auto` when `origin/HEAD` is missing); when an earlier run left a snapshot, `git -C <root> worktree remove --force <brain>/.sdd/snapshots/<slug>`; then `git -C <root> worktree add --detach <brain>/.sdd/snapshots/<slug> origin/HEAD` (the clone's `HEAD` for a `local only` repository). It writes only to the clone's `.git`, so the repository need only be linked. Remove it with `git -C <root> worktree remove --force <snapshot>` once its reads are done.
+A **snapshot** reads a linked repository's default branch without touching its clone's working tree, and inside the brain, so no read asks for permission: `git -C <root> fetch --quiet origin` (then `git -C <root> remote set-head origin --auto` when `origin/HEAD` is missing); when an earlier run left a snapshot, `git -C <root> worktree remove --force <brain>/.brain/snapshots/<slug>`; then `git -C <root> worktree add --detach <brain>/.brain/snapshots/<slug> origin/HEAD` (the clone's `HEAD` for a `local only` repository). It writes only to the clone's `.git`, so the repository need only be linked. Remove it with `git -C <root> worktree remove --force <snapshot>` once its reads are done.
 
 `REPO.md` is the repository's card:
 
@@ -86,7 +86,7 @@ Charges customers and emits the invoice events the web app and the ledger consum
 
 A skill that reads or changes code first names its **working repository**, and its **root**, the clone's path.
 
-- **With no brain open**, only `commit`, `tdd` and `diagnose` run; every other skill stops, by **The open session**. The working repository is the one holding the primary working directory, and its root is what `git -C <primary working directory> rev-parse --show-toplevel` prints; when that fails, ask the user to launch Claude inside the repository, and stop. It has no card, notes or specs: take the suites from the project's scripts, read the repository's own glossary and ADRs, and skip every step that recalls from or records to the brain or reads its `.sdd/`. Another repository is read only by a path the user gives. The numbered rules below are for a brain; the bullets after them hold in both cases.
+- **With no brain open**, only `commit`, `tdd` and `diagnose` run; every other skill stops, by **The open session**. The working repository is the one holding the primary working directory, and its root is what `git -C <primary working directory> rev-parse --show-toplevel` prints; when that fails, ask the user to launch Claude inside the repository, and stop. It has no card, notes or specs: take the suites from the project's scripts, read the repository's own glossary and ADRs, and skip every step that recalls from or records to the brain or reads its `.brain/`. Another repository is read only by a path the user gives. The numbered rules below are for a brain; the bullets after them hold in both cases.
 
 With a brain open, the session's primary folder is the brain, so the working repository is the one the first of these rules gives:
 
@@ -95,7 +95,7 @@ With a brain open, the session's primary folder is the brain, so the working rep
 3. The repository whose clone holds the files the conversation is working on.
 4. The only repository open in this session besides the brain.
 
-Otherwise ask the user, listing the registered repositories. Its root comes from `.sdd/links.json` or the open folder; when it has neither, ask the user to run `/brain link`, or `/add-dir <path>`, and stop. Then:
+Otherwise ask the user, listing the registered repositories. Its root comes from `.brain/links.json` or the open folder; when it has neither, ask the user to run `/brain link`, or `/add-dir <path>`, and stop. Then:
 
 - Paths a skill gives relative to a repository (`docs/STRUCTURE.md`, `GLOSSARY.md`, `docs/adr/`, `AGENTS.md`, `CLAUDE.md`) are relative to its root. Read and write its files by absolute path.
 - Run every git command as `git -C <root>`, and every suite or script from the root (`cd <root> && <command>`).
@@ -166,7 +166,7 @@ The note's type decides, so the brain keeps a past only where the past is knowle
 
 ### Drafts
 
-A **draft** is a note this machine learned that the team has not yet seen: one file in `.sdd/drafts/`, named `<name>.md` after the note it proposes. **Record** writes it, and **Consolidate** in [SKILL.md](../SKILL.md) turns it into a commit, discards it or keeps it. It holds the note's full text as it would land, by the format above, with two more frontmatter lines, and a third on a `supersede`:
+A **draft** is a note this machine learned that the team has not yet seen: one file in `.brain/drafts/`, named `<name>.md` after the note it proposes. **Record** writes it, and **Consolidate** in [SKILL.md](../SKILL.md) turns it into a commit, discards it or keeps it. It holds the note's full text as it would land, by the format above, with two more frontmatter lines, and a third on a `supersede`:
 
 - `target`: the path the note lands at, such as `repos/billing-api/billing-retry-idempotency.md`.
 - `action`: `record` for a new note, `update` for a new version of the note at `target`, `supersede` for a new decision replacing another, or `delete` for removing the note at `target`, whose body then holds only the reason.
@@ -214,7 +214,7 @@ A change's `action` is `recorded`, `updated`, `superseded` (a decision's `status
 
 ## Settings
 
-`.sdd/config.json` in the active brain holds this machine's limits on the pipeline, as one JSON object: `{ "parallelAgents": 3 }`. A setting takes its default when it is missing, when it holds a value its row does not allow, or when the file is missing or does not parse as a JSON object; say so when the file does not parse. To set one, write the value its row allows into that key, keeping the other keys and creating the file when it is missing. When the file does not parse, show the user and leave it untouched. When the value asked for is not one its row allows, say what the row allows and write nothing.
+`.brain/config.json` in the active brain holds this machine's limits on the pipeline, as one JSON object: `{ "parallelAgents": 3 }`. A setting takes its default when it is missing, when it holds a value its row does not allow, or when the file is missing or does not parse as a JSON object; say so when the file does not parse. To set one, write the value its row allows into that key, keeping the other keys and creating the file when it is missing. When the file does not parse, show the user and leave it untouched. When the value asked for is not one its row allows, say what the row allows and write nothing.
 
 | Setting | Default | Holds |
 |---|---|---|
@@ -222,7 +222,7 @@ A change's `action` is `recorded`, `updated`, `superseded` (a decision's `status
 
 ## Specs
 
-Specs live in `.sdd/specs/`, numbered `NNN` in one sequence across every repository: [SPEC-ID.md](../../write-spec/references/SPEC-ID.md) resolves the short forms users type. A spec can change several repositories.
+Specs live in `.brain/specs/`, numbered `NNN` in one sequence across every repository: [SPEC-ID.md](../../write-spec/references/SPEC-ID.md) resolves the short forms users type. A spec can change several repositories.
 
 A spec's milestones sit in one **track** per repository it changes: the folder `milestones/<slug>/`, whose name is the repository every milestone in it builds in. A track numbers its milestones `001` upwards, and its tickets `001` upwards across those milestones, and builds and lands them in number order. A number names a milestone or ticket inside its own track; from anywhere else, write `<slug>/NNN`. Tracks wait on each other only at milestones: a ticket's **Depends on** of `003, 004` names tickets of its own track, and a milestone's **Builds after** of `web-app/002` names `web-app`'s milestone `002`. A spec ticketed before **Builds after** may hold `<slug>/NNN` in a ticket's **Depends on**; `build` moves it onto the milestone, by [MIGRATE.md](MIGRATE.md)'s **Builds after**.
 

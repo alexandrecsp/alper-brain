@@ -25,7 +25,7 @@ Three corrections to the first analysis:
 ## The model
 
 ```
-.sdd/specs/003-invoice-export/
+.brain/specs/003-invoice-export/
 ├── spec.md                      ← Repos, Key, Base, Landings, Landed
 └── milestones/
     ├── billing-api/             ← one track
@@ -118,7 +118,7 @@ The event loop collects in one conversation every builder report, every review r
 
 Adapted from Matt Pocock's `handoff` (`skills/productivity/handoff` in mattpocock/skills). That skill compacts the conversation into a document for a fresh agent. It references artifacts by path instead of copying them, adds a "suggested skills" section, redacts secrets, and takes as its argument what the next session will be used for. What changes for the brain:
 
-- **Where it writes.** The file goes to `.sdd/handoffs/NNN-<slug>.md` in the brain, not to the OS temp folder. Pocock uses temp to keep the workspace clean, and the brain's `.sdd/` is already local and ignored. A file there survives a reboot, and `/brain status` can list the latest one.
+- **Where it writes.** The file goes to `.brain/handoffs/NNN-<slug>.md` in the brain, not to the OS temp folder. Pocock uses temp to keep the workspace clean, and the brain's `.brain/` is already local and ignored. A file there survives a reboot, and `/brain status` can list the latest one.
 - **Single source of truth.** The handoff carries only what no file carries yet: the goal, the decisions taken in conversation, what was tried and failed, the open questions, and the next command. Everything else goes in as a pointer: the spec folder, `milestone.md`, `review.md`, the branches in each repository. When a decision belongs in the spec's Further Notes or in a brain note, the skill offers to write it there first, so the decision outlives the handoff.
 - **User-invoked only** (`disable-model-invocation: true`, as in Pocock's version). Its description then costs no context load, and build's drain needs no skill because its state is already on disk.
 - **Done when** the file ends with the first prompt for the next session (the command plus the handoff's path), and that prompt plus the file's pointers are enough to take the next step without this conversation.
@@ -161,7 +161,7 @@ Write the skill by `agent-writing`, as CLAUDE.md requires.
 1. **Landing approval is asked once per `/build` call:** land each track as it goes, or hold every landing for the end. A new session asks again.
 2. **A cross-track Depends on waits for the named ticket's milestone to be squashed,** not just for the ticket's `done`, so the builder reads reviewed code.
 3. **The Repo line goes.** The `milestones/<slug>/` folder is the only source of a milestone's repository.
-4. **Handoffs live in the brain's `.sdd/handoffs/`,** local and ignored, rather than in the OS temp folder.
+4. **Handoffs live in the brain's `.brain/handoffs/`,** local and ignored, rather than in the OS temp folder.
 5. **The build drains after every 3 closed milestones.** Each close brings a review report, the arbiter's answers and a landing into the orchestrator's context. 3 is a starting value, to be tuned once real builds show how much context a close costs.
 6. **In-flight specs are migrated,** with their branches renamed, at the start of the next `/build` on them. No sub-agent runs at that moment, so a milestone moves at whatever **Phase** it is in: its folder, its `review.md` and its branch move together, and the review's fixed point, a merge-base, survives the rename. (The first draft let a spec mid-close finish in the old layout, but the new build no longer reads the flat layout.)
 

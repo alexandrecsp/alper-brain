@@ -21,7 +21,7 @@ const brain = () => {
 }
 
 const twoTracks = (b, { apiM1 = {}, apiM2 = {}, webM1 = {}, webT = {} } = {}) => {
-  const s = join(b, '.sdd/specs/004-invoice-export')
+  const s = join(b, '.brain/specs/004-invoice-export')
   put(join(s, 'spec.md'), spec('\n**Base:** api@main, web@main\n'))
   const a1 = join(s, 'milestones/api/001-expand')
   put(join(a1, 'milestone.md'), milestone({ n: '001', ...apiM1 }))
@@ -128,7 +128,7 @@ test("a ticket's Depends on another track's ticket, from before Builds after, ho
 
 test('reads the flat layout, its track from each Repo line', () => {
   const b = brain()
-  const s = join(b, '.sdd/specs/002-old')
+  const s = join(b, '.brain/specs/002-old')
   put(join(s, 'spec.md'), spec())
   put(join(s, 'milestones/001-a/milestone.md'), milestone({ n: '001', repo: 'api' }))
   put(join(s, 'milestones/001-a/001-t.md'), ticket({ n: '001' }))
@@ -150,11 +150,11 @@ test('resolves spec ids by SPEC-ID.md', () => {
 test('reads the cap by FORMAT.md Settings', () => {
   const b = brain()
   assert.deepEqual(readCap(b), { cap: 5 })
-  put(join(b, '.sdd/config.json'), '{ "parallelAgents": 2 }')
+  put(join(b, '.brain/config.json'), '{ "parallelAgents": 2 }')
   assert.deepEqual(readCap(b), { cap: 2 })
-  put(join(b, '.sdd/config.json'), '{ "parallelAgents": 0 }')
+  put(join(b, '.brain/config.json'), '{ "parallelAgents": 0 }')
   assert.equal(readCap(b).cap, 5)
-  put(join(b, '.sdd/config.json'), '{ nope')
+  put(join(b, '.brain/config.json'), '{ nope')
   assert.match(readCap(b).problem, /does not parse/)
 })
 
@@ -188,7 +188,7 @@ test('reads git through links.json: branches, cleanliness and squashes on the ba
   writeFileSync(join(repo, 'f'), '2')
   g('commit', '-qam', 'squash 001')
   const sha = g('rev-parse', 'HEAD')
-  put(join(b, '.sdd/links.json'), JSON.stringify({ api: repo }))
+  put(join(b, '.brain/links.json'), JSON.stringify({ api: repo }))
   const m1 = join(s, 'milestones/api/001-expand/milestone.md')
   writeFileSync(m1, readFileSync(m1, 'utf8').replace('**Squash:** none', `**Squash:** ${sha}`))
 
@@ -222,7 +222,7 @@ test('a ticket digest gives its milestone and the Notes and files of the tickets
   writeFileSync(join(repo, 'src/export.ts'), 'export const v2 = 1\n')
   g('add', '-A'); g('commit', '-qm', 'adds v2')
   const sha = g('rev-parse', 'HEAD')
-  put(join(b, '.sdd/links.json'), JSON.stringify({ api: repo }))
+  put(join(b, '.brain/links.json'), JSON.stringify({ api: repo }))
   const m1 = join(s, 'milestones/api/001-expand/milestone.md')
   writeFileSync(m1, readFileSync(m1, 'utf8').replace('**Squash:** aaaaaaa', `**Squash:** ${sha}`))
   const t1 = join(s, 'milestones/api/001-expand/001-add-v2.md')

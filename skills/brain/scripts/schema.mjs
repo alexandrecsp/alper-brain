@@ -32,7 +32,7 @@ if (fileArgs.length) {
     const path = rel(arg)
     if (path.startsWith('..') || !existsSync(join(brain, path)) || !statSync(join(brain, path)).isFile()) fail(`${arg}: not a file in the brain`)
     const text = readFileSync(join(brain, path), 'utf8')
-    if (!path.startsWith('.sdd/drafts/')) return noteOf(path, text)
+    if (!path.startsWith('.brain/drafts/')) return noteOf(path, text)
     const { fm } = parse(text)
     return noteOf(path, text, { target: typeof fm.target === 'string' && fm.target ? fm.target : path, draft: fm.action || 'record' })
   })

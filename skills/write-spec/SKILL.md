@@ -1,6 +1,6 @@
 ---
 name: write-spec
-description: Turn the current conversation into a spec saved in the brain's .sdd/specs/, across one repository or several.
+description: Turn the current conversation into a spec saved in the brain's .brain/specs/, across one repository or several.
 disable-model-invocation: true
 metadata:
   type: process
@@ -8,7 +8,7 @@ metadata:
 
 Turn the current conversation and your understanding of the codebase into a spec. This is **synthesis**: the spec states only what the conversation settled. What it left to you (the seams, the pattern choices when it never weighed patterns, the dependencies, the key), you propose and the user confirms before you write. A decision the conversation left open goes under Further Notes as an open question.
 
-The spec lives in the active brain's `.sdd/specs/` and can change several repositories, each registered in the brain, by [FORMAT.md](../brain/references/FORMAT.md). When no brain is open, say so by FORMAT.md and stop.
+The spec lives in the active brain's `.brain/specs/` and can change several repositories, each registered in the brain, by [FORMAT.md](../brain/references/FORMAT.md). When no brain is open, say so by FORMAT.md and stop.
 
 ## Process
 
@@ -32,4 +32,4 @@ The spec lives in the active brain's `.sdd/specs/` and can change several reposi
 
    When the user adds a repository, run steps 1 to 3 for it, then confirm again. Done when the user confirms every item, has settled or left open each open question, and gives the key line's entries, each fully matching its repository's pattern, or none.
 
-6. **Write the spec.** Save it as `spec.md` in a new spec folder in the brain, `.sdd/specs/NNN-<slug>/`: `NNN` is one past the highest folder number already there (starting at `001`), and `<slug>` is the spec title in kebab-case. Fill [SPEC-TEMPLATE.md](references/SPEC-TEMPLATE.md) in plain prose, by [PROSE.md](../brain/references/PROSE.md), and check `spec.md` by its **Check**. Done when the check prints `prose: ok`, every section is filled from the conversation and steps 1 to 5, every diagram slot holds its diagram, and the spec holds together: every module-map module sits in a repository, those marked `new` or `changed` only in **Repos**; every arrow crossing a repository's edge with a changed interface appears under API contracts with its consumers and its pinned shape, or with an open question in Further Notes saying why its shape is not pinned; every repository in **Repos** has a seam; every **Depends on** entry has its Relies On bullets; and the user has the spec's path and the next step, `/write-tickets <spec-id>`, plus `/brain link` for any repository in **Repos** not linked yet.
+6. **Write the spec.** Save it as `spec.md` in a new spec folder in the brain, `.brain/specs/NNN-<slug>/`: `NNN` is one past the highest folder number already there (starting at `001`), and `<slug>` is the spec title in kebab-case. Fill [SPEC-TEMPLATE.md](references/SPEC-TEMPLATE.md) in plain prose, by [PROSE.md](../brain/references/PROSE.md), and check `spec.md` by its **Check**. Done when the check prints `prose: ok`, every section is filled from the conversation and steps 1 to 5, every diagram slot holds its diagram, and the spec holds together: every module-map module sits in a repository, those marked `new` or `changed` only in **Repos**; every arrow crossing a repository's edge with a changed interface appears under API contracts with its consumers and its pinned shape, or with an open question in Further Notes saying why its shape is not pinned; every repository in **Repos** has a seam; every **Depends on** entry has its Relies On bullets; and the user has the spec's path and the next step, `/write-tickets <spec-id>`, plus `/brain link` for any repository in **Repos** not linked yet.

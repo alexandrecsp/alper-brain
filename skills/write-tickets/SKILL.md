@@ -1,6 +1,6 @@
 ---
 name: write-tickets
-description: Break a spec, a plan, or the current conversation into milestones of tracer-bullet tickets, one track of milestones per repository, saved in the spec's folder in the brain's .sdd/specs/.
+description: Break a spec, a plan, or the current conversation into milestones of tracer-bullet tickets, one track of milestones per repository, saved in the spec's folder in the brain's .brain/specs/.
 argument-hint: "[spec-id]"
 disable-model-invocation: true
 metadata:
@@ -9,7 +9,7 @@ metadata:
 
 Break the work into **milestones**, each a group of **tickets**, in one **track** per repository the work changes, by [FORMAT.md](../brain/references/FORMAT.md)'s **Specs**. A milestone is an increment that leaves the code working and tested once its last ticket lands, and it builds in its track's repository, since it is built, checked and squashed inside one git history with one suite. The tracks build side by side, a milestone starting once it is ready, by `build`'s **Tracks**. A ticket is a **tracer bullet**. A track's tickets are built one at a time in number order, so each builds only on its track's tickets numbered before it, and its **Depends on** names exactly which ones. Tracks meet only at milestones: a milestone builds on another track's milestones through its **Builds after**.
 
-The spec folder lives in the active brain's `.sdd/specs/`, by FORMAT.md. When no brain is open, say so by FORMAT.md and stop.
+The spec folder lives in the active brain's `.brain/specs/`, by FORMAT.md. When no brain is open, say so by FORMAT.md and stop.
 
 ## Process
 
@@ -37,10 +37,10 @@ The spec folder lives in the active brain's `.sdd/specs/`, by FORMAT.md. When no
 
    Iterate until the user approves. Done when the user approves the breakdown, seams included, every changed contract's shape is pinned or the user has said why it cannot be, and, without a spec, the user has given the key or none.
 
-5. **Write the files.** Write into the spec folder in the brain, `.sdd/specs/NNN-<slug>/`; without a spec, create one with `NNN` one past the highest spec folder number already there and a slug of the work's name, holding a `spec.md` with only the title and the **Repos** and **Key** lines of [SPEC-TEMPLATE.md](../write-spec/references/SPEC-TEMPLATE.md), plus, for a contract change, an Implementation Decisions section holding its API contracts entries. Fill the files from [TEMPLATES.md](references/TEMPLATES.md):
+5. **Write the files.** Write into the spec folder in the brain, `.brain/specs/NNN-<slug>/`; without a spec, create one with `NNN` one past the highest spec folder number already there and a slug of the work's name, holding a `spec.md` with only the title and the **Repos** and **Key** lines of [SPEC-TEMPLATE.md](../write-spec/references/SPEC-TEMPLATE.md), plus, for a contract change, an Implementation Decisions section holding its API contracts entries. Fill the files from [TEMPLATES.md](references/TEMPLATES.md):
 
    ```
-   .sdd/specs/NNN-<slug>/
+   .brain/specs/NNN-<slug>/
    ├── spec.md
    └── milestones/
        └── <repo-slug>/                  ← one track per repository

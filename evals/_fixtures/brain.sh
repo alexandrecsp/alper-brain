@@ -12,12 +12,12 @@ git config --global init.defaultBranch main
 git config --global core.autocrlf false
 
 brain="$(pwd -W 2>/dev/null || pwd)"
-spec=".sdd/specs/001-greeting"
+spec=".brain/specs/001-greeting"
 ms="$spec/milestones/demo/001-greeting"
 
 # The brain.
 printf '# Second brain\n\nEval brain.\n\n## Repositories\n\n- demo: prints a greeting\n' > BRAIN.md
-printf '.sdd/\nclones/\n' > .gitignore
+printf '.brain/\nclones/\n' > .gitignore
 mkdir -p repos/demo shared
 cat > repos/demo/REPO.md <<'EOF'
 ---
@@ -50,7 +50,7 @@ cd ../..
 
 # This machine's pipeline work.
 mkdir -p "$ms"
-printf '{ "demo": "%s/clones/demo" }\n' "$brain" > .sdd/links.json
+printf '{ "demo": "%s/clones/demo" }\n' "$brain" > .brain/links.json
 cat > "$spec/spec.md" <<'EOF'
 # Greeting
 

@@ -39,4 +39,4 @@ A **fan-out** dispatches one sub-agent per area, repository or group. Run at mos
 
 ## After a sub-agent that changes a repository reports
 
-Before acting on its report, check where it wrote: `git -C <root> rev-parse --abbrev-ref HEAD` is the brief's **Branch**, each commit it names exists there (`git -C <root> cat-file -e <sha>^{commit}`), `git -C <root> status --porcelain` is empty, and the brain's `HEAD` and `git -C <brain> status --porcelain -- . ':!.sdd'` are as they were before the dispatch. When a check fails, treat the agent as blocked, with what the check found.
+Before acting on its report, check where it wrote: `git -C <root> rev-parse --abbrev-ref HEAD` is the brief's **Branch**, each commit it names exists there (`git -C <root> cat-file -e <sha>^{commit}`), `git -C <root> status --porcelain` is empty, and the brain's `HEAD` and `git -C <brain> status --porcelain -- . ':!.brain'` are as they were before the dispatch. When a check fails, treat the agent as blocked, with what the check found.

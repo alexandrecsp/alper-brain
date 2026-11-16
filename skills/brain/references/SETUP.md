@@ -4,17 +4,17 @@ The `setup` branch of [`brain`](../SKILL.md): connect this machine to a brain, l
 
 1. **Find the brain.** When an open folder holds `BRAIN.md`, show its path and brain name, and ask whether to use it or to set up another brain. Otherwise, or for another brain, ask whether to clone the team's brain (ask for its remote URL) or create a new one, and where the local clone goes, recommending `~/brains/<brain name>`.
    - To clone: `git clone <url> <path>`.
-   - To create: `git init <path>`, write `BRAIN.md` from the template below, the `CLAUDE.md` below, `.gitignore` holding `.sdd/`, `repos/.gitkeep` and `shared/.gitkeep`, and commit them as `Creates the second brain`. Then offer to add a remote; given its URL, run `git remote add origin <url>`. The first push waits for the user's first sync.
+   - To create: `git init <path>`, write `BRAIN.md` from the template below, the `CLAUDE.md` below, `.gitignore` holding `.brain/`, `repos/.gitkeep` and `shared/.gitkeep`, and commit them as `Creates the second brain`. Then offer to add a remote; given its URL, run `git remote add origin <url>`. The first push waits for the user's first sync.
 
-   When the brain's `.gitignore` lacks `.sdd/`, add the line; when the brain lacks `CLAUDE.md`, write it; commit what either changed as one commit, `Prepares the brain for the pipeline`. When the brain is not open, every later step works on it by its path. Done when the path holds `BRAIN.md` and `CLAUDE.md` in a git repository whose `.gitignore` holds `.sdd/`.
+   When the brain's `.gitignore` lacks `.brain/`, add the line; when the brain lacks `CLAUDE.md`, write it; commit what either changed as one commit, `Prepares the brain for the pipeline`. When the brain is not open, every later step works on it by its path. Done when the path holds `BRAIN.md` and `CLAUDE.md` in a git repository whose `.gitignore` holds `.brain/`.
 
 2. **Pick the repositories.** Take those the user named, by path or slug; otherwise list the open git repositories other than the brain that it does not register yet, and ask which to register: all of them by default. With none, skip to step 11. Setup writes into each, so each must be open: list those that are not with `/add-dir <path>`, and stop. Run steps 3 to 9 for each picked repository in turn, then step 10 once for them all. Done when you hold every picked root, or there is none.
 
 3. **Register it.** Work out the repository's slug by FORMAT.md and confirm it with the user. When `repos/<slug>/REPO.md` exists and its `remote` names another repository, propose a longer slug from the remote's owner and name (`acme-api`) and confirm it. Write `repos/<slug>/REPO.md` by FORMAT.md: its `slug`, its `remote`, and a one-paragraph summary from its README, checked by [PROSE.md](PROSE.md)'s **Check**; keep any field a card already there holds. Add the slug to the **Repositories** list in `BRAIN.md`, with a one-line summary. Done when the card exists and `BRAIN.md` lists the slug.
 
-4. **Link it.** Write the root into the brain's `.sdd/links.json`, keeping the other entries. Done when the file reads back with the slug's path.
+4. **Link it.** Write the root into the brain's `.brain/links.json`, keeping the other entries. Done when the file reads back with the slug's path.
 
-5. **Settle the commit key.** A commit message can start with a **key**, such as `FUNC-1234` or `INC1234`, and the card's `commitKeyPattern` is the regex every key must fully match, or `null` when this repository's commits carry no key. When the card or the repository's old `.sdd/settings.json` already holds one, show it and ask whether to keep it. Otherwise ask the user for an example key, or whether commits go without one; given an example, propose a regex for it (`FUNC-1234` → `FUNC-\d+`), and confirm. Write it into the card. Done when the card holds a pattern that fully matches the user's example, or `null`.
+5. **Settle the commit key.** A commit message can start with a **key**, such as `FUNC-1234` or `INC1234`, and the card's `commitKeyPattern` is the regex every key must fully match, or `null` when this repository's commits carry no key. When the card or the repository's old `.brain/settings.json` already holds one, show it and ask whether to keep it. Otherwise ask the user for an example key, or whether commits go without one; given an example, propose a regex for it (`FUNC-1234` → `FUNC-\d+`), and confirm. Write it into the card. Done when the card holds a pattern that fully matches the user's example, or `null`.
 
 6. **Move its old pipeline state.** Skip this unless the repository holds `.sdd/` at its root, from before the brain held it. Follow [MIGRATE.md](MIGRATE.md)'s **A repository's `.sdd/`**. Done when the user has moved or kept each of its specs.
 
@@ -33,7 +33,7 @@ The `setup` branch of [`brain`](../SKILL.md): connect this machine to a brain, l
 
    - `docs/STRUCTURE.md`: the folder layout and file names. Read it before creating, moving or naming a file.
    - `GLOSSARY.md` and `docs/adr/` (or `GLOSSARY-MAP.md`), when present: the domain's terms and the decisions already made. Name code in the glossary's terms, and work within the ADRs.
-   - On an `sdd/<spec-folder>/spec` or `sdd/<spec-folder>/M<NNN>` branch, that spec folder in the brain's `.sdd/specs/`, and its milestone numbered `NNN` in this repository's track (`milestones/<its slug above>/`), hold the work's requirements.
+   - On an `sdd/<spec-folder>/spec` or `sdd/<spec-folder>/M<NNN>` branch, that spec folder in the brain's `.brain/specs/`, and its milestone numbered `NNN` in this repository's track (`milestones/<its slug above>/`), hold the work's requirements.
    ```
 
    Done when the user declines, or the file holds the section once.
@@ -53,7 +53,7 @@ This folder is a second brain (see BRAIN.md). Before reading or changing a repos
 ```markdown
 # Second brain
 
-Our team's notes on our repositories, one fact per file, versioned in git. Notes on one repository live in `repos/<slug>/`, beside its `REPO.md` card, with what its code does in `repos/<slug>/explored/`, and notes spanning several in `shared/`. `timeline.json` records every change to them. They follow [the brain format](https://github.com/alexandrecsp/alper-brain/blob/main/skills/brain/references/FORMAT.md). Each machine keeps its own pipeline work, and the notes it has drafted but not yet shared, in `.sdd/`, which git ignores.
+Our team's notes on our repositories, one fact per file, versioned in git. Notes on one repository live in `repos/<slug>/`, beside its `REPO.md` card, with what its code does in `repos/<slug>/explored/`, and notes spanning several in `shared/`. `timeline.json` records every change to them. They follow [the brain format](https://github.com/alexandrecsp/alper-brain/blob/main/skills/brain/references/FORMAT.md). Each machine keeps its own pipeline work, and the notes it has drafted but not yet shared, in `.brain/`, which git ignores.
 
 To join, install the plugin (`/plugin marketplace add alexandrecsp/alper-brain`, then `/plugin install alper-brain@alper-brain`), clone this repository, launch Claude in it and run `/brain setup`. `/brain view` shows the notes and the specs. Obsidian can also open this folder as a vault.
 

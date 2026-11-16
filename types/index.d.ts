@@ -47,7 +47,7 @@ export type Ticket = {
 /** A review.md's findings, by sdd.ts's findingsOf. */
 export type Findings = { total: number; escalated: number; answered: number }
 
-/** The milestone a /build works on, as its .sdd files stand. */
+/** The milestone a /build works on, as its .brain files stand. */
 export type Build = {
   key: string
   root: string

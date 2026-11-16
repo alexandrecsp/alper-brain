@@ -45,7 +45,7 @@ Follow [RECALL.md](../brain/references/RECALL.md) alongside `What · Round 1` wi
 
 ### In-flight specs
 
-When the brain's `.sdd/specs/` holds specs, other specs may be planned or mid-build in the modules or contracts this design touches, in any repository. Follow [IN-FLIGHT.md](../write-spec/references/IN-FLIGHT.md) alongside `What · Round 1`, and again when the `How` opens, since the `How` names new modules. Each overlap with an in-flight spec enters the next round as a frontier question: build on its planned state, or revise it separately.
+When the brain's `.brain/specs/` holds specs, other specs may be planned or mid-build in the modules or contracts this design touches, in any repository. Follow [IN-FLIGHT.md](../write-spec/references/IN-FLIGHT.md) alongside `What · Round 1`, and again when the `How` opens, since the `How` names new modules. Each overlap with an in-flight spec enters the next round as a frontier question: build on its planned state, or revise it separately.
 
 ## Done
 

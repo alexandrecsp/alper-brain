@@ -25,7 +25,7 @@ A commit message describes the project's **new state**: its title completes the 
 Commit in the **working repository**, by [FORMAT.md](../brain/references/FORMAT.md): the one the caller names, or the one its rules give; with no brain open, its **With no brain open** gives the root, and step 1's last rule the key. When the changes are the brain's own (notes, cards, `BRAIN.md`), commit in the active brain, its folder as the root. When the task changed several repositories, run these steps once per repository, each with its own key. When the repository is linked but not open, ask the user to run `/add-dir <root>`, and stop.
 
 1. **Find the key**, by the first rule that gives one:
-   1. The root is the active brain: no key.
+   1. The root is the active brain: no key, except for the notes **Consolidate** in the [brain skill](../brain/SKILL.md) commits, which take the key its **Find the keys** asks for, per repository.
    2. The repository's card, `repos/<slug>/REPO.md` in the brain, holds a `null` `commitKeyPattern`: no key.
    3. A spec folder, from a `[spec-id]` argument by [SPEC-ID.md](../write-spec/references/SPEC-ID.md) or the one this conversation works in: its `spec.md` **Key** line's one key, or its entry for the repository's slug. `None` means no key.
    4. Ask the user for a key, or none.

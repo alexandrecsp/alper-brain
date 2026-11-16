@@ -48,7 +48,7 @@ const engine = (on: On, tree: Record<string, string>, agents: unknown[] = []) =>
   on('tool.call', () => ({ result: {} }))
 }
 
-const SPEC = 'C:/repo/.sdd/specs/003-invoice-export'
+const SPEC = 'C:/repo/.brain/specs/003-invoice-export'
 const milestone = (title: string, phase: string, squash = 'none', landed = 'none', buildsAfter = 'None') =>
   `# Milestone 001: ${title}\n\n**Builds after:** ${buildsAfter}\n\n**Lands after:** None\n\n**Phase:** ${phase}\n\n**Squash:** ${squash}\n\n**Landed:** ${landed}\n`
 const ticket = (title: string, status: string, depends = 'None', notes = '', commit = 'none') =>
