@@ -47,7 +47,7 @@ The **active brain** is the open folder holding `BRAIN.md`. When several are ope
 
 ## Repositories
 
-A **repo slug** names a repository the same way on every teammate's machine, whatever folder each clone sits in. It is the slug the repository's **Second brain** section of `AGENTS.md` or `CLAUDE.md` names for this brain, when it names one; else the last segment of `git remote get-url origin` without `.git`; else the root folder's name. It is kebab-case, and unique within its brain. A repository registered in two brains has two separate sets of notes, one in each.
+A **repo slug** names a repository the same way on every teammate's machine, whatever folder each clone sits in. A clone's slug is the `slug` of the card it matches, by the matching rule below; for a clone no card matches yet, it is the last segment of `git remote get-url origin` without `.git`, else the root folder's name. It is kebab-case, and unique within its brain. A repository registered in two brains has two separate sets of notes, one in each.
 
 A repository moves through three states, each building on the one before:
 

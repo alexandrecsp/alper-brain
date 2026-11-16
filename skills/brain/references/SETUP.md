@@ -22,21 +22,14 @@ The `setup` branch of [`brain`](../SKILL.md): connect this machine to a brain, l
 
 8. **Settle the suites.** The card names the repository's two suites, as FORMAT.md's `REPO.md` defines them. When the card already holds `unit` and `e2e`, or the repository's agent file a **Suites** line, show them and ask whether to keep them. Otherwise read the project's scripts and propose one command for each suite, or `none` when the repository has no e2e tests. When one script runs both suites, propose scripts that split them, and add them when the user agrees. Write both into the card. Done when the user confirms both commands, and running each one from the root starts the tests it names.
 
-9. **Point the agent file.** Ask whether the repository's agent instructions live in `AGENTS.md` or `CLAUDE.md`, recommending the one that exists. When the user picks `AGENTS.md` and no `CLAUDE.md` exists, offer a `CLAUDE.md` holding only `@AGENTS.md`: Claude Code reads `CLAUDE.md`, never `AGENTS.md`. Say that the file is committed, so the brain's remote URL becomes visible to whoever can read this repository. Write the section below, replacing any earlier **Spec workflow** section and this brain's line of any **Second brain** section, keeping other brains' lines, and creating the file when needed:
+9. **Point the agent file.** The repository's agent file points every session working in it at its layout and its domain, in the repository's own words, and names no brain: the card holds everything the brain needs. Ask whether its agent instructions live in `AGENTS.md` or `CLAUDE.md`, recommending the one that exists. When the user picks `AGENTS.md` and no `CLAUDE.md` exists, offer a `CLAUDE.md` holding only `@AGENTS.md`: Claude Code reads `CLAUDE.md`, never `AGENTS.md`. Delete any **Spec workflow** section; from a **Second brain** section an earlier setup wrote, delete this brain's line and the `sdd/` branch bullet, and its heading and opening paragraph once no brain's line is left. Then add each line below whose file the agent file does not point at yet, creating the file when needed:
 
    ```markdown
-   ## Second brain
-
-   This repository is registered in the brains below, each holding its specs, the team's notes on it, its suites and its commit key. Work on it from a brain: launch Claude in the brain's folder, with this repository open beside it. Run `/brain setup` once to clone the brain.
-
-   - `<slug>` in the `<brain name>` brain (`<remote URL, or "local only">`)
-
    - `docs/STRUCTURE.md`: the folder layout and file names. Read it before creating, moving or naming a file.
    - `GLOSSARY.md` and `docs/adr/` (or `GLOSSARY-MAP.md`), when present: the domain's terms and the decisions already made. Name code in the glossary's terms, and work within the ADRs.
-   - On an `sdd/<spec-folder>/spec` or `sdd/<spec-folder>/M<NNN>` branch, that spec folder in the brain's `.brain/specs/`, and its milestone numbered `NNN` in this repository's track (`milestones/<its slug above>/`), hold the work's requirements.
    ```
 
-   Done when the user declines, or the file holds the section once.
+   Done when the user declines, or the file points at both and no line of it names this brain.
 
 10. **Commit the brain.** Commit every picked repository's `notes/repos/<slug>/REPO.md` and `BRAIN.md` as one commit, titled by what changed: `Registers <slug>` for a new card, `Updates <slug>'s card` for a rerun's, joined for several (`Registers api and web`, `Registers api and updates web's card`). Done when `git -C <brain> status --porcelain -- notes/repos/ BRAIN.md` lists nothing, and one commit holds them.
 
