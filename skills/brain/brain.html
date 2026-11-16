@@ -114,7 +114,7 @@
 // ============================================================ THE BRAIN VIEW
 // One brain, as screens: Overview (KPIs, the ticket heatmap, the specs in dependency waves, what needs you, recent
 // activity, a card per repository), a spec's page (its milestones as a pipeline, one lane per repository), Board (a
-// kanban of specs or milestones), Notes graph (notes clustered per repository) and Activity (the brain's commits). A
+// kanban of specs or milestones), Notes graph (notes and links in a force layout) and Activity (the brain's commits). A
 // rail picks the screen and filters by repository; the details panel opens over the screen with the selected item.
 // The route is #/b/<brain>/<screen>[/<arg>]. App.load(id, D) draws a brain's data (toData's shape); loading the same
 // brain again, as a live reload does, keeps the screen, selection and filters.
@@ -910,20 +910,26 @@ App.register('overview', {
   } });
 })();
 
-// Notes graph screen (#/notes), after the Notion clustered map: one rectangle per repository ('shared' for shared notes),
-// a hub square per cluster, notes as squares sized by link degree, ghosts as dashed squares, faint cross-cluster links.
+// Notes graph screen (#/notes), after Obsidian's graph view: a free force-directed layout of notes and links under four
+// tunable forces (center, repel, link strength, link distance), so linked notes cluster by themselves and orphans drift
+// to the rim. Notes are squares sized by link degree, coloured by repository ('shared' for shared notes) or by type;
+// ghosts are dashed squares, cross-repository links dashed lines.
 (function () {
   const ACCENT = '#cfcfcf', GREY = '#9b9b9b', GHOST = '#a8a8a8';
-  const F = { hulls: true, cross: true, ghosts: true, labels: true, by: 'repo' };
+  const F = { cross: true, ghosts: true, labels: true, by: 'repo', center: 0.5, repel: 10, link: 0.5, dist: 60 };
+  const FORCES = [['center', 'Center force', 0, 1, 0.01], ['repel', 'Repel force', 0, 20, 0.1], ['link', 'Link force', 0, 1, 0.01], ['dist', 'Link distance', 20, 400, 1]];
+  // the toggles and forces are this viewer's preference, kept across visits
+  const KEY = 'brain.notes-graph';
+  try { const s = JSON.parse(localStorage.getItem(KEY) || '{}'); for (const k in F) if (k in s) F[k] = s[k]; } catch {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(F)); } catch {} };
   let built = null, root, svg, zg, zoom, sim, cur;
-  let nodes = [], links = [], clusters = [], nbr = new Map(), typeCol = null, typeCount = new Map(), crossCount = 0;
-  let hullSel, linkSel, nodeSel, labSel, hover = null, zk = 1;
-  const line = d3.line().curve(d3.curveLinearClosed);
+  let nodes = [], links = [], repos = [], nbr = new Map(), typeCol = null, typeCount = new Map(), crossCount = 0;
+  let linkSel, nodeSel, labSel, coSel, byDeg = [], nodeById = new Map(), hover = null;
   // sharp edges, like the rest of the page: every node is a square centred on its point, of half-side h
   const sq = (g, h) => g.append('rect').attr('x', -h).attr('y', -h).attr('width', 2 * h).attr('height', 2 * h);
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const cc = (slug) => (slug === 'shared' ? GREY : cur.repoColor(slug));
-  const fillOf = (d) => (d.kind === 'ghost' ? GHOST : d.kind === 'hub' || F.by === 'repo' ? cc(d.cluster) : typeCol(d.n.type));
+  const fillOf = (d) => (d.kind === 'ghost' ? GHOST : F.by === 'repo' ? cc(d.cluster) : typeCol(d.n.type));
 
   const CSS = `
     .np-root { position:absolute; inset:0; overflow:hidden; background-color:#141414; background-image:radial-gradient(#222222 1px, transparent 1px); background-size:26px 26px; }
@@ -940,32 +946,52 @@ App.register('overview', {
     .np-legend .rows { overflow-y:auto; padding-right:6px; margin-top:6px; }
     .np-row { display:flex; align-items:center; gap:8px; padding:3px 6px; border-radius:7px; font-size:12px; }
     .np-row.click { cursor:pointer; } .np-row.click:hover { background:var(--hover); } .np-row.on { background:var(--accent-soft); }
+    .np-forces { position:absolute; right:14px; bottom:64px; width:220px; padding:10px 12px 12px; }
+    .np-forces label { display:block; margin-top:9px; color:var(--muted); font-size:12px; }
+    .np-forces label b { float:right; font-weight:400; color:var(--faint); font-family:ui-monospace, monospace; font-size:11px; }
+    .np-forces input { display:block; width:100%; margin-top:4px; accent-color:var(--accent-2); }
     .np-hint { position:absolute; right:18px; bottom:14px; width:260px; text-align:right; color:var(--faint); font-size:11px; line-height:1.5; pointer-events:none; }
-    .np-lbl { pointer-events:none; paint-order:stroke; stroke:#141414; stroke-linejoin:round; fill:#e8e8e8; font-family:Inter, sans-serif; }
+    .np-lbl { pointer-events:none; paint-order:stroke; stroke:#141414; stroke-linejoin:round; font-family:Inter, sans-serif; }
   `;
 
   function mkRoot() {
     root = document.createElement('div'); root.className = 'np-root';
     root.innerHTML = `<style>${CSS}</style>
       <div class="np-bar">
-        <div class="panel np-tgls">${[['hulls', 'Clusters'], ['cross', 'Cross links'], ['ghosts', 'Ghosts'], ['labels', 'Labels']].map(([k, l]) => `<button class="np-tgl" data-tg="${k}"><span class="np-sw"><i></i></span>${l}</button>`).join('')}</div>
+        <div class="panel np-tgls">${[['cross', 'Cross links'], ['ghosts', 'Ghosts'], ['labels', 'Labels']].map(([k, l]) => `<button class="np-tgl" data-tg="${k}"><span class="np-sw"><i></i></span>${l}</button>`).join('')}</div>
         <div class="seg text-[12px]"><button data-cb="repo">Repo</button><button data-cb="type">Type</button></div>
         <button class="btn text-[12px]" data-fit>Fit</button>
         <span class="mono faint text-[11px]" data-stats></span>
       </div>
       <div class="panel np-legend"></div>
+      <div class="panel np-forces"><div class="eyebrow">Forces</div>${FORCES.map(([k, l, min, max, step]) => `<label>${l}<b data-fv="${k}"></b><input type="range" data-force="${k}" min="${min}" max="${max}" step="${step}" value="${F[k]}"></label>`).join('')}</div>
       <div class="np-hint">Click a node to focus it and see details. Drag to move, scroll to zoom, click empty space to reset.</div>`;
     svg = d3.select(root).insert('svg', ':first-child');
     zg = svg.append('g');
-    zoom = d3.zoom().scaleExtent([0.08, 6]).on('zoom', (e) => { zg.attr('transform', e.transform); zk = e.transform.k; styleLabels(); });
+    // the focus callouts, in screen space over the zoomed graph
+    coSel = svg.append('g').style('pointer-events', 'none');
+    zoom = d3.zoom().scaleExtent([0.08, 6]).on('zoom', (e) => { zg.attr('transform', e.transform); placeLater(); });
     svg.call(zoom).on('dblclick.zoom', null).on('click', () => cur.select(null));
     root.addEventListener('click', (e) => {
       const t = e.target.closest('[data-tg],[data-cb],[data-fit]'); if (!t) return;
       if (t.dataset.tg) F[t.dataset.tg] = !F[t.dataset.tg];
       else if (t.dataset.cb) F.by = t.dataset.cb;
       else fit(true);
-      draw(); style(); legend();
+      save(); style(); legend();
     });
+    // a slider retunes its force and reheats the simulation, so the graph moves to its new balance
+    root.addEventListener('input', (e) => {
+      const k = e.target.dataset && e.target.dataset.force; if (!k) return;
+      F[k] = +e.target.value; save(); tune(); sim.alpha(0.5).restart(); style();
+    });
+  }
+
+  // the four forces, from the sliders. Link strength is divided by the lesser degree, as d3 does by default, so a note
+  // with many springs does not shake.
+  function tune() {
+    sim.force('link').distance(F.dist).strength((l) => Math.min(1, (2 * F.link) / Math.max(1, Math.min(l.source.deg, l.target.deg))));
+    sim.force('charge').strength(-F.repel * 12);
+    sim.force('x').strength(F.center * 0.1); sim.force('y').strength(F.center * 0.1);
   }
 
   function build(D) {
@@ -988,41 +1014,40 @@ App.register('overview', {
     pairs.forEach(([a, b]) => { a.deg++; b.deg++; const kind = a.cluster === b.cluster ? 'intra' : 'cross'; if (kind === 'cross') crossCount++; links.push({ source: a.id, target: b.id, kind }); });
     nodes.forEach((d) => { d.r = d.kind === 'ghost' ? Math.min(8, 4 + Math.sqrt(d.deg) * 0.8) : Math.min(11, 3.5 + Math.sqrt(d.deg) * 1.7); });
 
-    const groups = d3.group(nodes, (d) => d.cluster);
-    clusters = [...groups].map(([slug, members]) => ({ slug, count: members.filter((d) => d.kind === 'note').length, ghosts: members.filter((d) => d.kind === 'ghost').length, members }))
-      .sort((a, b) => b.members.length - a.members.length);
-    const rad = (c) => 46 + 15 * Math.sqrt(c.members.length), maxRad = d3.max(clusters, rad) || 60, S = 1.45 * maxRad;
-    clusters.forEach((c, i) => {
-      c.cx = S * Math.sqrt(i) * Math.cos(i * 2.39996); c.cy = S * Math.sqrt(i) * Math.sin(i * 2.39996); c.rad = rad(c);
-      const hub = { id: 'hub:' + c.slug, kind: 'hub', cluster: c.slug, r: Math.min(46, 15 + 3.2 * Math.sqrt(c.count)), deg: 0, x: c.cx, y: c.cy };
-      c.hub = hub;
-      c.members.forEach((d, j) => { const a = j * 2.4, r = 14 + 9 * Math.sqrt(j); d.x = c.cx + Math.cos(a) * r; d.y = c.cy + Math.sin(a) * r; links.push({ source: hub.id, target: d.id, kind: 'spoke' }); });
-      c.members.unshift(hub); nodes.push(hub);
+    // the legend's repositories, largest first
+    repos = [...d3.rollup(nodes, (v) => v.filter((d) => d.kind === 'note').length, (d) => d.cluster)].map(([slug, count]) => ({ slug, count })).sort((a, b) => b.count - a.count);
+    // a reload keeps each note where it was; new notes start on d3's phyllotaxis spiral
+    nodes.forEach((d) => {
+      const p = prev.get(d.id); if (p) [d.x, d.y] = p;
+      // a note named after its repository ('shop-checkout' in shop) is labelled without the prefix colour already gives;
+      // the full name stays in the tooltip and the panel
+      const pre = d.cluster + '-', s = d.id.startsWith(pre) && d.id.length > pre.length ? d.id.slice(pre.length) : d.id;
+      d.label = s.length > 28 ? s.slice(0, 27) + '…' : s;
     });
-    nodes.forEach((d) => { const p = prev.get(d.id); if (p) [d.x, d.y] = p; });
-    const cOf = new Map(clusters.map((c) => [c.slug, c]));
+    byDeg = nodes.slice().sort((a, b) => b.deg - a.deg);
+    nodeById = byId;
     links.forEach((l) => { for (const [a, b] of [[l.source, l.target], [l.target, l.source]]) { if (!nbr.has(a)) nbr.set(a, new Set()); nbr.get(a).add(b); } });
     typeCol = d3.scaleOrdinal(d3.schemeTableau10).domain([...new Set(D.notes.map((n) => n.type))].sort());
     typeCount = d3.rollup(D.notes, (v) => v.length, (n) => n.type);
 
+    // springs along links, every note repelling every other, a pull to the centre that holds orphans at the rim
     sim = d3.forceSimulation(nodes)
-      .force('link', d3.forceLink(links).id((d) => d.id).distance((l) => (l.kind === 'spoke' ? l.source.r + l.target.r + 22 : l.kind === 'intra' ? 38 : 320)).strength((l) => (l.kind === 'spoke' ? 0.3 : l.kind === 'intra' ? 0.2 : 0.004)))
-      .force('x', d3.forceX((d) => cOf.get(d.cluster).cx).strength((d) => (d.kind === 'hub' ? 0.5 : 0.07)))
-      .force('y', d3.forceY((d) => cOf.get(d.cluster).cy).strength((d) => (d.kind === 'hub' ? 0.5 : 0.07)))
-      .force('charge', d3.forceManyBody().strength((d) => (d.kind === 'hub' ? -140 : -20)).distanceMax(240))
-      .force('collide', d3.forceCollide((d) => d.r + (d.kind === 'hub' ? 10 : 3)).iterations(2))
+      .force('link', d3.forceLink(links).id((d) => d.id))
+      .force('charge', d3.forceManyBody().distanceMax(900))
+      .force('x', d3.forceX(0)).force('y', d3.forceY(0))
+      .force('collide', d3.forceCollide((d) => d.r + 2))
       .stop();
-    for (let i = 0; i < (prev.size ? 60 : 240); i++) sim.tick();
-    sim.alpha(0).on('tick', draw);
+    tune();
+    // most of the settling happens off screen; the rest plays out live, as Obsidian's graph does
+    for (let i = 0; i < (prev.size ? 0 : 160); i++) sim.tick();
+    sim.alpha(prev.size ? 0.05 : 0.3).on('tick', draw).restart();
 
     // dom
-    hullSel = zg.append('g').style('pointer-events', 'none').selectAll('path').data(clusters).join('path')
-      .attr('fill', (c) => cc(c.slug)).attr('fill-opacity', 0.04).attr('stroke', (c) => cc(c.slug)).attr('stroke-opacity', 0.19).attr('stroke-width', 1);
     linkSel = zg.append('g').style('pointer-events', 'none').selectAll('line').data(links).join('line')
-      .attr('stroke-dasharray', (l) => (l.kind === 'cross' ? '2 4' : null)).attr('stroke-width', (l) => (l.kind === 'spoke' ? 0.8 : 1));
+      .attr('stroke-dasharray', (l) => (l.kind === 'cross' ? '2 4' : null)).attr('stroke-width', 1);
     nodeSel = zg.append('g').selectAll('g').data(nodes).join('g').style('cursor', 'pointer')
       .on('mouseenter', (e, d) => { hover = d.id; style(); }).on('mouseleave', () => { hover = null; style(); })
-      .on('click', (e, d) => { e.stopPropagation(); cur.select(d.kind === 'ghost' ? 'ghost' : d.kind === 'hub' ? 'repo' : 'note', d.kind === 'hub' ? d.cluster : d.id); })
+      .on('click', (e, d) => { e.stopPropagation(); cur.select(d.kind === 'ghost' ? 'ghost' : 'note', d.id); })
       .call(d3.drag()
         .on('start', (e, d) => { if (!e.active) sim.alphaTarget(0.25).restart(); d.fx = d.x; d.fy = d.y; })
         .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
@@ -1034,12 +1059,12 @@ App.register('overview', {
       sq(g, h + 4).attr('class', 'ring').attr('fill', 'none').attr('stroke-width', 2).style('display', 'none');
       if (d.kind === 'ghost') sq(g, h + 3.5).attr('fill', 'none').attr('stroke', '#cfcfcf').attr('stroke-width', 1).attr('stroke-dasharray', '2 2.5');
       if (d.n && (d.n.draft || d.n.pending)) sq(g, h + 2).attr('fill', 'none').attr('stroke', '#e8e8e8').attr('stroke-width', 1).attr('stroke-dasharray', '3 2');
-      sq(g, h).attr('class', 'dot').attr('fill-opacity', d.kind === 'hub' ? 0.95 : d.kind === 'ghost' ? 0.55 : 0.9);
-      g.append('title').text(d.kind === 'hub' ? `${d.cluster}: ${cOf.get(d.cluster).count} notes` : d.kind === 'ghost' ? `${d.id} (not written yet)` : `${d.id} (${d.n.type})${d.n.description ? ': ' + d.n.description : ''}`);
+      sq(g, h).attr('class', 'dot').attr('fill-opacity', d.kind === 'ghost' ? 0.55 : 0.9);
+      g.append('title').text(d.kind === 'ghost' ? `${d.id} (not written yet)` : `${d.id} (${d.n.type})${d.n.description ? ': ' + d.n.description : ''}`);
     });
     labSel = zg.append('g').style('pointer-events', 'none').selectAll('text').data(nodes).join('text').attr('class', 'np-lbl').attr('text-anchor', 'middle')
-      .attr('font-style', (d) => (d.kind === 'ghost' ? 'italic' : null)).attr('font-weight', (d) => (d.kind === 'hub' ? 600 : 400))
-      .text((d) => (d.kind === 'hub' ? d.cluster : d.id.length > 28 ? d.id.slice(0, 27) + '…' : d.id));
+      .attr('font-style', (d) => (d.kind === 'ghost' ? 'italic' : null))
+      .text((d) => d.label);
 
     draw(); if (!prev.size) fit(false);
   }
@@ -1053,30 +1078,16 @@ App.register('overview', {
   }
 
   function draw() {
-    hullSel.attr('d', (c) => {
-      if (!F.hulls) return null;
-      const pts = [];
-      for (const d of c.members) {
-        if (d.kind === 'ghost' && !F.ghosts) continue;
-        const p = d.r + (d.kind === 'hub' ? 24 : 15);
-        pts.push([d.x - p, d.y - p], [d.x + p, d.y - p], [d.x + p, d.y + p], [d.x - p, d.y + p]);
-      }
-      // a cluster is the rectangle around its members' padded squares
-      if (!pts.length) return null;
-      const [x0, x1] = d3.extent(pts, (p) => p[0]), [y0, y1] = d3.extent(pts, (p) => p[1]);
-      return `M${x0},${y0}H${x1}V${y1}H${x0}Z`;
-    });
     linkSel.attr('x1', (l) => l.source.x).attr('y1', (l) => l.source.y).attr('x2', (l) => l.target.x).attr('y2', (l) => l.target.y);
     nodeSel.attr('transform', (d) => `translate(${d.x},${d.y})`);
-    labSel.attr('x', (d) => d.x).attr('y', (d) => d.y + d.r + (d.kind === 'hub' ? hubFont() * 0.95 : 11 / zk));
+    placeLater();
   }
-  const hubFont = () => Math.min(34, Math.max(14, 13 / zk));
 
-  function selId() { const s = cur.sel; return s && (s.kind === 'note' || s.kind === 'ghost') ? s.id : s && s.kind === 'repo' ? 'hub:' + s.id : null; }
+  function selId() { const s = cur.sel; return s && (s.kind === 'note' || s.kind === 'ghost') ? s.id : null; }
 
   function style() {
     const q = cur.q, sel = selId(), focus = hover || sel, fset = focus && nbr.get(focus) ? new Set([focus, ...nbr.get(focus)]) : null;
-    const match = q ? (d) => (d.kind === 'hub' ? d.cluster : d.id + ' ' + (d.n ? d.n.description + ' ' + d.n.type : '')).toLowerCase().includes(q) : null;
+    const match = q ? (d) => (d.id + ' ' + (d.n ? d.n.description + ' ' + d.n.type : '')).toLowerCase().includes(q) : null;
     nodeSel.style('display', (d) => (d.kind === 'ghost' && !F.ghosts ? 'none' : null)).attr('opacity', (d) => {
       let o = 1;
       if (cur.repo && d.cluster !== cur.repo) o = 0.16;
@@ -1090,43 +1101,106 @@ App.register('overview', {
     linkSel.style('display', (l) => ((l.kind === 'cross' && !F.cross) || (!F.ghosts && (l.source.kind === 'ghost' || l.target.kind === 'ghost')) ? 'none' : null))
       .style('stroke', (l) => (focus && (l.source.id === focus || l.target.id === focus) ? '#c8c8c8' : 'var(--muted)'))
       .attr('stroke-opacity', (l) => {
-        let o = l.kind === 'spoke' ? 0.14 : l.kind === 'intra' ? 0.3 : 0.2;
+        let o = l.kind === 'intra' ? 0.3 : 0.2;
         if (cur.repo && l.source.cluster !== cur.repo && l.target.cluster !== cur.repo) o *= 0.15;
         if (focus) o = l.source.id === focus || l.target.id === focus ? 0.9 : 0.03;
         return o;
       });
-    hullSel.style('display', F.hulls ? null : 'none').attr('opacity', (c) => (cur.repo && c.slug !== cur.repo ? 0.3 : 1));
     root.querySelectorAll('[data-tg]').forEach((b) => b.classList.toggle('on', F[b.dataset.tg]));
+    root.querySelectorAll('[data-fv]').forEach((b) => { b.textContent = F[b.dataset.fv]; });
     root.querySelectorAll('[data-cb]').forEach((b) => b.classList.toggle('on', F.by === b.dataset.cb));
-    root.querySelector('[data-stats]').textContent = `${cur.D.notes.length} notes · ${cur.D.ghosts.length} ghosts · ${clusters.length} clusters`;
-    styleLabels(focus, fset, match, sel);
+    root.querySelector('[data-stats]').textContent = `${cur.D.notes.length} notes · ${cur.D.ghosts.length} ghosts · ${repos.length} repositories`;
+    styleLabels(fset, match, sel);
   }
 
-  let last = [null, null, null, null];
-  function styleLabels(focus, fset, match, sel) {
-    if (focus === undefined) [focus, fset, match, sel] = last; else last = [focus, fset, match, sel];
-    labSel.style('display', (d) => {
-      if (d.kind === 'ghost' && !F.ghosts) return 'none';
-      if (d.id === hover || d.id === sel) return null;
-      if (!F.labels) return 'none';
-      if (d.kind === 'hub') return null;
-      if (match && match(d)) return null;
-      if (fset && fset.has(d.id) && hover) return null;
-      return zk >= 1.6 ? null : 'none';
-    }).attr('font-size', (d) => (d.kind === 'hub' ? hubFont() : 10.5 / zk)).attr('stroke-width', (d) => (d.kind === 'hub' ? 4 : 3) / Math.min(zk, 1.2));
-    labSel.attr('y', (d) => d.y + d.r + (d.kind === 'hub' ? hubFont() * 0.95 : 11 / zk));
+  // Labels are placed in screen space, once per frame at most, and never overlap. With a note in focus (hovered or
+  // selected) only its own label sits on the graph; its neighbours' names go to callouts at the side (see callouts).
+  // Otherwise search matches are offered first, then every note most-linked first, each shown only where it overlaps no
+  // label already placed, so zooming in reveals more names. Plain labels are smaller and dimmer than pinned ones, and
+  // fade in with the zoom.
+  let last = [null, null, null], raf = 0;
+  function styleLabels(fset, match, sel) { last = [fset, match, sel]; placeLater(); }
+  function placeLater() { if (!raf) raf = requestAnimationFrame(place); }
+  function place() {
+    raf = 0;
+    const [fset, match, sel] = last, t = d3.zoomTransform(svg.node()), k = t.k, W = root.clientWidth, H = root.clientHeight;
+    const vis = (d) => d.kind !== 'ghost' || F.ghosts;
+    const fd = nodeById.get(hover || sel), fdOn = fd && vis(fd) ? fd : null;
+    // names start to appear at 60% zoom and are fully faded in by 120%
+    const fade = Math.max(0, Math.min(1, (k - 0.6) / 0.6));
+    // a grid of 80px cells, each holding the boxes that touch it
+    const C = 80, grid = new Map(), cells = (b, f) => { for (let i = Math.floor(b[0] / C); i <= Math.floor(b[2] / C); i++) for (let j = Math.floor(b[1] / C); j <= Math.floor(b[3] / C); j++) f(i + ',' + j); };
+    const hits = (b) => { let hit = false; cells(b, (c) => { if (!hit) hit = (grid.get(c) || []).some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]); }); return hit; };
+    const add = (b) => cells(b, (c) => { if (!grid.has(c)) grid.set(c, []); grid.get(c).push(b); });
+    const shown = new Map();
+    const put = (d, pin, force) => {
+      const fs = pin ? 11.5 : 10, w = d.label.length * fs * 0.56 + 6, sx = t.applyX(d.x), base = t.applyY(d.y) + d.r * k + 3 + fs * 0.8;
+      const b = [sx - w / 2, base - fs * 0.8 - 2, sx + w / 2, base + fs * 0.25 + 2];
+      if (b[2] < 0 || b[0] > W || b[3] < 0 || b[1] > H) return;
+      if (!force && hits(b)) return;
+      add(b); shown.set(d, { pin, fs, base });
+    };
+    if (fdOn) put(fdOn, true, true);
+    const inCallout = (d) => fdOn && fset && fset.has(d.id);
+    if (match) byDeg.forEach((d) => { if (!shown.has(d) && vis(d) && match(d) && !inCallout(d)) put(d, true, false); });
+    if (F.labels && fade && !fdOn) byDeg.forEach((d) => { if (!shown.has(d) && vis(d) && !(cur.repo && d.cluster !== cur.repo) && !(match && !match(d))) put(d, false, false); });
+    callouts(fdOn && fset ? [...fset].map((id) => nodeById.get(id)).filter((d) => d !== fdOn && vis(d)) : [], fdOn, t, W, H);
+    labSel.style('display', (d) => (shown.has(d) ? null : 'none'));
+    labSel.filter((d) => shown.has(d)).each(function (d) {
+      const { pin, fs, base } = shown.get(d);
+      d3.select(this).attr('x', d.x).attr('y', t.invertY(base)).attr('font-size', fs / k).attr('stroke-width', 2.5 / k)
+        .attr('font-weight', pin ? 500 : 400).style('fill', pin ? '#f0f0f0' : '#a3a3a3').attr('opacity', pin ? 1 : 0.9 * fade);
+    });
+  }
+
+  // The focused note's neighbours, named in a column on each side of it: neighbours right of the note go to the right
+  // column, the rest to the left. Each name is joined to its note by a leader that leaves the note at 45° and runs
+  // horizontally into the column. Rows keep the notes' top-to-bottom order, as near each note's height as 21px spacing
+  // allows; a column too tall for the screen keeps its most-linked notes and ends on "+N more". Drawn in screen space.
+  function callouts(ns, fd, t, W, H) {
+    const ROW = 21, GAP = 34, PAD = 8, items = [];
+    if (fd) {
+      const fx = t.applyX(fd.x), fr = fd.r * t.k;
+      for (const side of [1, -1]) {
+        let list = ns.map((d) => ({ d, x: t.applyX(d.x), y: t.applyY(d.y), r: d.r * t.k }))
+          .filter((o) => (side === 1 ? o.x >= fx : o.x < fx) && o.x > -60 && o.x < W + 60 && o.y > -60 && o.y < H + 60);
+        if (!list.length) continue;
+        const cap = Math.max(2, Math.floor((H - 24) / ROW));
+        let more = 0;
+        if (list.length > cap) { list.sort((a, b) => b.d.deg - a.d.deg); more = list.length - (cap - 1); list = list.slice(0, cap - 1); }
+        list.sort((a, b) => a.y - b.y);
+        // stack downward, re-centre the block on the notes, stack again, then keep the block on screen
+        let prev = -Infinity;
+        list.forEach((o) => { o.ly = Math.max(o.y, prev + ROW); prev = o.ly; });
+        const shift = d3.mean(list, (o) => o.ly - o.y);
+        prev = -Infinity;
+        list.forEach((o) => { o.ly = Math.max(12, o.ly - shift, prev + ROW); prev = o.ly; });
+        let next = H - 12 - (more ? ROW : 0);
+        for (let i = list.length - 1; i >= 0; i--) { list[i].ly = Math.min(list[i].ly, next); next = list[i].ly - ROW; }
+        // the column sits past every elbow and past the focused note, so each leader reaches it with a 45° run then a flat one
+        const elbow = (o) => o.x + side * (o.r + Math.abs(o.ly - o.y));
+        const col = side === 1 ? Math.max(fx + fr, d3.max(list, elbow)) + GAP : Math.min(fx - fr, d3.min(list, elbow)) - GAP;
+        list.forEach((o) => items.push({ key: o.d.id, side, path: `M${o.x + side * o.r},${o.y}L${elbow(o)},${o.ly}H${col}`, x: col + side * PAD, y: o.ly, text: o.d.label, ghost: o.d.kind === 'ghost' }));
+        if (more) items.push({ key: 'more' + side, side, path: null, x: col + side * PAD, y: list.at(-1).ly + ROW, text: `+${more} more`, more: true });
+      }
+    }
+    const g = coSel.selectAll('g').data(items, (i) => i.key).join((en) => { const g = en.append('g'); g.append('path'); g.append('text').attr('class', 'np-lbl'); return g; });
+    g.select('path').attr('d', (i) => i.path).attr('fill', 'none').attr('stroke', '#8f8f8f').attr('stroke-width', 1).attr('stroke-opacity', 0.75);
+    g.select('text').attr('x', (i) => i.x).attr('y', (i) => i.y).attr('dy', '0.35em').attr('text-anchor', (i) => (i.side === 1 ? 'start' : 'end'))
+      .attr('font-size', 11).attr('stroke-width', 2.5).attr('font-style', (i) => (i.ghost ? 'italic' : null))
+      .style('fill', (i) => (i.more ? '#8f8f8f' : '#e8e8e8')).text((i) => i.text);
   }
 
   function legend() {
     const D = cur.D, el = root.querySelector('.np-legend');
     const rows = F.by === 'repo'
-      ? clusters.map((c) => `<div class="np-row click ${cur.repo === c.slug ? 'on' : ''}" ${c.slug === 'shared' ? '' : `data-repo="${esc(c.slug)}"`}><span class="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style="background:${cc(c.slug)}"></span><span class="truncate">${esc(c.slug)}</span><span class="mono faint ml-auto text-[11px]">${c.count}</span></div>`)
+      ? repos.map((c) => `<div class="np-row click ${cur.repo === c.slug ? 'on' : ''}" ${c.slug === 'shared' ? '' : `data-repo="${esc(c.slug)}"`}><span class="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style="background:${cc(c.slug)}"></span><span class="truncate">${esc(c.slug)}</span><span class="mono faint ml-auto text-[11px]">${c.count}</span></div>`)
       : [...typeCount].sort((a, b) => b[1] - a[1]).map(([t, n]) => `<div class="np-row"><span class="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style="background:${typeCol(t)}"></span><span class="truncate">${esc(t)}</span><span class="mono faint ml-auto text-[11px]">${n}</span></div>`);
     el.innerHTML = `<div class="flex items-center pr-2"><span class="eyebrow">${F.by === 'repo' ? 'Repositories' : 'Note types'}</span><span class="mono faint ml-auto text-[11px]">${D.notes.length}</span></div>
       <div class="rows">${rows.join('')}</div>
       <div class="mt-2 space-y-1 border-t pr-2 pt-2 text-[11.5px] hairline">
         <div class="flex items-center gap-2 muted"><svg width="14" height="14" style="width:14px;height:14px;flex:none"><rect x="2" y="2" width="10" height="10" fill="none" stroke="#cfcfcf" stroke-dasharray="2 2.5"/></svg>Ghost, not written yet<span class="mono faint ml-auto">${D.ghosts.length}</span></div>
-        <div class="flex items-center gap-2 muted"><svg width="14" height="14" style="width:14px;height:14px;flex:none"><path d="M1 12L13 2" stroke="var(--muted)" stroke-dasharray="2 3"/></svg>Cross-cluster link<span class="mono faint ml-auto">${crossCount}</span></div>
+        <div class="flex items-center gap-2 muted"><svg width="14" height="14" style="width:14px;height:14px;flex:none"><path d="M1 12L13 2" stroke="var(--muted)" stroke-dasharray="2 3"/></svg>Cross-repository link<span class="mono faint ml-auto">${crossCount}</span></div>
         <div class="flex items-center gap-2 muted"><svg width="14" height="14" style="width:14px;height:14px;flex:none"><rect x="1.5" y="1.5" width="11" height="11" fill="none" stroke="#e8e8e8" stroke-dasharray="3 2"/></svg>Draft, not shared yet<span class="mono faint ml-auto">${D.notes.filter((n) => n.draft || n.pending).length}</span></div>
       </div>`;
   }
