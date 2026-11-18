@@ -31,7 +31,7 @@ Rules:
    - **Changed:** each file changed and commit made, with its repository, or nothing
 ```
 
-The **Works in** line's `<slug> at <root>` form is fixed: the build pane reads it to show each agent's repository. A sub-agent's **Needs the user** items reach the user through the dispatching skill's hand-over, beside its own decisions.
+The **Works in** line's `<slug> at <root>` form is fixed: the build pane reads it to show each agent's repository. `build` hands the block over as a file, filled by `sdd dispatch`: its briefs open with `## Context`, the **Works in** line, and a line naming the file that holds the whole block, which the agent reads first; the agents it dispatches take either form. A sub-agent's **Needs the user** items reach the user through the dispatching skill's hand-over, beside its own decisions.
 
 ## Fanning out
 

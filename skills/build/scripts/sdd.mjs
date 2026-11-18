@@ -13,14 +13,15 @@
 //   node sdd.mjs set <file> <Line> <value> [--after <Line>]
 //     Sets a `**Line:** value` line; when the file has none, creates it under the --after line, else fails.
 //   node sdd.mjs append <file> <Line> <entry> [--sep '; '] [--after <Line>]
-//     Appends an entry to a line, skipping one the line already ends with, as LAND.md's **Record it** does.
+//     Appends an entry to a line, skipping one the line already ends with, as `land` does for **Landings**.
 //   node sdd.mjs mark <review.md> <ID> "<Line>: <value>" [<ID> "<Line>: <value>"]...
 //     Writes `**Line:** value` under each finding named, replacing that line when the finding already has one:
 //     build's Answer, Fixed and Not fixed lines.
-//   node sdd.mjs review <review.md> --title <t> --fixed <sha> --head <sha> --summary <file> <section-file>...
-//     review-changes' step 6: writes review.md from the Summary file and the section files its sub-agents wrote
-//     (review.<standards|spec|consumers>[.<slug>].md), numbering each axis straight on, then deletes them. Refuses
-//     a review.md that holds Answer lines.
+//   node sdd.mjs review <review.md> --title <t> --fixed <sha> --head <sha> [--summary <file>] <section-file>...
+//     review-changes' step 6: writes review.md from the section files its sub-agents wrote
+//     (review.<standards|spec|consumers>[.<slug>].md), numbering each axis straight on, under a Summary: the file
+//     given, or one drawn from the files' counts and `## Map` rows. Deletes the files it read. Refuses a review.md
+//     that holds Answer lines.
 //   node sdd.mjs squash <milestone-folder|milestone.md> --title <title> [--detail <bullet>]... [--key <key|none>]
 //     Build's step 10: squashes the milestone's branch into the spec's as one commit keyed by
 //     the commit skill's step 1 (or --key, `none` for no key), with its Sdd-Milestone trailer, and writes it into
@@ -28,14 +29,27 @@
 //   node sdd.mjs verify <ticket|milestone.md> [--commit <sha>]... [--brain-head <sha>]
 //     BRIEF.md's check after a sub-agent that changes a repository, and for a ticket that it is done with its commit:
 //     prints the ticket's Status and Commit, then `ok`, or each problem and exits 1.
+//   node sdd.mjs context <ticket|milestone.md> --agent <builder|fixer|arbiter|reviewer|spec-reviewer> [--writes <f>]...
+//     Prints the agent's Context block by BRIEF.md, every line filled from the spec, the brain and the repository.
+//   node sdd.mjs dispatch <ticket|milestone.md> --agent <…> [--writes <f>]... [--branch <b>]
+//     Writes that block to the milestone's .context/ folder, sets a builder's ticket to doing, and prints the brief's
+//     opening: the Works in line, the block's file, and the paths the agent works on.
+//   node sdd.mjs next <ticket> [--commit <sha>]... [--brain-head <sha>]
+//     `verify` for a builder's or fixer's ticket, then `dispatch` of its milestone's next ticket, or that all are done.
+//   node sdd.mjs land <spec-id|spec-folder> --track <slug> [--brain <brain>] [--fold]
+//     LAND.md's **Land a track**: rebase, follow each squash, full suite, fast-forward the base, record the landing.
+//     Exits 1 with `stopped: <why>` when it cannot; --fold first folds a fixer's commits into the track's last squash.
 //
 // Exits 1 with one line on stderr when it cannot read or write what it was given.
 import { spawnSync } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { basename, join, resolve } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const DEFAULT_CAP = 5
+/** This plugin's root: sdd.mjs sits in skills/build/scripts/. */
+const PLUGIN = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
+const slash = (p) => p.replace(/\\/g, '/')
 
 // --- reading the Markdown lines -------------------------------------------------------------------------------
 
@@ -563,22 +577,66 @@ export const appendLine = (md, name, entry, sep = '; ', after) => {
 // --- assembling a review --------------------------------------------------------------------------------------
 
 const AXES = [['standards', 'Standards', 'ST'], ['spec', 'Spec', 'SP'], ['consumers', 'Consumers', 'CN']]
+const MARKS = ['escalate', 'violation', 'judgement']
+
+/** A findings file's `## Map` rows, `- \`<path>\`: <IDs>; worst <mark>[; calls \`<path>\`, …]`, and its text without them. */
+export const mapRows = (text) => {
+  const m = /^##\s+Map\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/m.exec(text)
+  if (!m) return { rows: [], text }
+  const rows = m[1].split('\n').map((l) => /^\s*[-*]\s+`([^`]+)`:\s*((?:[A-Z]{2}\d+)(?:\s*,\s*[A-Z]{2}\d+)*)\s*;\s*worst\s+(escalate|violation|judgement)\s*(?:;\s*calls\s+(.*))?$/i.exec(l))
+    .filter(Boolean)
+    .map(([, path, idList, worst, calls]) => ({ path, ids: idList.split(',').map((s) => s.trim()), worst: worst.toLowerCase(), calls: [...(calls ?? '').matchAll(/`([^`]+)`/g)].map((c) => c[1]) }))
+  return { rows, text: text.slice(0, m.index) + text.slice(m.index + m[0].length) }
+}
+
+/** One axis's Summary sentence: its findings, how many are flagged escalate, and its worst one. */
+const axisLine = (name, text) => {
+  const fs = findings(text)
+  if (!fs.length) return `${name}: no findings.`
+  const esc = fs.filter((f) => /\bescalate\b/i.test(f.text))
+  const worst = esc[0] ?? fs.find((f) => /hard violation|built wrong|\bmissing\b|\bpartial\b|\bbreaks\b/i.test(f.text)) ?? fs[0]
+  const what = worst.text.split('\n')[0].replace(/^\s*(?:[-*]\s+|#{1,4}\s+)?(?:\*\*)?[A-Z]{2}\d+(?:\*\*)?\s*/, '').replace(/\*\*/g, '').trim()
+  return `${name}: ${fs.length} finding${fs.length > 1 ? 's' : ''}, ${esc.length} escalate; worst ${worst.id}, ${what.length > 140 ? `${what.slice(0, 137)}...` : what}`
+}
+
+/** DIAGRAMS.md's finding map from the map rows: each module with its IDs, marked by its worst finding. */
+export const findingMap = (rows) => {
+  if (!rows.length) return ''
+  const nodes = new Map()
+  const node = (path) => {
+    if (!nodes.has(path)) nodes.set(path, { id: `m${nodes.size + 1}`, path, ids: [], worst: null })
+    return nodes.get(path)
+  }
+  for (const r of rows) {
+    const n = node(r.path)
+    n.ids.push(...r.ids.filter((id) => !n.ids.includes(id)))
+    if (n.worst === null || MARKS.indexOf(r.worst) < MARKS.indexOf(n.worst)) n.worst = r.worst
+  }
+  const edges = new Set(rows.flatMap((r) => r.calls.map((c) => `${node(r.path).id} --> ${node(c).id}`)))
+  const label = (n) => `${n.id}["${n.path.replace(/"/g, "'")}${n.ids.length ? `<br>${n.ids.join(', ')}` : ''}"]${n.worst ? `:::${n.worst}` : ''}`
+  return ['```mermaid', 'flowchart TD', ...[...nodes.values()].map((n) => `    ${label(n)}`), ...[...edges].map((e) => `    ${e}`),
+    '    classDef violation stroke:#ef4444,fill:#ef444426', '    classDef judgement stroke:#f59e0b,fill:#f59e0b26', '    classDef escalate stroke:#8b5cf6,fill:#8b5cf626', '```'].join('\n')
+}
 
 /**
  * review-changes' step 6 from the files its sub-agents wrote: `review.<axis>[.<slug>].md`, each numbering its own
  * findings from 1. Numbers each axis straight on across its files, in the order given, under `## <Axis>` (and a
- * `### <slug>` per file when an axis has several), below the header and the Summary file. Returns { text, counts,
- * renumbered }: the findings per axis, and each ID a later file's offset changed.
+ * `### <slug>` per file when an axis has several), below the header and the Summary. The Summary is the file given,
+ * or, without one, a line per axis and the finding map drawn from each file's `## Map` rows, which leave its text.
+ * Returns { text, counts, renumbered }: the findings per axis, and each ID a later file's offset changed.
  */
 export const assembleReview = ({ title, fixed, head, summary, sections }) => {
   const counts = {}
   const renumbered = []
-  const out = [`# Review: ${title}`, '', `**Fixed point:** ${fixed}`, '', `**Head:** ${head}`, '', summary.trim(), '']
+  const body = []
+  const lines = []
+  const rows = []
   for (const [axis, name, prefix] of AXES) {
     const files = sections.filter((s) => s.axis === axis)
-    if (!files.length) continue
-    out.push(`## ${name}`, '')
+    if (!files.length) { if (axis !== 'consumers') lines.push(`${name}: not run.`); continue }
+    body.push(`## ${name}`, '')
     let offset = 0
+    let all = ''
     for (const s of files) {
       const own = [...new Set(findings(s.text).map((f) => f.id).filter((id) => id.startsWith(prefix)))]
       let text = s.text.trim()
@@ -590,12 +648,19 @@ export const assembleReview = ({ title, fixed, head, summary, sections }) => {
           return to
         })
       }
-      if (files.length > 1) out.push(`### ${s.slug ?? axis}`, '')
-      out.push(text, '')
+      const map = mapRows(text)
+      rows.push(...map.rows)
+      text = map.text.trim()
+      all += `${text}\n`
+      if (files.length > 1) body.push(`### ${s.slug ?? axis}`, '')
+      body.push(text, '')
       offset += own.length
     }
     counts[name] = offset
+    lines.push(axisLine(name, all))
   }
+  const sum = summary?.trim() || ['## Summary', '', lines.join(' '), '', findingMap(rows)].join('\n').trim()
+  const out = [`# Review: ${title}`, '', `**Fixed point:** ${fixed}`, '', `**Head:** ${head}`, '', sum, '', ...body]
   return { text: out.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd() + '\n', counts, renumbered }
 }
 
@@ -705,15 +770,236 @@ export const verify = (path, { commits = [], brainHead } = {}) => {
   return { problems, status, commit }
 }
 
+// --- briefing a sub-agent ---------------------------------------------------------------------------------------
+
+export const AGENTS = ['builder', 'fixer', 'arbiter', 'reviewer', 'spec-reviewer']
+
+/** The brain's authored `contract` notes whose `repos` line names the slug: [{ path, repos }]. */
+const contractNotes = (brain, slug) => {
+  const out = []
+  const walk = (dir) => {
+    for (const n of existsSync(dir) ? readdirSync(dir) : []) {
+      const p = join(dir, n)
+      if (statSync(p).isDirectory()) walk(p)
+      else if (n.endsWith('.md')) {
+        const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(read(p))?.[1] ?? ''
+        const repos = (/^repos:\s*\[(.*)\]\s*$/m.exec(fm)?.[1] ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+        if (/^type:\s*contract\s*$/m.test(fm) && repos.includes(slug)) out.push({ path: slash(p), repos })
+      }
+    }
+  }
+  walk(join(brain, 'notes'))
+  return out.sort((a, b) => a.path.localeCompare(b.path))
+}
+
+/** BRIEF.md's Context block, as its fenced template: the lines above `Rules:` and the rules from there. */
+const briefTemplate = () => {
+  const md = read(join(PLUGIN, 'skills', 'brain', 'references', 'BRIEF.md'))
+  const block = /^## The Context block[\s\S]*?^```\r?\n([\s\S]*?)^```/m.exec(md)?.[1]
+  if (!block) throw new Error('No Context block template in BRIEF.md')
+  return block.replace(/\r/g, '').trimEnd()
+}
+
+/**
+ * The Context block by BRIEF.md for one of build's sub-agents on a ticket or milestone, every line filled from the
+ * spec, the brain and the repository: what each agent reads and may write, by build's steps 5 to 9.
+ */
+export const contextBlock = (path, agent, { writes = [], branch: onBranch } = {}) => {
+  if (!AGENTS.includes(agent)) throw new Error(`No Context block for ${agent}: one of ${AGENTS.join(', ')}`)
+  const { specDir, brain, track, m, root, branch } = locate(path)
+  const ticketPath = /\d{3}-[^/\\]+\.md$/.test(path) && !/milestone\.md$/i.test(path) ? slash(resolve(path)) : null
+  const changes = agent === 'builder' || agent === 'fixer'
+  if (agent === 'builder' && !ticketPath) throw new Error('A builder works on a ticket: give its path')
+  const links = readLinks(brain)
+  const spec = readSpecLines(specDir)
+  const at = (s) => `${s} at ${slash(links[s] ?? '(not linked)')} (linked)`
+
+  const contracts = agent === 'arbiter' || agent === 'reviewer' ? contractNotes(brain, track) : []
+  const also = new Set(changes
+    ? [...m.buildsAfter, ...m.landsAfter].filter((id) => !id.bad && id.track && id.track !== track).map((id) => id.track)
+    : agent === 'arbiter' ? contracts.flatMap((c) => c.repos).filter((s) => s !== track) : [])
+  const card = [join(brain, 'notes', 'repos', track, 'REPO.md'), join(brain, 'repos', track, 'REPO.md')].find(existsSync) ?? join(brain, 'notes', 'repos', track, 'REPO.md')
+  const docs = [
+    ...['docs/STRUCTURE.md', 'GLOSSARY-MAP.md', 'GLOSSARY.md', 'docs/adr/', ...(agent === 'reviewer' ? ['CLAUDE.md', 'AGENTS.md'] : [])].map((f) => join(root, f)).filter((p) => existsSync(p)),
+    ...(changes ? ['skills/project-structure/SKILL.md', 'skills/codebase-design/SKILL.md'].map((f) => join(PLUGIN, f)) : []),
+    ...(agent === 'fixer' ? [join(PLUGIN, 'agents', 'builder.md')] : []),
+    ...(agent === 'reviewer' ? [join(PLUGIN, 'skills', 'review-changes', 'references', 'SMELLS.md')] : []),
+    ...(changes ? [join(PLUGIN, 'skills', 'build', 'scripts', 'sdd.mjs')] : []),
+  ].map(slash)
+  const brainNotes = isNone(spec.brainNotes) ? [] : spec.brainNotes.split(',').map((s) => s.trim()).filter(Boolean)
+  const notes = [...new Set([...brainNotes, ...contracts.map((c) => c.path)])]
+  const msPath = slash(join(m.dir, 'milestone.md'))
+  const own = ticketPath && changes ? `, the ticket file at ${ticketPath}` : ''
+  const write = changes ? `files under ${slash(root)}${own}` : writes.length ? writes.map((w) => `the file at ${slash(resolve(w))}`).join(', ') : 'nothing'
+
+  const values = {
+    Brain: slash(brain),
+    'Works in': `${track} at ${slash(root)} (${changes ? 'open' : 'linked'}), ${changes ? 'changes it' : 'reads it'}`,
+    'Also reads': also.size ? [...also].map(at).join('; ') : 'none',
+    Card: slash(card),
+    Docs: docs.length ? docs.join(', ') : 'none',
+    Notes: notes.length ? notes.join(', ') : 'none',
+    Spec: ticketPath && (changes || agent === 'spec-reviewer') ? ticketPath : msPath,
+    Branch: onBranch ?? branch,
+    Writes: write,
+  }
+  return briefTemplate().replace(/^- \*\*([^:*]+):\*\* .*$/gm, (line, name) => (name in values ? `- **${name}:** ${values[name]}` : line))
+}
+
+/**
+ * A dispatch in one call: writes the agent's Context block to `<milestone>/.context/<agent>[-<ticket>].md`, sets a
+ * ticket's builder's ticket to `doing`, and returns the brief's opening, the **Works in** line the build pane reads
+ * and the file holding the rest, followed by the paths the agent works on.
+ */
+export const dispatch = (path, agent, { writes = [], branch } = {}) => {
+  const block = contextBlock(path, agent, { writes, branch })
+  const { m } = locate(path)
+  const ticket = /\d{3}-[^/\\]+\.md$/.test(path) && !/milestone\.md$/i.test(path) ? resolve(path) : null
+  const file = join(m.dir, '.context', `${agent}${ticket ? `-${basename(ticket).slice(0, 3)}` : ''}.md`)
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, `${block}\n`)
+  if (agent === 'builder' && ticket) writeFileSync(ticket, setLine(read(ticket), 'Status', 'doing'))
+  const worksIn = /^- \*\*Works in:\*\* .*$/m.exec(block)[0]
+  return [
+    '## Context',
+    worksIn,
+    `- The rest of this Context block, its rules included, is in ${slash(file)}: read it before anything else.`,
+    '',
+    ...(ticket ? [`**Ticket:** ${slash(ticket)}`] : []),
+    `**Milestone:** ${slash(join(m.dir, 'milestone.md'))}`,
+    `**Spec:** ${slash(join(resolve(m.dir, '..', '..', '..'), 'spec.md'))}`,
+  ].join('\n')
+}
+
+/**
+ * Build's step 3 on a builder's or fixer's report for a ticket, in one call: `verify`, then, when it holds, the
+ * dispatch of the milestone's next ticket not done, or the word that its tickets are all done.
+ */
+export const next = (ticketPath, { commits = [], brainHead } = {}) => {
+  const v = verify(ticketPath, { commits, brainHead })
+  if (v.problems.length) return { ...v, next: null, done: false }
+  const { m } = locate(ticketPath)
+  const k = readMilestone(m.dir, null).tickets.find((t) => t.status !== 'done')
+  if (!k) return { ...v, next: null, done: true }
+  const p = join(m.dir, k.file)
+  return { ...v, next: slash(p), brief: dispatch(p, 'builder'), done: false }
+}
+
+// --- landing a track --------------------------------------------------------------------------------------------
+
+/** A repository's full suite by its card, `unit` then `e2e` unless `none`, run from its root. */
+const fullSuite = (brain, slug) => {
+  const card = [join(brain, 'notes', 'repos', slug, 'REPO.md'), join(brain, 'repos', slug, 'REPO.md')].find(existsSync)
+  const fm = card ? (/^---\r?\n([\s\S]*?)\r?\n---/.exec(read(card))?.[1] ?? '') : ''
+  return ['unit', 'e2e'].map((k) => new RegExp(`^${k}:\\s*(.*)$`, 'm').exec(fm)?.[1].trim()).filter((c) => c && !isNone(c) && c !== 'null')
+}
+
+const runSuite = (root, commands) => {
+  for (const c of commands) {
+    const r = spawnSync(c, { cwd: root, shell: true, encoding: 'utf8' })
+    if (r.status !== 0) return { ok: false, command: c, tail: `${r.stdout ?? ''}${r.stderr ?? ''}`.trimEnd().split('\n').slice(-40).join('\n') }
+  }
+  return { ok: true }
+}
+
+/**
+ * LAND.md's **Land a track** in one call, for one track of a spec: records the landable milestones already on its
+ * base, rebases its spec branch onto the base, follows each squash through the rebase into its **Squash** line, runs
+ * the full suite at the last landable squash, fast-forwards the base to it, and records **Landings**, each **Landed**
+ * and **Phase**, and the spec's **Landed** line once every milestone has landed. With `fold`, first folds the commits
+ * a fixer made on the spec branch above the track's last squash into that squash. Returns { landed, stopped }: the
+ * milestones it landed, and why it stopped, with `at` (`conflict`, `tip`, `below`, `dirty`, `dropped`) and the
+ * suite's failing command and output.
+ */
+export const land = (specDir, slug, { fold = false } = {}) => {
+  const brain = resolve(specDir, '..', '..', '..')
+  const specFolder = basename(specDir)
+  const specBranch = `sdd/${specFolder}/spec`
+  const st = specState(specDir, { brain })
+  const t = st.tracks.find((x) => x.slug === slug)
+  if (!t) throw new Error(`No track ${slug} in ${specFolder}`)
+  const { root, base } = t.repo
+  if (!t.repo.git) throw new Error(`${slug} is not linked to a git clone`)
+  if (!base) throw new Error(`${slug} has no base branch: add it to spec.md's Base line`)
+  const msOf = (n) => readTracks(specDir).tracks.find((x) => x.slug === slug).milestones.find((x) => x.n === n)
+  const msFile = (n) => join(msOf(n).dir, 'milestone.md')
+  const setMs = (n, name, value) => writeFileSync(msFile(n), setLine(read(msFile(n)), name, value, 'Lands after'))
+  const specPath = join(specDir, 'spec.md')
+  const landed = []
+
+  const record = (ns) => {
+    if (!ns.length) return
+    const entry = `${slug} ${ns.length > 1 ? `${ns[0]}-${ns.at(-1)}` : ns[0]}`
+    writeFileSync(specPath, appendLine(read(specPath), 'Landings', entry, '; ', 'Base'))
+    for (const n of ns) { setMs(n, 'Landed', msOf(n).squash); setMs(n, 'Phase', 'landed') }
+    landed.push(...ns)
+  }
+  const finish = (stopped) => {
+    const all = readTracks(specDir).tracks.flatMap((x) => x.milestones.map((mm) => ({ slug: x.slug, mm })))
+    if (!stopped && all.length && all.every((a) => a.mm.landed) && field(read(specPath), 'Landed') === null) {
+      const last = (s) => all.filter((a) => a.slug === s).at(-1)?.mm.landed
+      const entries = readSpecLines(specDir).repos.filter((s) => last(s)).map((s) => `${s}@${last(s)}`)
+      writeFileSync(specPath, setLine(read(specPath), 'Landed', entries.join(', '), 'Base'))
+    }
+    return { landed, stopped: stopped ?? null }
+  }
+
+  const landable = t.milestones.filter((x) => x.landable)
+  record(landable.filter((x) => x.onBase).map((x) => x.n))
+  let rest = landable.filter((x) => !x.onBase).map((x) => x.n)
+  if (!rest.length) return finish()
+  if (git(root, ['status', '--porcelain']) !== '') return finish({ at: 'dirty', why: `${root} has uncommitted changes` })
+
+  const unlanded = t.milestones.filter((x) => x.state === 'unlanded' && !x.onBase)
+  if (fold) {
+    const lastSq = unlanded.at(-1)
+    run(root, ['checkout', '-q', specBranch])
+    if (run(root, ['rev-parse', 'HEAD']) !== run(root, ['rev-parse', lastSq.squash])) {
+      run(root, ['reset', '--soft', lastSq.squash])
+      run(root, ['commit', '-q', '--amend', '--no-edit'])
+      setMs(lastSq.n, 'Squash', run(root, ['rev-parse', 'HEAD']))
+    }
+  }
+
+  const subjects = new Map(unlanded.map((x) => [x.n, git(root, ['log', '-1', '--format=%s', msOf(x.n).squash])]))
+  if (spawnSync('git', ['-C', root, 'rebase', '-q', base, specBranch], { encoding: 'utf8' }).status !== 0) {
+    const files = git(root, ['diff', '--name-only', '--diff-filter=U']) ?? ''
+    spawnSync('git', ['-C', root, 'rebase', '--abort'])
+    return finish({ at: 'conflict', why: `rebasing ${specBranch} onto ${base} conflicts in: ${files.split('\n').filter(Boolean).join(', ') || 'unknown files'}. Once the user rebases it by hand, the same /build lands it` })
+  }
+  const log = (git(root, ['log', '--format=%H%x09%(trailers:key=Sdd-Milestone,valueonly,separator=%x2C)%x09%s', `${base}..${specBranch}`]) ?? '').split('\n').filter(Boolean).map((l) => l.split('\t'))
+  for (const x of unlanded) {
+    const hit = log.find(([, trailer]) => trailer === `${specFolder}/${slug}/M${x.n}`) ?? log.find(([, trailer, s]) => !trailer && s === subjects.get(x.n))
+    if (!hit) return finish({ at: 'dropped', why: `milestone ${x.n}'s squash is not on ${specBranch} after the rebase: the base may already hold it` })
+    setMs(x.n, 'Squash', hit[0])
+  }
+
+  const head = msOf(rest.at(-1)).squash
+  const tip = run(root, ['rev-parse', specBranch])
+  run(root, ['checkout', '-q', '--detach', head])
+  const suite = runSuite(root, fullSuite(brain, slug))
+  if (!suite.ok) {
+    run(root, ['checkout', '-q', specBranch])
+    if (head !== tip) setMs(rest.at(-1), 'Phase', 'failed')
+    return finish({ at: head === tip ? 'tip' : 'below', command: suite.command, tail: suite.tail, head })
+  }
+  run(root, ['checkout', '-q', base])
+  run(root, ['merge', '-q', '--ff-only', head])
+  run(root, ['checkout', '-q', specBranch])
+  record(rest)
+  return finish()
+}
+
 // --- the command line -----------------------------------------------------------------------------------------
 
 const main = (argv) => {
   const [cmd, ...rest] = argv
   const opts = {}
   const pos = []
-  const many = { detail: [], commit: [] }
+  const many = { detail: [], commit: [], writes: [] }
   for (let i = 0; i < rest.length; i++) {
     if (rest[i] === '--no-git') opts.noGit = true
+    else if (rest[i] === '--fold' || rest[i] === '--full') opts[rest[i].slice(2)] = true
     else if (rest[i].slice(2) in many) many[rest[i].slice(2)].push(rest[++i])
     else if (rest[i].startsWith('--')) opts[rest[i].slice(2)] = rest[++i]
     else pos.push(rest[i])
@@ -730,7 +1016,7 @@ const main = (argv) => {
     console.log(`${file}: marked ${pairs.filter((_, i) => i % 2 === 0).join(', ')}`)
     return
   }
-  if (cmd === 'review' && pos.length >= 2 && opts.title && opts.fixed && opts.head && opts.summary) {
+  if (cmd === 'review' && pos.length >= 2 && opts.title && opts.fixed && opts.head) {
     const [target, ...files] = pos
     if (existsSync(target) && /\*\*Answer:\*\*/.test(read(target))) throw new Error(`${target} holds Answer lines: keep this report in chat`)
     const sections = files.map((f) => {
@@ -738,11 +1024,40 @@ const main = (argv) => {
       if (!m) throw new Error(`${f} is not named review.<standards|spec|consumers>[.<slug>].md`)
       return { axis: m[1], slug: m[2] ?? null, text: read(f) }
     })
-    const r = assembleReview({ title: opts.title, fixed: opts.fixed, head: opts.head, summary: read(opts.summary), sections })
+    const r = assembleReview({ title: opts.title, fixed: opts.fixed, head: opts.head, summary: opts.summary ? read(opts.summary) : null, sections })
     writeFileSync(target, r.text)
-    for (const f of [...files, opts.summary]) if (resolve(f) !== resolve(target)) rmSync(f)
+    for (const f of [...files, ...(opts.summary ? [opts.summary] : [])]) if (resolve(f) !== resolve(target)) rmSync(f)
     console.log(`${target}: ${Object.entries(r.counts).map(([a, n]) => `${a} ${n}`).join(', ')}`)
     for (const line of r.renumbered) console.log(`renumbered ${line}`)
+    if (!opts.summary) console.log(/^## Summary\n\n(.*)$/m.exec(r.text)?.[1] ?? '')
+    return
+  }
+  if (cmd === 'context' && pos.length === 1 && opts.agent) {
+    console.log(contextBlock(pos[0], opts.agent, { writes: many.writes, branch: opts.branch }))
+    return
+  }
+  if (cmd === 'dispatch' && pos.length === 1 && opts.agent) {
+    console.log(dispatch(pos[0], opts.agent, { writes: many.writes, branch: opts.branch }))
+    return
+  }
+  if (cmd === 'next' && pos.length === 1) {
+    const r = next(pos[0], { commits: many.commit, brainHead: opts['brain-head'] })
+    if (r.status) console.log(`ticket: Status ${r.status}, Commit ${r.commit ?? 'none'}`)
+    for (const p of r.problems) console.log(`problem: ${p}`)
+    if (r.problems.length) process.exit(1)
+    console.log('ok')
+    console.log(r.done ? 'milestone: every ticket done' : `next: ${r.next}\n\n${r.brief}`)
+    return
+  }
+  if (cmd === 'land' && pos.length === 1 && opts.track) {
+    const brain = resolve(opts.brain ?? '.')
+    const r = land(resolveSpec(pos[0], brain), opts.track, { fold: opts.fold })
+    console.log(r.landed.length ? `landed: ${opts.track} ${r.landed.join(', ')}` : `landed: nothing in ${opts.track}`)
+    if (r.stopped) {
+      console.log(`stopped: ${r.stopped.at}${r.stopped.why ? `: ${r.stopped.why}` : ''}`)
+      if (r.stopped.command) console.log(`failing: ${r.stopped.command} at ${r.stopped.head}\n${r.stopped.tail}`)
+      process.exit(1)
+    }
     return
   }
   if (cmd === 'squash' && pos.length === 1) {
@@ -783,9 +1098,12 @@ const main = (argv) => {
     '       node sdd.mjs set <file> <Line> <value> [--after <Line>]\n' +
     "       node sdd.mjs append <file> <Line> <entry> [--sep '; '] [--after <Line>]\n" +
     '       node sdd.mjs mark <review.md> <ID> "<Line>: <value>" [<ID> "<Line>: <value>"]...\n' +
-    '       node sdd.mjs review <review.md> --title <t> --fixed <sha> --head <sha> --summary <file> <review.<axis>[.<slug>].md>...\n' +
+    '       node sdd.mjs review <review.md> --title <t> --fixed <sha> --head <sha> [--summary <file>] <review.<axis>[.<slug>].md>...\n' +
     '       node sdd.mjs squash <milestone-folder|milestone.md> --title <title> [--detail <bullet>]... [--key <key|none>]\n' +
-    '       node sdd.mjs verify <ticket|milestone.md> [--commit <sha>]... [--brain-head <sha>]')
+    '       node sdd.mjs verify <ticket|milestone.md> [--commit <sha>]... [--brain-head <sha>]\n' +
+    `       node sdd.mjs context|dispatch <ticket|milestone.md> --agent <${AGENTS.join('|')}> [--writes <file>]... [--branch <b>]\n` +
+    '       node sdd.mjs next <ticket> [--commit <sha>]... [--brain-head <sha>]\n' +
+    '       node sdd.mjs land <spec-id|spec-folder> --track <slug> [--brain <brain>] [--fold]')
   process.exit(2)
 }
 

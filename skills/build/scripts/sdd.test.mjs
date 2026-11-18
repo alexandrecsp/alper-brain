@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { appendLine, assembleReview, commitKey, ids, markFinding, readCap, resolveSpec, resumeStep, setLine, specState, squash, ticketDigest, toFix, unanswered, verify } from './sdd.mjs'
+import { appendLine, assembleReview, commitKey, contextBlock, dispatch, findingMap, ids, land, mapRows, markFinding, next, readCap, resolveSpec, resumeStep, setLine, specState, squash, ticketDigest, toFix, unanswered, verify } from './sdd.mjs'
 
 const put = (path, text) => { mkdirSync(join(path, '..'), { recursive: true }); writeFileSync(path, text) }
 const milestone = ({ n, phase = 'none', squash = 'none', landed = 'none', buildsAfter = 'None', landsAfter = 'None', repo }) =>
@@ -335,4 +335,144 @@ test('squashes a milestone into the spec branch and verifies where a sub-agent w
   writeFileSync(t1, readFileSync(t1, 'utf8').replace('**Status:** done', '**Status:** doing'))
   assert.match(verify(t1).problems.join('\n'), /the ticket is doing with Commit [0-9a-f]{40}, not done/)
   assert.match(verify(t1).problems.join('\n'), /is on sdd\/004-invoice-export\/spec, not sdd\/004-invoice-export\/M001/)
+})
+
+test('draws the Summary and the finding map from the findings files when no Summary is given', () => {
+  const standards = '- **ST1** Hard violation. A port with no adapter.\n- **ST2** Judgement call, **keep**. Fine.\n\n## Map\n\n- `src/api.ts`: ST1; worst violation; calls `src/repo.ts`\n- `src/repo.ts`: ST2; worst judgement\n'
+  assert.deepEqual(mapRows(standards).rows.map((r) => [r.path, r.ids, r.worst, r.calls]), [['src/api.ts', ['ST1'], 'violation', ['src/repo.ts']], ['src/repo.ts', ['ST2'], 'judgement', []]])
+  const r = assembleReview({
+    title: 'M', fixed: 'aaa', head: 'bbb', summary: null,
+    sections: [
+      { axis: 'standards', slug: null, text: standards },
+      { axis: 'spec', slug: null, text: '- **SP1** Partial, **escalate**. The seam cannot be built as written.\n\n## Map\n\n- `src/api.ts`: SP1; worst escalate\n' },
+    ],
+  })
+  assert.match(r.text, /## Summary\n\nStandards: 2 findings, 0 escalate; worst ST1, Hard violation\. A port with no adapter\. Spec: 1 finding, 1 escalate; worst SP1, Partial, escalate\. The seam/)
+  assert.match(r.text, /```mermaid\nflowchart TD\n    m1\["src\/api\.ts<br>ST1, SP1"\]:::escalate\n    m2\["src\/repo\.ts<br>ST2"\]:::judgement\n    m1 --> m2\n/)
+  assert.doesNotMatch(r.text, /## Map/)
+  assert.equal(findingMap([]), '')
+  const none = assembleReview({ title: 'M', fixed: 'a', head: 'b', summary: null, sections: [{ axis: 'standards', slug: null, text: 'No findings.\n' }] })
+  assert.match(none.text, /## Summary\n\nStandards: no findings\. Spec: not run\.\n\n## Standards/)
+})
+
+const builtRepo = (b) => {
+  const repo = join(b, 'clones/api')
+  mkdirSync(join(repo, 'docs'), { recursive: true })
+  for (const [k, v] of Object.entries({ GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' })) process.env[k] = v
+  const g = (...a) => {
+    const r = spawnSync('git', ['-C', repo, ...a], { encoding: 'utf8' })
+    assert.equal(r.status, 0, `git ${a.join(' ')}: ${r.stderr}`)
+    return r.stdout.trim()
+  }
+  g('init', '-q', '-b', 'main')
+  writeFileSync(join(repo, 'docs/STRUCTURE.md'), '# Structure\n')
+  writeFileSync(join(repo, 'test.sh'), 'grep -q ok f\n')
+  writeFileSync(join(repo, 'f'), 'ok\n')
+  g('add', '-A'); g('commit', '-qm', 'start')
+  g('checkout', '-qb', 'sdd/004-invoice-export/spec')
+  g('checkout', '-qb', 'sdd/004-invoice-export/M001')
+  put(join(b, '.brain/links.json'), JSON.stringify({ api: repo, web: join(b, 'clones/web') }))
+  put(join(b, 'notes/repos/api/REPO.md'), '---\nslug: api\nremote: local only\ncommitKeyPattern: null\nunit: sh test.sh\ne2e: none\n---\n\nApi.\n')
+  put(join(b, 'notes/authored/invoice-event-contract.md'), '---\nname: invoice-event-contract\ndescription: x\ntype: contract\nlayer: application\nrepos: [api, web]\n---\n\nThe event.\n')
+  put(join(b, 'notes/authored/api-retry.md'), '---\nname: api-retry\ndescription: x\ntype: gotcha\nlayer: application\nrepos: [api]\n---\n\nRetry.\n')
+  return { repo, g }
+}
+const sl = (p) => p.replace(/\\/g, '/')
+
+test('fills each agent its Context block, dispatches a builder, and moves on to the next ticket', () => {
+  const b = brain()
+  const s = twoTracks(b)
+  const a1 = join(s, 'milestones/api/001-expand')
+  put(join(a1, '002-more.md'), ticket({ n: '002', deps: '001' }))
+  const { repo, g } = builtRepo(b)
+  const t1 = join(a1, '001-add-v2.md')
+
+  const builder = contextBlock(t1, 'builder')
+  assert.match(builder, /^## Context\n- \*\*Brain:\*\* /)
+  assert.ok(builder.includes(`- **Works in:** api at ${sl(repo)} (open), changes it`))
+  assert.ok(builder.includes(`- **Docs:** ${sl(join(repo, 'docs/STRUCTURE.md'))}, `))
+  assert.match(builder, /skills\/project-structure\/SKILL\.md, .*skills\/codebase-design\/SKILL\.md, .*skills\/build\/scripts\/sdd\.mjs\n/)
+  assert.ok(builder.includes(`- **Spec:** ${sl(t1)}`))
+  assert.ok(builder.includes('- **Branch:** sdd/004-invoice-export/M001'))
+  assert.ok(builder.includes(`- **Writes:** files under ${sl(repo)}, the ticket file at ${sl(t1)}`))
+  assert.match(builder, /\nRules:\n1\. Read and write every file by absolute path/)
+
+  const arbiter = contextBlock(join(a1, 'milestone.md'), 'arbiter')
+  assert.ok(arbiter.includes(`- **Works in:** api at ${sl(repo)} (linked), reads it`))
+  assert.match(arbiter, /- \*\*Also reads:\*\* web at .*clones\/web \(linked\)\n/)
+  assert.match(arbiter, /- \*\*Notes:\*\* .*invoice-event-contract\.md\n/)
+  assert.doesNotMatch(arbiter, /api-retry/)
+  assert.match(arbiter, /- \*\*Writes:\*\* nothing\n/)
+  assert.match(contextBlock(join(a1, 'milestone.md'), 'reviewer', { writes: [join(a1, 'review.standards.md')] }), /SMELLS\.md[\s\S]*- \*\*Writes:\*\* the file at .*review\.standards\.md\n/)
+  assert.throws(() => contextBlock(join(a1, 'milestone.md'), 'builder'), /a ticket/)
+
+  const brief = dispatch(t1, 'builder')
+  assert.match(brief, /^## Context\n- \*\*Works in:\*\* api at .* \(open\), changes it\n- The rest of this Context block, its rules included, is in .*001-expand\/\.context\/builder-001\.md: read it before anything else\.\n\n\*\*Ticket:\*\* .*001-add-v2\.md\n\*\*Milestone:\*\* .*milestone\.md\n\*\*Spec:\*\* .*spec\.md$/)
+  assert.equal(readFileSync(join(a1, '.context/builder-001.md'), 'utf8'), `${builder}\n`)
+  assert.match(readFileSync(t1, 'utf8'), /\*\*Status:\*\* doing/)
+
+  writeFileSync(join(repo, 'f'), 'ok\nmore\n')
+  g('commit', '-qam', 'ticket 001')
+  const sha = g('rev-parse', 'HEAD')
+  assert.match(next(t1, { commits: [sha] }).problems.join('\n'), /the ticket is doing/)
+  writeFileSync(t1, readFileSync(t1, 'utf8').replace('**Status:** doing', '**Status:** done').replace('**Commit:** none', `**Commit:** ${sha}`))
+  const r = next(t1, { commits: [sha] })
+  assert.deepEqual(r.problems, [])
+  assert.match(r.next, /002-more\.md$/)
+  assert.match(r.brief, /\*\*Ticket:\*\* .*002-more\.md/)
+  const t2 = join(a1, '002-more.md')
+  assert.match(readFileSync(t2, 'utf8'), /\*\*Status:\*\* doing/)
+  writeFileSync(t2, readFileSync(t2, 'utf8').replace('**Status:** doing', '**Status:** done').replace('**Commit:** none', `**Commit:** ${sha}`))
+  assert.equal(next(t2).done, true)
+  assert.deepEqual(track(specState(s), 'api').milestones[0].tickets.map((k) => k.file), ['001-add-v2.md', '002-more.md'])
+})
+
+test('lands a track: rebases, follows each squash, runs the suite, fast-forwards and records', () => {
+  const b = brain()
+  const s = twoTracks(b, { apiM1: { t: { status: 'done' } } })
+  const { repo, g } = builtRepo(b)
+  writeFileSync(join(repo, 'f'), 'ok\nv2\n')
+  g('commit', '-qam', 'ticket 001')
+  const m1 = join(s, 'milestones/api/001-expand')
+  const { sha: first } = squash(m1, { title: 'Adds the v2 export' })
+  g('checkout', '-q', 'main')
+  writeFileSync(join(repo, 'other'), 'base moved\n')
+  g('add', '-A'); g('commit', '-qm', 'base moves on')
+  g('checkout', '-q', 'sdd/004-invoice-export/spec')
+  const md = () => readFileSync(join(m1, 'milestone.md'), 'utf8')
+
+  assert.deepEqual(land(s, 'api'), { landed: ['001'], stopped: null })
+  const moved = g('rev-parse', 'main')
+  assert.notEqual(moved, first)
+  assert.equal(g('log', '-1', '--format=%s', 'main'), 'Adds the v2 export')
+  assert.ok(md().includes(`**Squash:** ${moved}`))
+  assert.ok(md().includes(`**Landed:** ${moved}`))
+  assert.match(md(), /\*\*Phase:\*\* landed/)
+  assert.match(readFileSync(join(s, 'spec.md'), 'utf8'), /\*\*Base:\*\* api@main, web@main\n\n\*\*Landings:\*\* api 001\n/)
+  assert.equal(g('rev-parse', '--abbrev-ref', 'HEAD'), 'sdd/004-invoice-export/spec')
+  assert.deepEqual(land(s, 'api'), { landed: [], stopped: null })
+})
+
+test('a landing stops on a failing suite at the tip, and folds the fix into the last squash', () => {
+  const b = brain()
+  const s = twoTracks(b, { apiM1: { t: { status: 'done' } } })
+  const { repo, g } = builtRepo(b)
+  writeFileSync(join(repo, 'f'), 'bad\n')
+  g('commit', '-qam', 'ticket 001')
+  const m1 = join(s, 'milestones/api/001-expand')
+  squash(m1, { title: 'Breaks the suite' })
+  const mainBefore = g('rev-parse', 'main')
+  const r = land(s, 'api')
+  assert.equal(r.stopped.at, 'tip')
+  assert.equal(r.stopped.command, 'sh test.sh')
+  assert.equal(g('rev-parse', '--abbrev-ref', 'HEAD'), 'sdd/004-invoice-export/spec')
+  assert.equal(g('rev-parse', 'main'), mainBefore)
+  assert.match(readFileSync(join(m1, 'milestone.md'), 'utf8'), /\*\*Landed:\*\* none/)
+
+  writeFileSync(join(repo, 'f'), 'ok\nfixed\n')
+  g('commit', '-qam', 'fixes the suite')
+  assert.deepEqual(land(s, 'api', { fold: true }), { landed: ['001'], stopped: null })
+  assert.equal(g('log', '-1', '--format=%s', 'main'), 'Breaks the suite')
+  assert.equal(g('rev-list', '--count', 'main'), '2')
+  assert.equal(readFileSync(join(repo, 'f'), 'utf8').replace(/\r/g, ''), 'ok\nfixed\n')
 })
