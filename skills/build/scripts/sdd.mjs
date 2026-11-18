@@ -16,12 +16,12 @@
 //     Appends an entry to a line, skipping one the line already ends with, as `land` does for **Landings**.
 //   node sdd.mjs mark <review.md> <ID> "<Line>: <value>" [<ID> "<Line>: <value>"]...
 //     Writes `**Line:** value` under each finding named, replacing that line when the finding already has one:
-//     build's Answer, Fixed and Not fixed lines.
+//     build's Answer, Fixed and Not fixed lines. Then prints the review's `unanswered` and `toFix`.
 //   node sdd.mjs review <review.md> --title <t> --fixed <sha> --head <sha> [--summary <file>] <section-file>...
 //     review-changes' step 6: writes review.md from the section files its sub-agents wrote
 //     (review.<standards|spec|consumers>[.<slug>].md), numbering each axis straight on, under a Summary: the file
-//     given, or one drawn from the files' counts and `## Map` rows. Deletes the files it read. Refuses a review.md
-//     that holds Answer lines.
+//     given, or one drawn from the files' counts and `## Map` rows. Deletes the files it read, then prints the
+//     Summary's line and the review's `unanswered` and `toFix`. Refuses a review.md that holds Answer lines.
 //   node sdd.mjs squash <milestone-folder|milestone.md> --title <title> [--detail <bullet>]... [--key <key|none>]
 //     Build's step 10: squashes the milestone's branch into the spec's as one commit keyed by
 //     the commit skill's step 1 (or --key, `none` for no key), with its Sdd-Milestone trailer, and writes it into
@@ -1014,6 +1014,8 @@ const main = (argv) => {
     }
     writeFileSync(file, md)
     console.log(`${file}: marked ${pairs.filter((_, i) => i % 2 === 0).join(', ')}`)
+    console.log(`unanswered: ${unanswered(md).join(', ') || 'none'}`)
+    console.log(`toFix: ${toFix(md).join(', ') || 'none'}`)
     return
   }
   if (cmd === 'review' && pos.length >= 2 && opts.title && opts.fixed && opts.head) {
@@ -1030,6 +1032,8 @@ const main = (argv) => {
     console.log(`${target}: ${Object.entries(r.counts).map(([a, n]) => `${a} ${n}`).join(', ')}`)
     for (const line of r.renumbered) console.log(`renumbered ${line}`)
     if (!opts.summary) console.log(/^## Summary\n\n(.*)$/m.exec(r.text)?.[1] ?? '')
+    console.log(`unanswered: ${unanswered(r.text).join(', ') || 'none'}`)
+    console.log(`toFix: ${toFix(r.text).join(', ') || 'none'}`)
     return
   }
   if (cmd === 'context' && pos.length === 1 && opts.agent) {
