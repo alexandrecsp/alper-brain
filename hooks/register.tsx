@@ -2,13 +2,6 @@ import type { AgentStatus, EngineInterface, Register } from 'claude-code'
 import { atom, read, update } from 'claude-code'
 
 import type { AgentRun, Build, Job, Ledger, LogEntry, RunStatus, Ticket, TrackLine, Tracks } from '../types'
-import { AgentRow } from './components/AgentRow'
-import { AgentGroup, AgentsHeader } from './components/AgentsHeader'
-import { BuildView } from './components/BuildView'
-import { LogView } from './components/LogView'
-import { TracksView } from './components/TracksView'
-import { TranscriptView } from './components/TranscriptView'
-import type { Draw } from './components/ui'
 import { changesOf, nameOf } from './events'
 import type { Change } from './events'
 import { NO_TOKENS, addUsage, describe, pathArgs, tokens, total, usageTotal } from './format'
@@ -31,15 +24,21 @@ import {
   trackStateOf,
   waitsOnUser,
 } from './sdd'
-import { STATUS_LINE_GLYPH, roleOf } from './theme'
+import { NEEDS_USER, OTHER_ROLE_HEX, ROLES, STATUS_LINE_GLYPH, color, roleOf, trackTone } from './theme'
+import { FADE_MS, MAIN, STATION_LABEL, crewSpawn, crewStart, crewToolCall, crewTurnComplete, crewTurnStart, readCrew } from './workshop/crew'
+import { drawWorkshop } from './workshop/draw'
+import type { SceneBuild, SceneView } from './workshop/draw'
 
-const PANE = 'build-watch'
-const TITLE = 'Build watch'
-const AGENT_PANE = 'build-watch-agent'
+const PANE = 'workshop'
+const TITLE = 'Workshop'
 const KEEP = 50
 const LOG_KEEP = 30
-// The key of `expanded` that lengthens the Recent log.
-const LONG_LOG = '#log'
+// The scene never draws shorter than this, as when the pane sits below the thread.
+const MIN_HEIGHT_PX = 380
+// A remote surface measures the pane in cells of its code font; a cell is about
+// this wide and tall, and only their ratio sets the scene's proportions.
+const CELL_W_PX = 8
+const CELL_H_PX = 19
 // Change a tag when that value's fields change: it declines what an earlier
 // version stored, which outlives a reload.
 const runs = atom({ plugin: 'alper-brain', key: 'runs' } as const, [], { shape: 'runs-2' })
@@ -48,11 +47,6 @@ const builds = atom({ plugin: 'alper-brain', key: 'builds' } as const, [], { sha
 const ledgers = atom({ plugin: 'alper-brain', key: 'ledgers' } as const, {}, { shape: 'ledgers-1' })
 const tracks = atom({ plugin: 'alper-brain', key: 'tracks' } as const, null, { shape: 'tracks-1' })
 const log = atom({ plugin: 'alper-brain', key: 'log' } as const, [], { shape: 'log-1' })
-const main = atom({ plugin: 'alper-brain', key: 'main' } as const, { activity: '', at: 0 })
-const expanded = atom({ plugin: 'alper-brain', key: 'expanded' } as const, [])
-const paused = atom({ plugin: 'alper-brain', key: 'paused' } as const, 0)
-// The id of the agent whose transcript the second pane shows.
-const viewed = atom({ plugin: 'alper-brain', key: 'viewed' } as const, '')
 
 const ENDED: Partial<Record<AgentStatus, RunStatus>> = {
   completed: 'done',
@@ -70,11 +64,6 @@ const fallback = (list: Build[]) => {
 
   return open.length === 1 ? open[0] : open.find(b => b.key === focus)
 }
-
-// When each message of an agent's transcript was first seen, the Nth from the Nth message. The engine
-// stamps none: a message the pane sees as it comes is stamped true to the second, one already there
-// when the agent is first opened is spread over the run's span.
-const seen = new Map<string, number[]>()
 
 let cwd = ''
 let shownStatus: string | undefined
@@ -372,6 +361,8 @@ const ensure = async ($: EngineInterface, id: string, brief = '') => {
     return isNew ? [...all, run].slice(-KEEP) : all
   })
   if (isNew) await charge($, milestone, l => ({ ...l, agents: l.agents + 1 }))
+  // the track it works for shows it at once, not at the clock's next reading of the files
+  if (isNew && ref !== undefined) await refreshTracks($)
 }
 
 // A milestone's stage in a word or two, for the status line.
@@ -446,37 +437,90 @@ const tick = async ($: EngineInterface) => {
   await refreshStatus($)
 }
 
-// The heading of a group of agents: the milestone they work for, as the pane names it.
-const groupLabel = (followed: Build[], key: string) => {
-  const b = followed.find(one => one.key === key)
+/** A track as one line: its repository, milestone, tickets done and where it stands. */
+const trackText = (line: TrackLine) =>
+  line.milestone === '' ? `${line.repo} · ${line.detail}` : `${line.repo} M${line.milestone.slice(0, 3)} ${line.done}/${line.total} · ${line.detail}`
 
-  return b === undefined ? (key === '' ? '' : key.split('/').at(-1) ?? key) : `${nameOf(b)} ${b.milestoneTitle}`
+// What the workshop draws: the crew where they stand, named as the build knows
+// them, and the spec's alerts, tokens and tracks while one is followed.
+const sceneView = async ($: EngineInterface): Promise<SceneView> => {
+  const at = await $.clock.now()
+  // the clock redraws the pane each second while a build is in flight
+  await read($, now)
+  const crew = await readCrew($)
+  const list = await read($, runs)
+  const followed = await read($, builds)
+  const spent = await read($, ledgers)
+  const spec = await read($, tracks)
+  const live = crew.agents.filter(a => !a.isDone || at - (a.doneAt ?? at) < FADE_MS)
+  const lead = live.filter(a => !a.isDone).sort((a, b) => b.seenAt - a.seenAt)[0]?.id
+  const agents = live.map(a => {
+    const run = list.find(one => one.id === a.id)
+    const role = a.id === MAIN ? 'main' : roleOf(run?.type ?? a.kind)
+    const job = run?.ticket !== undefined ? `T${run.ticket}` : run !== undefined && run.job !== 'ticket' && run.job !== 'other' ? run.job : ''
+    const hex = role === 'main' ? '#F2F2F2' : (ROLES[role]?.hex ?? OTHER_ROLE_HEX)
+    return { id: a.id, name: a.name, role, color: hex, station: a.station, from: a.from, movedAt: a.movedAt, task: a.task, job, isDone: a.isDone, isLead: a.id === lead }
+  })
+  const first = followed[0]
+  if (spec === null && first === undefined) return { now: at, agents, build: null }
+
+  const building = followed.filter(isUnlanded)
+  const counted = building.length > 0 ? building : followed
+  const cost = counted.reduce((sum, b) => sum + (spent[b.key]?.agentTokens ?? 0) + (spent[b.key]?.mainTokens ?? 0), 0)
+  const folder = spec?.spec ?? first?.spec ?? ''
+  const lines = spec?.lines ?? []
+  const build: SceneBuild = {
+    spec: `${folder.slice(0, 3)} ${spec?.specTitle ?? first?.specTitle ?? ''}`.trim(),
+    tokens: cost > 0 ? cost : list.reduce((sum, run) => sum + total(run.tokens), 0),
+    edits: crew.edits,
+    commits: crew.commits,
+    alerts: lines
+      .filter(line => NEEDS_USER.includes(line.state))
+      .map(line => `⚠ ${line.repo} M${line.milestone.slice(0, 3)}: ${line.detail} — /build ${folder.slice(0, 3)}`),
+    tracks: lines.map(line => ({
+      repo: line.repo,
+      milestone: line.milestone === '' ? '' : `M${line.milestone.slice(0, 3)}`,
+      title: line.title,
+      state: line.state,
+      tone: trackTone(line.state),
+      detail: line.detail,
+      done: line.done,
+      total: line.total,
+      tickets: (followed.find(b => b.key === line.key)?.tickets ?? []).map(t => ({ status: t.status })),
+    })),
+  }
+  return { now: at, agents, build }
 }
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     cwd = e.cwd.replace(/\\/g, '/')
     await $.command.register({
-      name: 'build-watch',
-      description: "Show the /build milestone and its subagents' work, tokens and progress",
+      name: 'workshop',
+      description: "Show the session's agents at work in the workshop, with the /build's tracks and tokens",
     })
     $.clock.every(1000, () => void tick($))
     await refreshStatus($)
+    await crewStart($)
 
     return next(e)
   })
 
-  on('command.run', { command: 'build-watch' }, async $ => {
+  on('command.run', { command: 'workshop' }, async $ => {
     await $.ui.open({ id: PANE, title: TITLE })
 
-    return { text: 'Build watch opened.' }
+    return { text: 'Workshop opened.' }
   })
 
   on('turn.start', async ($, e, next) => {
-    if (e.agentId === undefined) return next(e)
+    if (e.agentId === undefined) {
+      await crewTurnStart($, undefined)
+      return next(e)
+    }
 
     const id = e.agentId
     await ensure($, id, e.text)
+    await crewTurnStart($, id, (await findRun($, id))?.job)
     await patch($, id, run =>
       run.status === 'running' ? run : { ...run, status: 'running', endedAt: undefined },
     )
@@ -536,11 +580,9 @@ export const register: Register = on => {
         tools: run.tools + 1,
         activity: describe(e.tool, args),
       }))
-    } else {
-      // The main session closes and lands milestones itself: its suite, squash and rebase show here.
-      const at = await $.clock.now()
-      await update($, main, () => ({ activity: describe(e.tool, args), at }))
     }
+    const run = e.agentId === undefined ? undefined : await findRun($, e.agentId)
+    await crewToolCall($, e.tool, args, e.agentId, run?.job, run?.ticket !== undefined)
 
     const ran = await next(e)
     // /build moves a ticket's Status and the milestone's Phase by editing
@@ -555,11 +597,10 @@ export const register: Register = on => {
   })
 
   on('turn.complete', async ($, e, next) => {
+    await crewTurnComplete($, e.agentId)
+    if (e.agentId === undefined) return next(e)
+
     const at = await $.clock.now()
-    if (e.agentId === undefined) {
-      await update($, main, () => ({ activity: '', at }))
-      return next(e)
-    }
 
     const status: RunStatus =
       e.reason === 'answer' ? 'done' : e.reason === 'aborted' ? 'stopped' : 'failed'
@@ -586,136 +627,63 @@ export const register: Register = on => {
     return next(e)
   })
 
-  on('ui.render', { component: 'Pane', requestId: AGENT_PANE }, async ($, e) => {
-    const ui = $.ui.resolve(e)
-    // The clock redraws it every second, so a running agent's messages keep coming.
-    await read($, now)
-    const id = await read($, viewed)
-    const run = (await read($, runs)).find(one => one.id === id)
-    const messages = await $.session.messages({ agentId: id })
-    const stamps = seen.get(id) ?? []
-    if (Array.isArray(messages) && stamps.length < messages.length) {
-      const at = await $.clock.now()
-      const first = stamps.length === 0
-      const from = run?.startedAt ?? at
-      const span = (run?.endedAt ?? at) - from
-      for (let i = stamps.length; i < messages.length; i++) {
-        stamps.push(first ? Math.round(from + (span * i) / Math.max(1, messages.length - 1)) : at)
-      }
-      seen.set(id, stamps)
-    }
+  // A new subagent arrives at the gate, and whoever called it meets it there.
+  on('agent.spawn', async ($, e, next) => {
+    const r = await next(e)
+    const id = 'agentId' in r ? r.agentId : undefined
+    if (id !== undefined) await crewSpawn($, id, e.subagentType, e.description, e.parentAgentId, e.name)
 
-    return TranscriptView(
-      { ui, Svg: undefined, at: 0 },
-      {
-        run,
-        messages,
-        stamps,
-        paused: await read($, paused),
-        onPause: count => void update($, paused, () => count),
-        onBack: () => void $.ui.close({ id: AGENT_PANE }),
-      },
-    )
+    return r
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const ui = $.ui.resolve(e)
-    const { Box, Text } = ui
-    // The persona and the token meter draw where a surface has Svg: not the
-    // terminal, which keeps the text bar. Every table carries an Svg, a
-    // fragment where the surface has none, so ask the surface.
-    const Svg = e.surface === 'terminal' ? undefined : ui.Svg
-    const list = await read($, runs)
-    const followed = await read($, builds)
-    const spent = await read($, ledgers)
-    const spec = await read($, tracks)
-    const recent = await read($, log)
-    const opened = await read($, expanded)
-    // The milestones being built or landed, one per track, side by side; once
-    // all have landed, the last one stays up to show it.
-    const building = followed.filter(isUnlanded)
-    const shown = building.length > 0 ? building : followed.slice(-1)
-    const draw: Draw = {
-      ui,
-      Svg,
-      at: Math.max(await read($, now), ...list.map(run => run.endedAt ?? 0)),
-    }
-    const running = list.filter(run => run.status === 'running')
-    const finished = list.length - running.length
-    const largest = Math.max(1, ...list.map(run => total(run.tokens)))
-    const toggle = (key: string) =>
-      void update($, expanded, all => (all.includes(key) ? all.filter(one => one !== key) : [...all, key]))
+    const { Box, Text } = $.ui.resolve(e)
+    const view = await sceneView($)
+    const said = view.agents.map(a => `${a.name}, ${a.role}${a.job === '' ? '' : ` ${a.job}`}, ${a.task}`)
 
-    if (shown.length === 0 && list.length === 0) {
+    // The terminal draws no Svg: there the workshop is a list.
+    if (e.surface === 'terminal') {
+      const lines = (await read($, tracks))?.lines ?? []
+      const inFlight = lines.filter(line => line.state !== 'landed').length
+      const b = view.build
       return (
-        <Text dimColor>
-          Nothing yet. A /build milestone and its subagents show here as they start.
-        </Text>
+        <Box flexDirection="column">
+          {(b?.alerts ?? []).map(alert => (
+            <Text color="warning" bold>
+              {alert}
+            </Text>
+          ))}
+          <Text bold>
+            Workshop · {view.agents.filter(a => !a.isDone).length} at work{b === null ? '' : ` · ${b.spec} · ${tokens(b.tokens)} tok · ${b.edits} edits · ${b.commits} commits`}
+          </Text>
+          {lines.length > 0 && <Text dimColor>Tracks {inFlight} of {lines.length} in flight</Text>}
+          {lines.map(line => (
+            <Text color={color(trackTone(line.state))}>{trackText(line)}</Text>
+          ))}
+          {view.agents.map(a => (
+            <Text color={a.isLead ? 'claude' : undefined} dimColor={a.isDone}>
+              ● {a.name}{' '}
+              <Text dimColor>
+                · {a.role}
+                {a.job === '' ? '' : ` ${a.job}`} · {STATION_LABEL[a.station]} · {a.task}
+              </Text>
+            </Text>
+          ))}
+        </Box>
       )
     }
 
-    // Where the host has no main view to switch (the editor's), the agent's transcript opens in a pane of its own.
-    const openRun = async (run: AgentRun) => {
-      const { deny } = await $.ui.view({ agentId: run.id })
-      if (deny === undefined) return
-
-      await update($, viewed, () => run.id)
-      await update($, paused, () => 0)
-      await $.ui.open({ id: AGENT_PANE, title: roleOf(run.type) })
-    }
-    // A running run a milestone above shows, under its ticket or as a closing step's agent.
-    const isShownAbove = (run: AgentRun) =>
-      run.status === 'running' && shown.some(b => b.key === run.milestone)
-
-    // The groups, those with a running agent first, then the latest start.
-    const keys = [...new Set(list.map(run => run.milestone ?? ''))]
-    const latest = (key: string) => Math.max(...list.filter(run => (run.milestone ?? '') === key).map(run => run.startedAt))
-    const isBusy = (key: string) => running.some(run => (run.milestone ?? '') === key)
-    keys.sort((a, b) => Number(isBusy(b)) - Number(isBusy(a)) || latest(b) - latest(a))
-
+    // The scene fills the pane: on a remote surface the viewport is the pane, in
+    // cells. Each Svg takes no size of its own, so the surface draws it the slot's
+    // width; the two strips stack into the pane's proportions, never under the minimum.
+    const { Svg } = $.ui.resolve(e)
+    const width = Math.max(300, Math.round((e.props.bodyColumns ?? e.viewport?.columns ?? 90) * CELL_W_PX))
+    const height = Math.max(MIN_HEIGHT_PX, Math.round((e.viewport?.rows ?? 0) * CELL_H_PX))
+    const [top = '', bottom = ''] = drawWorkshop(view, width, height)
     return (
-      <Box flexDirection="column">
-        {spec !== null && spec.lines.length > 0 &&
-          TracksView(draw, { tracks: spec, main: await read($, main), anyRunning: running.length > 0 })}
-        {shown.map(b => BuildView(draw, { build: b, spent: spent[b.key] ?? null, runs: list, onOpen: run => void openRun(run) }))}
-        {recent.length > 0 &&
-          LogView(draw, { log: recent, isLong: opened.includes(LONG_LOG), onToggle: () => toggle(LONG_LOG) })}
-        {list.length > 0 &&
-          AgentsHeader(draw, {
-            finished,
-            spent: list.reduce((sum, run) => sum + total(run.tokens), 0),
-            onClear: () => update($, runs, all => all.filter(run => run.status === 'running')),
-          })}
-        {keys.map(key => {
-          const group = list.filter(run => (run.milestone ?? '') === key)
-          const ended = group.filter(run => run.status !== 'running')
-          // A milestone's ended runs fold into its heading; the rest always show.
-          const isExpanded = key === '' || opened.includes(key)
-          const rows = group
-            .filter(run => run.status === 'running' || isExpanded)
-            .sort((a, b) => b.startedAt - a.startedAt)
-
-          return (
-            <Box key={`group-${key}`} flexDirection="column">
-              {AgentGroup(draw, {
-                label: groupLabel(followed, key),
-                finished: ended.length,
-                spent: ended.reduce((sum, run) => sum + total(run.tokens), 0),
-                isExpanded,
-                onToggle: () => toggle(key),
-              })}
-              {rows.map(run =>
-                AgentRow(draw, {
-                  run,
-                  ticketTitle: followed.find(b => b.key === run.milestone)?.tickets.find(t => t.num === run.ticket)?.title,
-                  largest,
-                  isShownAbove: isShownAbove(run),
-                  onOpen: () => void openRun(run),
-                }),
-              )}
-            </Box>
-          )
-        })}
+      <Box flexDirection="column" minHeight={Math.ceil(MIN_HEIGHT_PX / CELL_H_PX)}>
+        <Svg source={top} alt={[...(view.build?.alerts ?? []), ...said].join('; ') || 'An empty workshop'} />
+        <Svg source={bottom} alt="The workshop's lower half" />
       </Box>
     )
   })

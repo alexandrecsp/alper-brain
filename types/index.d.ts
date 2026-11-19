@@ -111,9 +111,6 @@ export type Tracks = { spec: string; specTitle: string; lines: TrackLine[] }
 /** One thing that happened to the followed spec, by the pane's clock. */
 export type LogEntry = { at: number; text: string; tone: 'active' | 'done' | 'failed' | 'blocked' | 'idle' }
 
-/** The main session's last tool call, and when; an empty activity once its turn ended. */
-export type MainActivity = { activity: string; at: number }
-
 /** What a milestone's build has spent, across sessions. */
 export type Ledger = {
   key: string
@@ -121,6 +118,48 @@ export type Ledger = {
   mainTokens: number
   agents: number
   byTicket: Record<string, TicketSpend>
+}
+
+/** A place in the workshop pane, where what an agent does sends it. */
+export type Station =
+  | 'gate'
+  | 'table'
+  | 'dock'
+  | 'tests'
+  | 'tools'
+  | 'bay'
+  | 'brain'
+  | 'shelves'
+  | 'computer'
+  | 'comms'
+  | 'holo'
+  | 'lounge'
+
+/** One agent of the session on the workshop floor: the main session or a subagent. */
+export type CrewAgent = {
+  id: string
+  name: string
+  /** The subagent type as the spawn named it, or `main`. */
+  kind: string
+  station: Station
+  /** The station it walked from: the walk is drawn while `movedAt` is recent. */
+  from: Station
+  movedAt: number
+  /** When it last did anything: the latest is the pane's lead. */
+  seenAt: number
+  task: string
+  /** Where it goes once it has stood a second at its station, when a call came sooner. */
+  next?: { station: Station; task: string }
+  isDone: boolean
+  doneAt?: number
+}
+
+export type Crew = {
+  agents: CrewAgent[]
+  /** How many subagents arrived, for their names. */
+  spawned: number
+  edits: number
+  commits: number
 }
 
 declare module 'claude-code' {
@@ -132,14 +171,10 @@ declare module 'claude-code' {
       builds: Shaped<Build[]>
       /** What each followed milestone has spent, by its key. */
       ledgers: Shaped<Record<string, Ledger>>
-      viewed: string
       tracks: Shaped<Tracks | null>
       log: Shaped<LogEntry[]>
-      main: MainActivity
-      /** The agent groups whose finished runs are shown, by milestone key ('' for the rest). */
-      expanded: string[]
-      /** The message count the transcript pane froze at, while paused; 0 while live. */
-      paused: number
+      /** The workshop's crew: where each agent stands and what it does. */
+      crew: Shaped<Crew>
     }
   }
 }

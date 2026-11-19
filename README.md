@@ -128,42 +128,36 @@ Each repository holds the spec's branches under the spec folder's name: `sdd/<sp
 
 Every pipeline branch starts with `sdd/`, so `git branch --list 'sdd/*'` finds them all in a repository. After landing, `/build` offers to delete the spec's branches in each repository.
 
-## The build pane
+## The workshop pane
 
-While `/build` runs, **build watch**, a live pane beside the chat shows every track of the spec, the milestones being built or landed, what changed, and what each sub-agent is doing and spending:
+While `/build` runs, **the workshop**, a live pane beside the chat, draws the session as a sci-fi workshop in isometric pixel art. The main session and each sub-agent are people who walk to the station of what they do, with a card over each naming them and their ticket or job. Beside the room, a rail lists what waits on you, the spec's tokens, its tracks and the crew.
 
-```
-⚠ billing-api M001: 1 escalation waits on your answers — /build 004
-Tracks 3 of 4 in flight
-  🚧 billing-api M001 1/1 1 escalation waits on your answers
-  🔨 web-app     M002 2/3 builder T002 · Edit src/columns.ts
-  💤 worker      M001 0/2 after web-app/002
-  ✅ mailer           0/0 landed c0ffee1
-  main 🔨 Bash npm test · 12s
+| Station | What sends an agent there |
+| --- | --- |
+| Gate | a sub-agent arrives here, and leaves here when it finishes |
+| Meeting table | a review's or a decision's agent, whatever it calls |
+| Cargo dock | `git`, `gh` and `sdd` commands |
+| Test bench | test runs (`npm test`, `pytest`, `go test`…) |
+| Fabrication bench | any other `Bash` or `PowerShell` command |
+| Mech bay | editing code; a `/build` builder's edits to its own ticket too |
+| Brain vault | reading or editing under `.brain/` |
+| Archive | reading or searching code |
+| Computer | reading or editing documents (`.md`, `.txt`…) |
+| Antenna | `WebSearch`, `WebFetch` and MCP tools |
+| Holo table | thinking, `Skill`, `ToolSearch` and any other tool |
+| Lounge | the main session between turns |
 
-004 Invoice export › M002 Consume v2 · web-app
-████████░░░░ 2/3 tickets
-✅ tickets → 🔨 review → 💤 decide → 💤 fix → 💤 check → 💤 squash → 💤 land
-review 4 findings · 1 escalated, 0 answered
-412.0k tokens · agents 380.0k · main session 32.0k · 4 agents
-  ✅ 001 Read rows                 61.0k tok · 4m10s · a1b2c3d
-  🔨 002 Map columns               22.3k tok · 1m15s
-     builder ↳ Edit src/columns.ts                        [open]
+An agent stands at least a second at a station before its next call walks it on. A station lights up while someone works there, the hologram turns on while someone thinks at the holo table, and the server racks always run.
 
-Recent
-  14:02:10 ✅ web-app M002 T001 done a1b2c3d
-  14:05:42 •  web-app M002 review
-```
-
-- **Needs you.** A line on top for each track that waits on the user: escalations left to answer (`ask`), a check or a landing that gave up (`failed`), or a `blocked` ticket with the last line of its Notes. Each one also raises a toast when it happens.
-- **Tracks.** One line per repository of the spec, read from its files: the next open milestone (else the first unlanded one), its tickets done, and where it stands: the agent at work, closing by the main session, paused, ready, after another track's ticket, waiting at its check, landing, or landed. Under them, the main session's last tool call, since it runs the suite, squashes and lands by itself.
-- **The milestones.** As soon as a sub-agent's brief or a tool call names a path under the brain's `.brain/specs/<spec>/milestones/<milestone>/`, or a track gets to work, the pane follows that milestone until it lands: each ticket's **Status** and **Commit**, the **Phase** line as `/build`'s stages (tickets, review, decide, fix, check, squash, land), the review's findings and how many escalations have an answer, and the check's fixes so far. The agent at work sits under its ticket, or under the stages for the closing steps, with a button to open its transcript.
-- **Recent.** What changed in the spec's files, newest on top: tickets started, done or blocked, each closing step, a squash, a landing, and every sub-agent that failed. It is saved per spec, so it carries across sessions.
-- **Each sub-agent.** Grouped by milestone: its role (`builder`, `fixer`, `reviewer`, `arbiter`, `scout`, `scribe`…), the repository its brief works in, the ticket it builds or its job in the phase, elapsed time, steps, tool calls, tokens and model. A group's finished agents fold into its heading; **show** lists them. Press a row to open that agent's transcript, which **pause** holds still while you read it. In VS Code and the desktop app each row starts with a pixel critter dressed for its role.
-- **What the milestone cost.** Tokens per ticket, the sub-agents' total and the main session's own requests, saved per milestone so the totals carry across `/build` calls and sessions.
+- **Waits on you.** A card on top of the rail for each track that waits on the user: escalations left to answer (`ask`), a check or a landing that gave up (`failed`), or a `blocked` ticket with the last line of its Notes. The room's siren then flashes red, and each one also raises a toast when it happens.
+- **Tracks.** One card per repository of the spec, read from its files: the next open milestone (else the first unlanded one), its tickets as a bar, and where it stands: the agent at work, closing by the main session, paused, ready, after another track's milestone, waiting at its check, landing, or landed. The mech in the bay is built in four stages, as the track at work finishes its tickets.
+- **Tokens.** What the milestones being built have spent, the sub-agents and the main session together, saved per milestone so the total carries across `/build` calls and sessions; with no milestone, what this session's sub-agents spent.
+- **The crew.** Each agent by role (`builder`, `fixer`, `reviewer`, `arbiter`, `scout`…), with its ticket or job and what it is doing; the lead, the one that acted last, is outlined in gold.
 - **A status line** under the prompt, such as `⚙ M002 web-app 2/3 tickets · review · 1 agent running · 412.0k tok`, or with tracks side by side, each track's stage, `⚠ waits on you` among them.
 
-Open it with `/build-watch`; it also opens by itself when a sub-agent starts or a milestone is picked up. It only reads `.brain/`. `hooks/register.tsx` is the module, `hooks/sdd.ts` and `hooks/events.ts` what it reads from the files, `hooks/register.test.tsx` and `hooks/tracks.test.tsx` its tests (`claude plugin test .`), and `types/index.d.ts` the state it keeps.
+Open it with `/workshop`; it also opens by itself when a sub-agent starts or a milestone is picked up. It only reads `.brain/`. The terminal draws no pictures, so there the workshop is a list: what waits on you, the tracks, and each agent with its station.
+
+`hooks/register.tsx` is the module, `hooks/sdd.ts` and `hooks/events.ts` what it reads from the files, `hooks/workshop/` the crew (`crew.ts`) and the drawing (`draw.ts`), `hooks/register.test.tsx` and `hooks/tracks.test.tsx` its tests (`claude plugin test .`), and `types/index.d.ts` the state it keeps. The room itself is `hooks/workshop/scene-data.ts`, written by `node scripts/workshop/build-scene.mjs` from what `docs/mod/workshop/gen.py` draws; an Svg holds at most 128 KB, so the room comes in two strips the pane stacks.
 
 ## The brain
 
@@ -213,9 +207,9 @@ The pipeline skills (`write-spec`, `write-tickets`, `build`), `refactor`, `onboa
 
 ## Moving from alper-skills
 
-Install alper-brain in place of alper-skills, then run `/brain setup` in a brain with each repository open. Setup moves the repository's `.sdd/` into the brain's: each spec keeps its folder name unless its number is taken (then it is renumbered, and its branches renamed), gains its **Repos** line, its milestones move into that repository's track, and its research, tours and refactor reports come along. The commit key from `.brain/settings.json` moves to the repository's card, and the **Spec workflow** section of its agent file is removed. The dashboard and the graph page are now the one brain page, `/brain view`. The alper-flow mod is built in as the build pane, now opened with `/build-watch`: uninstall `alper-flow@alper-mods`.
+Install alper-brain in place of alper-skills, then run `/brain setup` in a brain with each repository open. Setup moves the repository's `.sdd/` into the brain's: each spec keeps its folder name unless its number is taken (then it is renumbered, and its branches renamed), gains its **Repos** line, its milestones move into that repository's track, and its research, tours and refactor reports come along. The commit key from `.brain/settings.json` moves to the repository's card, and the **Spec workflow** section of its agent file is removed. The dashboard and the graph page are now the one brain page, `/brain view`. The alper-flow mod is built in as the workshop pane, opened with `/workshop`: uninstall `alper-flow@alper-mods`.
 
-A spec ticketed before tracks keeps its milestones straight under `milestones/`, each naming its repository on a **Repo** line. The brain page and the build pane read it as it is, and the next `/build` on it moves it into tracks first: it renumbers each track's milestones and tickets from `001`, rewrites the **Depends on** lines and renames the milestone branches. A PR branch (`sdd/<spec>/pr-M<NNN>`) keeps its old number. A spec whose tickets depend on another track's tickets, from before **Builds after**, has those waits moved onto its milestones the same way.
+A spec ticketed before tracks keeps its milestones straight under `milestones/`, each naming its repository on a **Repo** line. The brain page and the workshop pane read it as it is, and the next `/build` on it moves it into tracks first: it renumbers each track's milestones and tickets from `001`, rewrites the **Depends on** lines and renames the milestone branches. A PR branch (`sdd/<spec>/pr-M<NNN>`) keeps its old number. A spec whose tickets depend on another track's tickets, from before **Builds after**, has those waits moved onto its milestones the same way.
 
 ## Repository layout
 
@@ -223,10 +217,11 @@ A spec ticketed before tracks keeps its milestones straight under `milestones/`,
 .claude-plugin/   plugin.json and marketplace.json
 skills/<name>/    SKILL.md plus any reference files it points to
 agents/           the sub-agents the skills dispatch, each pinned to a model
-hooks/            the build pane: hooks.json names register.tsx, the hooks module
-types/            the build pane's state contract
+hooks/            the workshop pane: hooks.json names register.tsx, the hooks module
+types/            the workshop pane's state contract
 evals/            behaviour checks for the skills (claude plugin eval), by evals/README.md
 scripts/          check-refs.mjs: every "FILE.md's **Section**" reference resolves
+scripts/workshop/ build-scene.mjs: the workshop pane's room, from docs/mod/workshop/gen.py
 docs/DESIGN.md    why the brain became the hub
 docs/TRACKS.md    why a spec's milestones run in one track per repository
 ```

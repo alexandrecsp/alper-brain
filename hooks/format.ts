@@ -19,24 +19,6 @@ export const addUsage = (t: Tokens, u: TurnUsage): Tokens => ({
 export const tokens = (n: number) =>
   n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : `${n}`
 
-export const elapsed = (ms: number) => {
-  const s = Math.max(0, Math.round(ms / 1000))
-
-  return s >= 60 ? `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}s` : `${s}s`
-}
-
-// The text on one line, for a Text that cuts it at the edge of its box.
-/** A moment in ms as the local time of day, `17:08:42`. */
-export const clock = (ms: number) => new Date(ms).toTimeString().slice(0, 8)
-
-export const oneLine = (text: string) => text.replace(/\s+/g, ' ').trim()
-
-export const bar = (share: number, width: number) => {
-  const full = Math.round(Math.max(0, Math.min(1, share)) * width)
-
-  return '█'.repeat(full) + '░'.repeat(width - full)
-}
-
 // The one argument that says what a tool call is about, for the activity line.
 const ARG_KEYS = ['description', 'file_path', 'pattern', 'command', 'url', 'query', 'path', 'skill']
 
