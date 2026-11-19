@@ -147,7 +147,7 @@ While `/build` runs, **the workshop**, a live pane beside the chat, draws the se
 | Holo table | thinking, `Skill`, `ToolSearch` and any other tool |
 | Lounge | the main session between turns |
 
-An agent stands at least a second at a station before its next call walks it on. A station lights up while someone works there, the hologram turns on while someone thinks at the holo table, and the server racks always run.
+People walk at an even pace, easing in and out of each station, and an agent stands at least a second at a station before its next call walks it on. A station lights up while someone works there, the hologram turns on while someone thinks at the holo table, and the server racks always run.
 
 - **Waits on you.** A card on top of the rail for each track that waits on the user: escalations left to answer (`ask`), a check or a landing that gave up (`failed`), or a `blocked` ticket with the last line of its Notes. The room's siren then flashes red, and each one also raises a toast when it happens.
 - **Tracks.** One card per repository of the spec, read from its files: the next open milestone (else the first unlanded one), its tickets as a bar, and where it stands: the agent at work, closing by the main session, paused, ready, after another track's milestone, waiting at its check, landing, or landed. The mech in the bay is built in four stages, as the track at work finishes its tickets.

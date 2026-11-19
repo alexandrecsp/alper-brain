@@ -1,6 +1,8 @@
 import type { Station } from '../../types'
+import { millions } from '../format'
 import type { Tone } from '../theme'
 import { FULL, LIGHTS, LIGHT_DEFS, SCENES, SPLIT } from './scene-data'
+import { spotOf } from './stations'
 
 // Draws the workshop pane: the room gen.py drew (scene-data.ts), lit where agents work,
 // the agents as people in the room's style, and a rail with what waits on the user, the
@@ -16,6 +18,8 @@ export type SceneAgent = {
   station: Station
   from: Station
   movedAt: number
+  /** How long its walk from `from` takes. */
+  walkMs: number
   task: string
   /** Its ticket (`T002`) or build job (`review`), or ''. */
   job: string
@@ -108,7 +112,7 @@ function headerBlock(b: SceneBuild | null, x: number, y: number, w: number, tall
     return { s, h }
   }
   s += `<text x="${x + 10}" y="${y + (tall ? 17 : 18)}" font-size="12.5" font-weight="700" fill="#f2f3f5">${esc(cut(b.spec, Math.floor((w - 110) / 7)))}</text>`
-  s += `<text x="${x + w - 10}" y="${y + (tall ? 20 : 18)}" text-anchor="end" font-size="14" font-weight="700" fill="#7fe7ff">${(b.tokens / 1000).toFixed(1)}k tok</text>`
+  s += `<text x="${x + w - 10}" y="${y + (tall ? 20 : 18)}" text-anchor="end" font-size="14" font-weight="700" fill="#7fe7ff">${millions(b.tokens)} tok</text>`
   if (tall) {
     s += `<text x="${x + 10}" y="${y + 31}" font-size="10.5" fill="#8a8f98">${b.edits} edits · ${b.commits} commits · ${b.tracks.length} track${b.tracks.length === 1 ? '' : 's'}</text>`
     s += `<text x="${x + w - 10}" y="${y + 32}" text-anchor="end" font-size="8.5" letter-spacing="1" fill="#6b7280">TOKENS</text>`
@@ -262,27 +266,6 @@ function railContent(view: SceneView, W: number, cols: number, tall: boolean): B
 const P = (x: number, y: number, z = 0): [number, number] => [(x - y) * 16, (x + y) * 8 - z * 16]
 const OUTLINE = '#12131a'
 
-// Where people stand, in grid units: x runs along the back wall, y along the left wall.
-const SPOTS: Record<Station, [number, number][]> = {
-  bay: [[9.0, 3.3], [13.3, 3.5], [11.1, 4.3], [8.7, 1.7]],
-  tools: [[3.9, 2.0], [5.3, 2.1], [6.5, 2.4]],
-  shelves: [[2.0, 8.2], [2.1, 9.8], [2.0, 6.8]],
-  brain: [[2.0, 5.0], [2.7, 5.6]],
-  computer: [[2.3, 16.4], [2.5, 17.9]],
-  comms: [[16.4, 15.9], [17.6, 16.3]],
-  holo: [[8.3, 14.3], [12.7, 14.6], [10.4, 16.0], [12.5, 11.4]],
-  table: [[4.5, 17.4], [7.0, 18.0], [5.5, 19.3], [6.5, 16.4]],
-  lounge: [[6.8, 25.3], [7.8, 25.9]],
-  tests: [[16.4, 25.1], [17.8, 25.7]],
-  dock: [[17.2, 6.5], [18.7, 7.1]],
-  gate: [[18.1, 2.1], [17.0, 2.9], [19.1, 2.7]],
-}
-const spotOf = (station: Station, k: number): [number, number] => {
-  const list = SPOTS[station]
-  const sp = list[k % list.length] ?? [10, 13]
-  const r = Math.floor(k / list.length)
-  return [sp[0] + r * 0.7, sp[1] + r * 0.7]
-}
 // The light each station turns on while someone works there; the servers, the vault and the sconces always glow.
 const STATION_LIGHT: Record<Station, string[]> = {
   bay: ['gantry'], tools: ['tool_bench'], shelves: ['archive'], brain: ['brain'], computer: ['holo_station'], comms: ['comms'],
@@ -322,19 +305,23 @@ const PERSON_DEFS = (() => {
   return s
 })()
 
-type Placed = { a: SceneAgent; key: number; s: string; x: number; y: number; dx: number; dy: number; el: number }
+type Placed = { a: SceneAgent; key: number; s: string; x: number; y: number; dx: number; dy: number; el: number; dur: number }
+
+// A walk eases in and out of its stations, at the same pace in between.
+const EASE = 'calcMode="spline" keyTimes="0;1" keySplines=".45 0 .55 1"'
 
 function person(a: SceneAgent, k: number, now: number): Placed {
   const sp = spotOf(a.station, k)
   const p = P(sp[0], sp[1])
   const el = (now - a.movedAt) / 1000
-  const walking = a.from !== a.station && el >= 0 && el < 0.8
+  const dur = a.walkMs / 1000
+  const walking = a.from !== a.station && el >= 0 && el < dur
   const fsp = spotOf(a.from, 0)
   const fp = P(fsp[0], fsp[1])
   const h = hash(a.id)
-  const left = (0.8 - el).toFixed(2)
+  const left = (dur - el).toFixed(2)
   const anim = walking
-    ? `<animateTransform attributeName="transform" type="translate" from="${Math.round(fp[0])} ${Math.round(fp[1])}" to="${Math.round(p[0])} ${Math.round(p[1])}" dur="0.8s" begin="-${el.toFixed(2)}s" fill="freeze"/>`
+    ? `<animateTransform attributeName="transform" type="translate" values="${Math.round(fp[0])} ${Math.round(fp[1])};${Math.round(p[0])} ${Math.round(p[1])}" ${EASE} dur="${dur}s" begin="-${el.toFixed(2)}s" fill="freeze"/>`
     : ''
   const fade = a.isDone ? '<animate attributeName="opacity" values="1;.15;1" dur="3.2s" repeatCount="indefinite"/>' : ''
   const stand = '<use href="#ps"/>'
@@ -343,7 +330,7 @@ function person(a: SceneAgent, k: number, now: number): Placed {
     : stand
   const ring = a.isDone ? '' : `<ellipse rx="13" ry="6.5" fill="none" stroke="${a.isLead ? GOLD : a.color}" stroke-width="1.4" class="pulse"/>`
   const s = `<g transform="translate(${Math.round(p[0])} ${Math.round(p[1])})">${anim}<g>${fade}<ellipse rx="10" ry="5" fill="#000" opacity=".45"/>${ring}${legsUse}<use href="#pt" color="${a.color}"/><use href="#ph${h % 3}"/><use href="#pr" color="${HAIRS[(h >> 3) % HAIRS.length]}"/></g></g>`
-  return { a, key: sp[0] + sp[1], s, x: p[0], y: p[1] - 46, dx: walking ? fp[0] - p[0] : 0, dy: walking ? fp[1] - p[1] : 0, el }
+  return { a, key: sp[0] + sp[1], s, x: p[0], y: p[1] - 46, dx: walking ? fp[0] - p[0] : 0, dy: walking ? fp[1] - p[1] : 0, el, dur }
 }
 
 function tags(list: Placed[], fs: number, x0: number, w0: number) {
@@ -362,7 +349,7 @@ function tags(list: Placed[], fs: number, x0: number, w0: number) {
     }
     placed.push({ x, y, w, h })
     const anim = t.dx || t.dy
-      ? `<animateTransform attributeName="transform" type="translate" from="${f1(t.dx)} ${f1(t.dy)}" to="0 0" dur="0.8s" begin="-${t.el.toFixed(2)}s" fill="freeze"/>`
+      ? `<animateTransform attributeName="transform" type="translate" values="${f1(t.dx)} ${f1(t.dy)};0 0" ${EASE} dur="${t.dur}s" begin="-${t.el.toFixed(2)}s" fill="freeze"/>`
       : ''
     s += `<g${t.a.isDone ? ' opacity=".55"' : ''}>${anim}<rect x="${f1(x)}" y="${f1(y)}" width="${f1(w)}" height="${f1(h)}" rx="${f1(fs * 0.3)}" fill="#07090d" fill-opacity=".88" stroke="${t.a.isLead ? GOLD : '#4a505e'}" stroke-width="${f1(fs * (t.a.isLead ? 0.14 : 0.09))}"/><circle cx="${f1(x + fs * 0.65)}" cy="${f1(y + h / 2)}" r="${f1(fs * 0.25)}" fill="${t.a.color}"/><text x="${f1(x + fs * 1.15)}" y="${f1(y + h / 2 + fs * 0.35)}" font-size="${f1(fs)}" font-weight="600" fill="${t.a.isLead ? GOLD : '#eceef2'}">${esc(text)}</text></g>`
   }
@@ -404,7 +391,7 @@ function lightsOf(view: SceneView, stage: number) {
 
 const STYLE =
   "text{font-family:Inter,'Segoe UI',system-ui,sans-serif}.n{fill:none}.g{filter:url(#glow)}.scr{mix-blend-mode:screen}" +
-  '.wa{animation:wA .4s steps(1) infinite}.wb{animation:wB .4s steps(1) infinite}@keyframes wA{0%{opacity:1}50%{opacity:0}}@keyframes wB{0%{opacity:0}50%{opacity:1}}' +
+  '.wa{animation:wA .36s steps(1) infinite}.wb{animation:wB .36s steps(1) infinite}@keyframes wA{0%{opacity:1}50%{opacity:0}}@keyframes wB{0%{opacity:0}50%{opacity:1}}' +
   '.pulse{animation:pl 1.8s ease-in-out infinite}@keyframes pl{0%,100%{opacity:.95}50%{opacity:.3}}' +
   '.alarm{animation:al 1.1s steps(4) infinite}@keyframes al{0%,100%{opacity:1}50%{opacity:.25}}' +
   '.flick{animation:fl 2.6s ease-in-out infinite}@keyframes fl{0%,100%{opacity:1}50%{opacity:.75}}'
@@ -421,10 +408,12 @@ function layout(view: SceneView, W: number, H: number) {
   let sc: Box
   let rail: Box & { c: Block }
   if (mode === 'dock') {
+    // The room takes its own proportions at the pane's width, and the rail sits right
+    // under it, taking the rest; the room shrinks only to leave the rail room for its content.
     const c = railContent(view, W, 2, false)
-    const rh = Math.min(Math.max(Math.ceil(c.h), 250), 420)
-    rail = { x: 0, y: H - rh, w: W, h: rh, c }
-    sc = { x: 0, y: 0, w: W, h: H - rh }
+    const sh = Math.round(Math.max(120, Math.min((W * WORLD.h) / WORLD.w, H - Math.min(Math.ceil(c.h), 420))))
+    rail = { x: 0, y: sh, w: W, h: H - sh, c }
+    sc = { x: 0, y: 0, w: W, h: sh }
   } else if (mode === 'wide') {
     const rw = Math.round(Math.min(Math.max(W * 0.31, 300), 360))
     let c = railContent(view, rw, 1, true)

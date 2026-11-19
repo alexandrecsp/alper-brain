@@ -4,7 +4,7 @@ import { atom, read, update } from 'claude-code'
 import type { AgentRun, Build, Job, Ledger, LogEntry, RunStatus, Ticket, TrackLine, Tracks } from '../types'
 import { changesOf, nameOf } from './events'
 import type { Change } from './events'
-import { NO_TOKENS, addUsage, describe, pathArgs, tokens, total, usageTotal } from './format'
+import { NO_TOKENS, addUsage, describe, millions, pathArgs, tokens, total, usageTotal } from './format'
 import {
   STAGES,
   awaitingOf,
@@ -42,7 +42,6 @@ const CELL_H_PX = 19
 // Change a tag when that value's fields change: it declines what an earlier
 // version stored, which outlives a reload.
 const runs = atom({ plugin: 'alper-brain', key: 'runs' } as const, [], { shape: 'runs-2' })
-const now = atom({ plugin: 'alper-brain', key: 'now' } as const, 0)
 const builds = atom({ plugin: 'alper-brain', key: 'builds' } as const, [], { shape: 'builds-2' })
 const ledgers = atom({ plugin: 'alper-brain', key: 'ledgers' } as const, {}, { shape: 'ledgers-1' })
 const tracks = atom({ plugin: 'alper-brain', key: 'tracks' } as const, null, { shape: 'tracks-1' })
@@ -160,6 +159,9 @@ const follow = async (
     const saved = (await $.store.get(`log:${logSpec}`)) as LogEntry[] | undefined
     await update($, log, () => saved ?? [])
   }
+  // Unchanged since the last reading: no write, so the workshop does not redraw.
+  const current = (await read($, builds)).find(b => b.key === loaded.key)
+  if (current !== undefined && JSON.stringify(current) === JSON.stringify(loaded)) return
 
   let before: Build | undefined
   let isNew = false
@@ -268,7 +270,7 @@ const refreshTracks = async ($: EngineInterface) => {
   })
 
   const next: Tracks = { spec: first.spec, specTitle: first.specTitle, lines }
-  await update($, tracks, () => next)
+  if (JSON.stringify(await read($, tracks)) !== JSON.stringify(next)) await update($, tracks, () => next)
   for (const { build } of current) {
     const line = lines.find(one => one.key === build?.key)
     if (build === null || line === undefined || followed.some(b => b.key === build.key)) continue
@@ -403,9 +405,10 @@ const refreshStatus = async ($: EngineInterface) => {
   }
 }
 
-// Once a second: moves the clock the pane's times read and settles runs the
-// engine ended without a turn.complete heard here (a killed background
-// agent); every third second while the spec is in flight, reads its files again.
+// Once a second: settles runs the engine ended without a turn.complete heard
+// here (a killed background agent); every third second while the spec is in
+// flight, reads its files again. It writes only what changed: each write
+// redraws the workshop, and a redraw jolts the walks in it.
 const tick = async ($: EngineInterface) => {
   ticks += 1
   const followed = await read($, builds)
@@ -414,26 +417,22 @@ const tick = async ($: EngineInterface) => {
   if (inFlight && ticks % 3 === 0) await refreshBuilds($)
 
   const list = await read($, runs)
-  const at = await $.clock.now()
   if (!list.some(run => run.status === 'running')) {
-    // The main session's line counts up while a spec is in flight.
-    if (inFlight) {
-      await update($, now, () => at)
-      await refreshStatus($)
-    }
+    if (inFlight) await refreshStatus($)
     return
   }
 
   const agents = await $.agent.list()
-  await update($, runs, all =>
-    all.map(run => {
-      const ended = ENDED[agents.find(agent => agent.id === run.id)?.status ?? 'running']
-      return run.status === 'running' && ended !== undefined
-        ? { ...run, status: ended, endedAt: at, activity: '' }
-        : run
-    }),
-  )
-  await update($, now, () => at)
+  const endedOf = (run: AgentRun) => ENDED[agents.find(agent => agent.id === run.id)?.status ?? 'running']
+  if (list.some(run => run.status === 'running' && endedOf(run) !== undefined)) {
+    const at = await $.clock.now()
+    await update($, runs, all =>
+      all.map(run => {
+        const ended = endedOf(run)
+        return run.status === 'running' && ended !== undefined ? { ...run, status: ended, endedAt: at, activity: '' } : run
+      }),
+    )
+  }
   await refreshStatus($)
 }
 
@@ -444,9 +443,9 @@ const trackText = (line: TrackLine) =>
 // What the workshop draws: the crew where they stand, named as the build knows
 // them, and the spec's alerts, tokens and tracks while one is followed.
 const sceneView = async ($: EngineInterface): Promise<SceneView> => {
+  // Not the clock's `now`: a redraw reloads the picture, which would jolt a walk once a
+  // second. The pane redraws when the crew or the build changes; walks animate in the picture.
   const at = await $.clock.now()
-  // the clock redraws the pane each second while a build is in flight
-  await read($, now)
   const crew = await readCrew($)
   const list = await read($, runs)
   const followed = await read($, builds)
@@ -459,7 +458,7 @@ const sceneView = async ($: EngineInterface): Promise<SceneView> => {
     const role = a.id === MAIN ? 'main' : roleOf(run?.type ?? a.kind)
     const job = run?.ticket !== undefined ? `T${run.ticket}` : run !== undefined && run.job !== 'ticket' && run.job !== 'other' ? run.job : ''
     const hex = role === 'main' ? '#F2F2F2' : (ROLES[role]?.hex ?? OTHER_ROLE_HEX)
-    return { id: a.id, name: a.name, role, color: hex, station: a.station, from: a.from, movedAt: a.movedAt, task: a.task, job, isDone: a.isDone, isLead: a.id === lead }
+    return { id: a.id, name: a.name, role, color: hex, station: a.station, from: a.from, movedAt: a.movedAt, walkMs: a.walkMs, task: a.task, job, isDone: a.isDone, isLead: a.id === lead }
   })
   const first = followed[0]
   if (spec === null && first === undefined) return { now: at, agents, build: null }
@@ -524,8 +523,6 @@ export const register: Register = on => {
     await patch($, id, run =>
       run.status === 'running' ? run : { ...run, status: 'running', endedAt: undefined },
     )
-    const at = await $.clock.now()
-    await update($, now, () => at)
     void $.ui.open({ id: PANE, title: TITLE })
     await refreshStatus($)
 
@@ -654,7 +651,7 @@ export const register: Register = on => {
             </Text>
           ))}
           <Text bold>
-            Workshop · {view.agents.filter(a => !a.isDone).length} at work{b === null ? '' : ` · ${b.spec} · ${tokens(b.tokens)} tok · ${b.edits} edits · ${b.commits} commits`}
+            Workshop · {view.agents.filter(a => !a.isDone).length} at work{b === null ? '' : ` · ${b.spec} · ${millions(b.tokens)} tok · ${b.edits} edits · ${b.commits} commits`}
           </Text>
           {lines.length > 0 && <Text dimColor>Tracks {inFlight} of {lines.length} in flight</Text>}
           {lines.map(line => (

@@ -145,6 +145,8 @@ export type CrewAgent = {
   /** The station it walked from: the walk is drawn while `movedAt` is recent. */
   from: Station
   movedAt: number
+  /** How long its walk from `from` takes, by the distance. */
+  walkMs: number
   /** When it last did anything: the latest is the pane's lead. */
   seenAt: number
   task: string
@@ -166,7 +168,6 @@ declare module 'claude-code' {
   interface PluginState {
     'alper-brain': {
       runs: Shaped<AgentRun[]>
-      now: number
       /** The milestones the pane follows: one, or one per track, all of one spec. */
       builds: Shaped<Build[]>
       /** What each followed milestone has spent, by its key. */

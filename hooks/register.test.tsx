@@ -109,7 +109,7 @@ test("a /build ticket's builder works at the mech bay, under its track, with its
   await $.tool.call({ tool: 'Edit', file_path: 'src/map.ts', old_string: 'a', new_string: 'b', agentId: 'a1' })
 
   const terminal = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect(await terminal.find({ type: 'Text', text: /Workshop · 1 at work · 003 Invoice export · 10\.0k tok · 1 edits · 0 commits/ })).toBeDefined()
+  expect(await terminal.find({ type: 'Text', text: /Workshop · 1 at work · 003 Invoice export · 0\.0M tok · 1 edits · 0 commits/ })).toBeDefined()
   // The track's line reads its files when the builder arrives, and again on the clock's tick.
   expect(await terminal.find({ type: 'Text', text: /^billing-api M001 1\/3 · builder T002 · starting$/ })).toBeDefined()
   expect(await terminal.find({ type: 'Text', text: /· builder T002 · Mech bay · editing map\.ts/ })).toBeDefined()

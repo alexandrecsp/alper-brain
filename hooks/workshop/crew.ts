@@ -2,21 +2,20 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 
 import type { Crew, CrewAgent, Job, Station } from '../../types'
+import { walkMs } from './stations'
 
 // Who stands where on the workshop floor. register.tsx's hooks call this module:
 // a plugin registers an event once without a matcher, and the build pane's hooks
 // already hold every event the crew follows but agent.spawn.
 
 export const MAIN = 'main'
-/** How long a walk between stations takes, as the scene draws it. */
-export const WALK_MS = 800
 /** An agent stands at least this long at a station before the next call moves it on. */
 export const STAY_MS = 1000
-/** How long a finished subagent fades at the gate before it leaves the floor. */
-export const FADE_MS = 4000
+/** How long a finished subagent takes to walk to the gate and fade there before it leaves the floor. */
+export const FADE_MS = 6000
 
 // Change the tag when Crew's fields change: a reload then starts from empty.
-const crew = atom({ plugin: 'alper-brain', key: 'crew' } as const, emptyCrew(), { shape: 'crew-1' })
+const crew = atom({ plugin: 'alper-brain', key: 'crew' } as const, emptyCrew(), { shape: 'crew-2' })
 
 function emptyCrew(): Crew {
   return { agents: [], spawned: 0, edits: 0, commits: 0 }
@@ -108,24 +107,24 @@ export function route(tool: string, args: Record<string, unknown>, job?: Job, ha
 
 function newAgent(c: Crew, id: string, kind: string, station: Station, now: number, name?: string): CrewAgent {
   const called = name ?? (id === MAIN ? 'Lead' : (NAMES[c.spawned % NAMES.length] ?? 'Agent'))
-  return { id, name: called, kind, station, from: station, movedAt: now, seenAt: now, task: 'arriving', isDone: false }
+  return { id, name: called, kind, station, from: station, movedAt: now, walkMs: 0, seenAt: now, task: 'arriving', isDone: false }
 }
 
 function ensure(c: Crew, id: string, now: number): Crew {
   if (c.agents.some(a => a.id === id)) return c
   // the lead was in the lounge all along, free to walk at once
-  if (id === MAIN) return { ...c, agents: [...c.agents, { ...newAgent(c, MAIN, 'main', 'lounge', now - WALK_MS - STAY_MS), task: 'on a break' }] }
+  if (id === MAIN) return { ...c, agents: [...c.agents, { ...newAgent(c, MAIN, 'main', 'lounge', now - STAY_MS), task: 'on a break' }] }
   return { ...c, spawned: c.spawned + 1, agents: [...c.agents, newAgent(c, id, 'agent', 'gate', now)] }
 }
 
-/** When an agent that last moved at `movedAt` may move again. */
-const freeAt = (a: CrewAgent) => a.movedAt + WALK_MS + STAY_MS
+/** When an agent may move again: once it has walked to its station and stood there. */
+const freeAt = (a: CrewAgent) => a.movedAt + a.walkMs + STAY_MS
 
 /** Sends an agent to a station now, or once it has stood its second there. */
 function moveTo(a: CrewAgent, station: Station, task: string, now: number): CrewAgent {
   if (a.station === station) return { ...a, task, seenAt: now, next: undefined }
   if (now < freeAt(a)) return { ...a, seenAt: now, next: { station, task } }
-  return { ...a, from: a.station, station, task, movedAt: now, seenAt: now, next: undefined }
+  return { ...a, from: a.station, station, task, movedAt: now, walkMs: walkMs(a.station, station), seenAt: now, next: undefined }
 }
 
 const pruned = (c: Crew, now: number): Crew => ({ ...c, agents: c.agents.filter(a => !a.isDone || now - (a.doneAt ?? now) < FADE_MS) })
@@ -210,7 +209,7 @@ export async function crewTurnComplete($: EngineInterface, agentId: string | und
     agents: c.agents.map(a => {
       if (a.id !== agentId) return a
       const at = { ...a, next: undefined }
-      const left = at.station === 'gate' ? { ...at, task: 'done' } : { ...at, from: at.station, station: 'gate' as const, movedAt: now, task: 'done' }
+      const left = at.station === 'gate' ? { ...at, task: 'done' } : { ...at, from: at.station, station: 'gate' as const, movedAt: now, walkMs: walkMs(at.station, 'gate'), task: 'done' }
       return { ...left, isDone: true, doneAt: now }
     }),
   }))

@@ -19,6 +19,9 @@ export const addUsage = (t: Tokens, u: TurnUsage): Tokens => ({
 export const tokens = (n: number) =>
   n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : `${n}`
 
+/** Tokens always in millions, as the workshop counts a spec's spending: `0.4M`. */
+export const millions = (n: number) => `${(n / 1e6).toFixed(1)}M`
+
 // The one argument that says what a tool call is about, for the activity line.
 const ARG_KEYS = ['description', 'file_path', 'pattern', 'command', 'url', 'query', 'path', 'skill']
 
