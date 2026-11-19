@@ -130,34 +130,33 @@ Every pipeline branch starts with `sdd/`, so `git branch --list 'sdd/*'` finds t
 
 ## The workshop pane
 
-While `/build` runs, **the workshop**, a live pane beside the chat, draws the session as a sci-fi workshop in isometric pixel art. The main session and each sub-agent are people who walk to the station of what they do, with a card over each naming them and their ticket or job. Beside the room, a rail lists what waits on you, the spec's tokens, its tracks and the crew.
+While `/build` runs, **the workshop**, a live pane beside the chat, draws the session as a star chart, amber for what works and blue for the frame: a glowing core at the centre, where sub-agents are born and agents think, and each station a star on a ring around it, linked to the core and to its neighbours. The main session and each sub-agent are light: a comet running along the line to the star of what they do, then an arc orbiting that star, its spoke lit in the agent's colour, with the agent's name and ticket or job under the star. A finished sub-agent stays, a faint comet drifting about the core on a lane of its own; the latest twelve do. Beside the chart, a rail lists what waits on you, the spec's tokens, its tracks and the crew.
 
 | Station | What sends an agent there |
 | --- | --- |
-| Gate | a sub-agent arrives here, and leaves here when it finishes |
-| Meeting table | a review's or a decision's agent, whatever it calls |
-| Cargo dock | `git`, `gh` and `sdd` commands |
-| Test bench | test runs (`npm test`, `pytest`, `go test`…) |
-| Fabrication bench | any other `Bash` or `PowerShell` command |
-| Mech bay | editing code; a `/build` builder's edits to its own ticket too |
-| Brain vault | reading or editing under `.brain/` |
+| Council | a review's or a decision's agent, whatever it calls |
+| Git | `git` and `gh` commands, and `sdd squash` and `sdd land` |
+| Tests | test runs (`npm test`, `pytest`, `go test`…) |
+| Shell | any other `Bash` or `PowerShell` command |
+| Forge | editing code; a `/build` builder's edits to its own ticket too |
+| Memory | reading or editing under `.brain/`, and the other `sdd` commands, which keep the spec's files there |
 | Archive | reading or searching code |
-| Computer | reading or editing documents (`.md`, `.txt`…) |
-| Antenna | `WebSearch`, `WebFetch` and MCP tools |
-| Holo table | thinking, `Skill`, `ToolSearch` and any other tool |
-| Lounge | the main session between turns |
+| Docs | reading or editing documents (`.md`, `.txt`…) |
+| Uplink | `WebSearch`, `WebFetch` and MCP tools |
+| Core | a sub-agent's birth; thinking, `Skill`, `ToolSearch` and any other tool |
+| Standby | the main session between turns, an orbit around the core |
 
-People walk at an even pace, easing in and out of each station, and an agent stands at least a second at a station before its next call walks it on. A station lights up while someone works there, the hologram turns on while someone thinks at the holo table, and the server racks always run.
+Agents travel at an even pace, easing in and out of each star, and an agent stays at least a second at a star before its next call sends it on. A star brightens and its ring turns while someone works there, and the core swirls faster while someone thinks.
 
-- **Waits on you.** A card on top of the rail for each track that waits on the user: escalations left to answer (`ask`), a check or a landing that gave up (`failed`), or a `blocked` ticket with the last line of its Notes. The room's siren then flashes red, and each one also raises a toast when it happens.
-- **Tracks.** One card per repository of the spec, read from its files: the next open milestone (else the first unlanded one), its tickets as a bar, and where it stands: the agent at work, closing by the main session, paused, ready, after another track's milestone, waiting at its check, landing, or landed. The mech in the bay is built in four stages, as the track at work finishes its tickets.
+- **Waits on you.** A card on top of the rail for each track that waits on the user: escalations left to answer (`ask`), a check or a landing that gave up (`failed`), or a `blocked` ticket with the last line of its Notes. The core then pulses red, and each one also raises a toast when it happens.
+- **Tracks.** One card per repository of the spec, read from its files: the next open milestone (else the first unlanded one), its tickets as a bar, and where it stands: the agent at work, closing by the main session, paused, ready, after another track's milestone, waiting at its check, landing, or landed.
 - **Tokens.** What the milestones being built have spent, the sub-agents and the main session together, saved per milestone so the total carries across `/build` calls and sessions; with no milestone, what this session's sub-agents spent.
-- **The crew.** Each agent by role (`builder`, `fixer`, `reviewer`, `arbiter`, `scout`…), with its ticket or job and what it is doing; the lead, the one that acted last, is outlined in gold.
+- **The crew.** Each agent at work by role (`builder`, `fixer`, `reviewer`, `arbiter`, `scout`…), with its ticket or job and the star it is at; the main session is outlined in gold, and the finished ones share one line, drifting.
 - **A status line** under the prompt, such as `⚙ M002 web-app 2/3 tickets · review · 1 agent running · 412.0k tok`, or with tracks side by side, each track's stage, `⚠ waits on you` among them.
 
 Open it with `/workshop`; it also opens by itself when a sub-agent starts or a milestone is picked up. It only reads `.brain/`. The terminal draws no pictures, so there the workshop is a list: what waits on you, the tracks, and each agent with its station.
 
-`hooks/register.tsx` is the module, `hooks/sdd.ts` and `hooks/events.ts` what it reads from the files, `hooks/workshop/` the crew (`crew.ts`) and the drawing (`draw.ts`), `hooks/register.test.tsx` and `hooks/tracks.test.tsx` its tests (`claude plugin test .`), and `types/index.d.ts` the state it keeps. The room itself is `hooks/workshop/scene-data.ts`, written by `node scripts/workshop/build-scene.mjs` from what `docs/mod/workshop/gen.py` draws; an Svg holds at most 128 KB, so the room comes in two strips the pane stacks.
+`hooks/register.tsx` is the module, `hooks/sdd.ts` and `hooks/events.ts` what it reads from the files, `hooks/workshop/` the crew (`crew.ts`) and the drawing (`draw.ts`), `hooks/register.test.tsx` and `hooks/tracks.test.tsx` its tests (`claude plugin test .`), and `types/index.d.ts` the state it keeps. The chart is drawn in code, one Svg under the 128 KB an Svg holds. The editor draws that Svg as an image, which reloads, animations and all, whenever its source changes: so the drawing changes only when something on screen does, at most once every 2 s, and leaves what an agent is doing this second to the alt text and the terminal's list.
 
 ## The brain
 
@@ -221,7 +220,6 @@ hooks/            the workshop pane: hooks.json names register.tsx, the hooks mo
 types/            the workshop pane's state contract
 evals/            behaviour checks for the skills (claude plugin eval), by evals/README.md
 scripts/          check-refs.mjs: every "FILE.md's **Section**" reference resolves
-scripts/workshop/ build-scene.mjs: the workshop pane's room, from docs/mod/workshop/gen.py
 docs/DESIGN.md    why the brain became the hub
 docs/TRACKS.md    why a spec's milestones run in one track per repository
 ```

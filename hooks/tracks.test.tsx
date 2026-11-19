@@ -110,7 +110,7 @@ test('a squashed milestone shows landing, and a landing that gave up shows as fa
   await ui.unmount()
 })
 
-test('the main session runs the tests at the test bench, and a finished builder leaves by the gate', async ($, on) => {
+test('the main session runs the tests at the test bench, and a finished builder drifts about the core', async ($, on) => {
   const DIR = `${SPEC}/milestones/billing-api/001-parse`
   const tree: Record<string, string> = {
     [`${SPEC}/spec.md`]: '# Spec: Invoice export\n',
@@ -135,8 +135,8 @@ test('the main session runs the tests at the test bench, and a finished builder 
   await $.tool.call({ tool: 'Bash', command: 'npm test' })
 
   ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect(await ui.find({ type: 'Text', text: /● Lead · main · Test bench · running npm test/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /● Vega · builder T001 · Gate · done/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /● Lead · main · Tests · running npm test/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /● Vega · builder T001 · Drift · done/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /1 commits/ })).toBeDefined()
   await ui.unmount()
 })

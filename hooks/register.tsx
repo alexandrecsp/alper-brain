@@ -25,7 +25,7 @@ import {
   waitsOnUser,
 } from './sdd'
 import { NEEDS_USER, OTHER_ROLE_HEX, ROLES, STATUS_LINE_GLYPH, color, roleOf, trackTone } from './theme'
-import { FADE_MS, MAIN, STATION_LABEL, crewSpawn, crewStart, crewToolCall, crewTurnComplete, crewTurnStart, readCrew } from './workshop/crew'
+import { MAIN, STATION_LABEL, crewSpawn, crewStart, crewToolCall, crewTurnComplete, crewTurnStart, readCrew } from './workshop/crew'
 import { drawWorkshop } from './workshop/draw'
 import type { SceneBuild, SceneView } from './workshop/draw'
 
@@ -46,6 +46,10 @@ const builds = atom({ plugin: 'alper-brain', key: 'builds' } as const, [], { sha
 const ledgers = atom({ plugin: 'alper-brain', key: 'ledgers' } as const, {}, { shape: 'ledgers-1' })
 const tracks = atom({ plugin: 'alper-brain', key: 'tracks' } as const, null, { shape: 'tracks-1' })
 const log = atom({ plugin: 'alper-brain', key: 'log' } as const, [], { shape: 'log-1' })
+// The workshop holds a change back until its gap since the last new picture is
+// out (draw.ts); bumping this then renders the pane again, once.
+const paint = atom({ plugin: 'alper-brain', key: 'paint' } as const, 0, { shape: 'paint-1' })
+let repaintDue = false
 
 const ENDED: Partial<Record<AgentStatus, RunStatus>> = {
   completed: 'done',
@@ -451,7 +455,8 @@ const sceneView = async ($: EngineInterface): Promise<SceneView> => {
   const followed = await read($, builds)
   const spent = await read($, ledgers)
   const spec = await read($, tracks)
-  const live = crew.agents.filter(a => !a.isDone || at - (a.doneAt ?? at) < FADE_MS)
+  // finished subagents stay, drifting about the core
+  const live = crew.agents
   const lead = live.filter(a => !a.isDone).sort((a, b) => b.seenAt - a.seenAt)[0]?.id
   const agents = live.map(a => {
     const run = list.find(one => one.id === a.id)
@@ -624,7 +629,7 @@ export const register: Register = on => {
     return next(e)
   })
 
-  // A new subagent arrives at the gate, and whoever called it meets it there.
+  // A new subagent is born at the core, and whoever called it goes there to call it.
   on('agent.spawn', async ($, e, next) => {
     const r = await next(e)
     const id = 'agentId' in r ? r.agentId : undefined
@@ -662,7 +667,7 @@ export const register: Register = on => {
               ● {a.name}{' '}
               <Text dimColor>
                 · {a.role}
-                {a.job === '' ? '' : ` ${a.job}`} · {STATION_LABEL[a.station]} · {a.task}
+                {a.job === '' ? '' : ` ${a.job}`} · {a.isDone ? 'Drift' : STATION_LABEL[a.station]} · {a.task}
               </Text>
             </Text>
           ))}
@@ -671,16 +676,28 @@ export const register: Register = on => {
     }
 
     // The scene fills the pane: on a remote surface the viewport is the pane, in
-    // cells. Each Svg takes no size of its own, so the surface draws it the slot's
-    // width; the two strips stack into the pane's proportions, never under the minimum.
+    // cells. The Svg takes no size of its own, so the surface draws it the slot's
+    // width, in the pane's proportions, never under the minimum.
     const { Svg } = $.ui.resolve(e)
     const width = Math.max(300, Math.round((e.props.bodyColumns ?? e.viewport?.columns ?? 90) * CELL_W_PX))
     const height = Math.max(MIN_HEIGHT_PX, Math.round((e.viewport?.rows ?? 0) * CELL_H_PX))
-    const [top = '', bottom = ''] = drawWorkshop(view, width, height)
+    // reading `paint` renders the pane again when a held-back change is due
+    await read($, paint)
+    const { source, retryMs } = drawWorkshop(view, width, height)
+    if (retryMs !== undefined && !repaintDue) {
+      repaintDue = true
+      try {
+        $.clock.after(retryMs + 20, () => {
+          repaintDue = false
+          void update($, paint, n => n + 1)
+        })
+      } catch {
+        repaintDue = false
+      }
+    }
     return (
       <Box flexDirection="column" minHeight={Math.ceil(MIN_HEIGHT_PX / CELL_H_PX)}>
-        <Svg source={top} alt={[...(view.build?.alerts ?? []), ...said].join('; ') || 'An empty workshop'} />
-        <Svg source={bottom} alt="The workshop's lower half" />
+        <Svg source={source} alt={[...(view.build?.alerts ?? []), ...said].join('; ') || 'An empty workshop'} />
       </Box>
     )
   })

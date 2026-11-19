@@ -112,13 +112,13 @@ test("a /build ticket's builder works at the mech bay, under its track, with its
   expect(await terminal.find({ type: 'Text', text: /Workshop · 1 at work · 003 Invoice export · 0\.0M tok · 1 edits · 0 commits/ })).toBeDefined()
   // The track's line reads its files when the builder arrives, and again on the clock's tick.
   expect(await terminal.find({ type: 'Text', text: /^billing-api M001 1\/3 · builder T002 · starting$/ })).toBeDefined()
-  expect(await terminal.find({ type: 'Text', text: /· builder T002 · Mech bay · editing map\.ts/ })).toBeDefined()
+  expect(await terminal.find({ type: 'Text', text: /· builder T002 · Forge · editing map\.ts/ })).toBeDefined()
   await terminal.unmount()
 
-  // Where it has Svg, the surface draws the workshop as two strips, each under the 128 KB an Svg holds.
+  // Where it has Svg, the surface draws the workshop as one Svg, under the 128 KB an Svg holds.
   const desktop = await $.ui.mount({ ...PANE, surface: 'desktop' })
   const strips = await desktop.findAll({ type: 'Svg' })
-  expect(strips.map(found => found.props.alt)).toEqual(['Vega, builder T002, editing map.ts', "The workshop's lower half"])
+  expect(strips.map(found => found.props.alt)).toEqual(['Vega, builder T002, editing map.ts'])
   for (const strip of strips) expect(String(strip.props.source).length).toBeLessThan(128_000)
   await desktop.unmount()
 
@@ -156,7 +156,7 @@ test("the decide phase's arbiter sits at the meeting table", async ($, on) => {
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   // Whatever it reads, a decision's agent works at the meeting table.
-  expect(await ui.find({ type: 'Text', text: /· arbiter decide · Meeting table · reading review\.md/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /· arbiter decide · Council · reading review\.md/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /^billing-api M001 1\/3 · arbiter · starting$/ })).toBeDefined()
   await ui.unmount()
 })
@@ -225,9 +225,9 @@ test("each track's milestone shows under its own repository, though both are num
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await ui.find({ type: 'Text', text: /^billing-api M001 1\/3 · builder T002 · starting$/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /^web-app M001 0\/1 · builder T001 · starting$/ })).toBeDefined()
-  // Each arrives at the gate, and stands there its second before it walks on.
-  expect(await ui.find({ type: 'Text', text: /● Vega · builder T002 · Gate · arriving/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /● Orion · builder T001 · Gate · arriving/ })).toBeDefined()
+  // Each is born at the core, and thinks there first.
+  expect(await ui.find({ type: 'Text', text: /● Vega · builder T002 · Core · thinking/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /● Orion · builder T001 · Core · thinking/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -264,7 +264,7 @@ test('the fixer shows fixing in the fix phase, in a milestone still in the flat 
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await ui.find({ type: 'Text', text: /^billing-api M001 1\/1 · fixer · starting$/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /· fixer fix · Mech bay · editing parse\.ts/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /· fixer fix · Forge · editing parse\.ts/ })).toBeDefined()
   await ui.unmount()
 })
 

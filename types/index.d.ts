@@ -176,6 +176,8 @@ declare module 'claude-code' {
       log: Shaped<LogEntry[]>
       /** The workshop's crew: where each agent stands and what it does. */
       crew: Shaped<Crew>
+      /** Bumped to render the workshop again once a change held back by its gap is due. */
+      paint: Shaped<number>
     }
   }
 }
