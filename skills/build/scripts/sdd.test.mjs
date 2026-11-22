@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { appendLine, assembleReview, commitKey, contextBlock, dispatch, findingMap, ids, land, mapRows, markFinding, next, readCap, releaseOf, releasesToOffer, resolveSpec, resumeStep, setLine, specState, squash, ticketDigest, toFix, unanswered, verify } from './sdd.mjs'
@@ -460,6 +460,17 @@ test('fills each agent its Context block, dispatches a builder, and moves on to 
   assert.match(brief, /^## Context\n- \*\*Works in:\*\* api at .* \(open\), changes it\n- The rest of this Context block, its rules included, is in .*001-expand\/\.context\/builder-001\.md: read it before anything else\.\n\n\*\*Ticket:\*\* .*001-add-v2\.md\n\*\*Milestone:\*\* .*milestone\.md\n\*\*Spec:\*\* .*spec\.md$/)
   assert.equal(readFileSync(join(a1, '.context/builder-001.md'), 'utf8'), `${builder}\n`)
   assert.match(readFileSync(t1, 'utf8'), /\*\*Status:\*\* doing/)
+
+  // A read-only sandbox: the brief carries the whole block, and the ticket keeps its Status for Edit.
+  const tRo = join(a1, '002-more.md')
+  put(join(a1, '.context/builder-002.md'), 'old\n')
+  chmodSync(join(a1, '.context/builder-002.md'), 0o444)
+  chmodSync(tRo, 0o444)
+  const sandboxed = dispatch(tRo, 'builder')
+  chmodSync(join(a1, '.context/builder-002.md'), 0o644)
+  chmodSync(tRo, 0o644)
+  assert.ok(sandboxed.startsWith(`${contextBlock(tRo, 'builder')}\n\n**Ticket:** `))
+  assert.match(readFileSync(tRo, 'utf8'), /\*\*Status:\*\* todo/)
 
   writeFileSync(join(repo, 'f'), 'ok\nmore\n')
   g('commit', '-qam', 'ticket 001')

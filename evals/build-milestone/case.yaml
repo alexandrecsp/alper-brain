@@ -1,9 +1,9 @@
 schema_version: "1.1"
 name: build-milestone
-description: /build builds a milestone's three todo tickets, each building on the one before, closes the milestone and squashes it. Its fixture is the one compare.sh uses to weigh how builders are dispatched. Under WSL2 the first builder's commit fails.
+description: /build builds a milestone's three todo tickets, each building on the one before, and acts on each builder's report. Its fixture is the one compare.sh uses to weigh how builders are dispatched; compare.sh, not this case, checks what was built.
 tags: [build, builder]
 runs: 1
-expected_outcome: Tickets 002 to 004 are done with their commits, shout.sh reuses greet.sh or a shared helper, the last ticket has its test plan, and the milestone is squashed.
+expected_outcome: A builder fills ticket 002's test plan, and the main session acts on every report and says where the track stands.
 context:
   scaffold_script: fixture.sh
 execution:

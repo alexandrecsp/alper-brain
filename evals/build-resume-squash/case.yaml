@@ -1,9 +1,9 @@
 schema_version: "1.1"
 name: build-resume-squash
-description: /build resumes a milestone whose squash is committed but unrecorded, records it without rebuilding or re-reviewing, and lands it.
+description: /build resumes a milestone whose squash is committed but unrecorded, records it without rebuilding or re-reviewing, and goes on to land it.
 tags: [build, resume]
 runs: 2
-expected_outcome: Squash and Landed lines hold the spec branch's commit, the spec has its Landed line, and no builder, fixer, reviewer or arbiter runs.
+expected_outcome: The Squash line holds the spec branch's commit, the build runs sdd land, and no builder, fixer, reviewer or arbiter runs.
 context:
   scaffold_script: fixture.sh
 execution:

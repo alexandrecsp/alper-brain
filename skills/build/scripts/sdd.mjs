@@ -879,24 +879,39 @@ export const contextBlock = (path, agent, { writes = [], branch: onBranch } = {}
   return briefTemplate().replace(/^- \*\*([^:*]+):\*\* .*$/gm, (line, name) => (name in values ? `- **${name}:** ${values[name]}` : line))
 }
 
+/** Writes a file, or returns false when a read-only sandbox refuses the write. */
+const tryWrite = (file, text) => {
+  try {
+    mkdirSync(dirname(file), { recursive: true })
+    writeFileSync(file, text)
+    return true
+  } catch (e) {
+    // A read-only sandbox refuses a mkdir with ENOENT, even under a folder that exists.
+    if (['EROFS', 'EACCES', 'EPERM', 'ENOENT'].includes(e.code)) return false
+    throw e
+  }
+}
+
 /**
  * A dispatch in one call: writes the agent's Context block to `<milestone>/.context/<agent>[-<ticket>].md`, sets a
  * ticket's builder's ticket to `doing`, and returns the brief's opening, the **Works in** line the build pane reads
- * and the file holding the rest, followed by the paths the agent works on.
+ * and the file holding the rest, followed by the paths the agent works on. When a sandbox refuses a write, the brief
+ * holds the whole block instead, and stderr names the **Status** line the caller writes with Edit.
  */
 export const dispatch = (path, agent, { writes = [], branch } = {}) => {
   const block = contextBlock(path, agent, { writes, branch })
   const { m } = locate(path)
   const ticket = /\d{3}-[^/\\]+\.md$/.test(path) && !/milestone\.md$/i.test(path) ? resolve(path) : null
   const file = join(m.dir, '.context', `${agent}${ticket ? `-${basename(ticket).slice(0, 3)}` : ''}.md`)
-  mkdirSync(dirname(file), { recursive: true })
-  writeFileSync(file, `${block}\n`)
-  if (agent === 'builder' && ticket) writeFileSync(ticket, setLine(read(ticket), 'Status', 'doing'))
+  const filed = tryWrite(file, `${block}\n`)
+  if (agent === 'builder' && ticket && !tryWrite(ticket, setLine(read(ticket), 'Status', 'doing'))) {
+    console.error(`not written: set **Status:** doing in ${slash(ticket)} with Edit`)
+  }
   const worksIn = /^- \*\*Works in:\*\* .*$/m.exec(block)[0]
   return [
-    '## Context',
-    worksIn,
-    `- The rest of this Context block, its rules included, is in ${slash(file)}: read it before anything else.`,
+    ...(filed
+      ? ['## Context', worksIn, `- The rest of this Context block, its rules included, is in ${slash(file)}: read it before anything else.`]
+      : [block]),
     '',
     ...(ticket ? [`**Ticket:** ${slash(ticket)}`] : []),
     `**Milestone:** ${slash(join(m.dir, 'milestone.md'))}`,
