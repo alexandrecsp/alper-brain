@@ -120,6 +120,6 @@ After the edits: `node scripts/check-refs.mjs` (the MIGRATE.md and FORMAT.md hea
 ## Rollout
 
 1. **Layout** (built). The `notes/` folder, `repos` required, both-layout readers, MIGRATE's **Notes folder**, the timeline fix, and every path in the table above. The `flow` type is not added yet. `notes.mjs`'s `placeOf`, mirrored in `brain.html`, is the one reader of both layouts. Sync asks before it moves a legacy brain. The brain page's draft form asks only for `repos`, and in a legacy brain it picks `repos/<slug>/` or `shared/` from them. Since the folder no longer shows a note's repository, a note naming one repository starts with its slug; `schema.mjs` warns, without failing, about a name that does not, so the notes written before the rule need no rename. Step 2 also draws a note naming several repositories between their clusters, in their colours, instead of in a grey cluster of its own.
-2. **Flow notes.** The type in FORMAT.md and `schema.mjs`, its listing in recall, Record writing it, and explore's held-back flow drafts.
+2. **Flow notes** (deferred, 2026-11-22: not built). The type in FORMAT.md and `schema.mjs`, its listing in recall, Record writing it, and explore's held-back flow drafts.
 
 Step 1 changes no note's meaning and step 2 needs no migration, so each ships alone.

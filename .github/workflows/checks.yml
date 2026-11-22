@@ -1,0 +1,28 @@
+# Runs scripts/check.mjs: the checks that need no model and no API key, so they cost nothing and run on every push.
+# The paid evals stay in evals.yml, on demand.
+name: Checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Pinned like evals.yml; `claude plugin test` runs the workshop pane's tests and needs no login.
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code@2.1.318
+
+      - name: Run the checks
+        run: node scripts/check.mjs

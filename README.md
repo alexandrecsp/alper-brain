@@ -34,7 +34,7 @@ The skills then show up as `/alper-brain:<name>`. Below they are written by thei
 ## Getting started
 
 1. **Create or clone a brain.** Run `/brain setup` anywhere. It clones your team's brain or creates one, and tells you to launch Claude in it from then on.
-2. **Register each repository.** In the brain, with a repository open (`/add-dir <path>`), run `/brain setup` again. It writes the repository's card (commit key, unit and e2e commands), settles its layout in `docs/STRUCTURE.md`, points its `CLAUDE.md` or `AGENTS.md` at the layout and the glossary, and moves its old `.brain/` into the brain if it has one.
+2. **Register each repository.** In the brain, with a repository open (`/add-dir <path>`), run `/brain setup` again. It writes the repository's card (commit key, unit and e2e commands), settles its layout in `docs/STRUCTURE.md`, points its `CLAUDE.md` or `AGENTS.md` at the layout and the glossary, and moves its old `.sdd/` into the brain if it has one.
 3. **Link the rest.** `/brain link` finds this machine's clones of every registered repository.
 4. **Explore them.** `/brain explore` writes what each linked repository does into the brain, so teammates who never clone the code can ask about it. `/brain sync` shares the notes.
 5. **Look around.** `/brain status` reports everything in flight, `/brain view` opens the brain page, and `/brain ask <question>` answers questions that cross repositories.
@@ -223,7 +223,9 @@ agents/           the sub-agents the skills dispatch, each pinned to a model
 hooks/            the workshop pane: hooks.json names register.tsx, the hooks module
 types/            the workshop pane's state contract
 evals/            behaviour checks for the skills (claude plugin eval), by evals/README.md
-scripts/          check-refs.mjs: every "FILE.md's **Section**" reference resolves
+scripts/          check.mjs runs every free check: check-refs.mjs (every "FILE.md's **Section**" reference resolves),
+                  check-phases.mjs, the scripts' tests and the workshop pane's tests
+CHANGELOG.md      what each release changes, and what migrates by itself
 docs/DESIGN.md    why the brain became the hub
 docs/TRACKS.md    why a spec's milestones run in one track per repository
 ```
