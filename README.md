@@ -118,7 +118,7 @@ Each track works on one milestone and one ticket at a time, and the tracks run s
 5. It runs the repository's full suite and the milestone's **Done when** check, once, after the fixes. A contract change's migrate waits here until its expand is squashed, then has its fakes checked against the expand's code.
 6. It squashes the milestone's branch into the spec's branch as one commit, recording its SHA in `milestone.md`.
 
-A failure stops only its own track; the others go on, and the call reports every stopped track once its frontier is done, then names the next frontier.
+A failure stops only its own track; the others go on, and the call reports every stopped track once its frontier is done, with what you can do about each (change the ticket and rerun, build it by hand and tell `/build <spec-id> — <ticket> done at <SHA>`, or amend the spec), then names the next frontier.
 
 A track lands, without asking, once it has no open milestone left, and only its **landable** milestones: squashed, after its earlier ones, and after every milestone their **Builds after** or **Lands after** names. To land a track, it rebases that repository's spec branch onto its base, runs the full suite (fixing it, in up to two tries, when the base's new commits broke it), and fast-forwards the base, then records **Landed** on each milestone that landed and the landing itself on the spec's **Landings** line, the order `/open-pr` merges in. Once every milestone has landed, the spec gets its **Landed** line, one entry per repository, and the tickets' gotchas and the arbiter's reasons are offered as notes. Everything stays local: nothing is pushed and no PR is opened, so run `/open-pr <spec-id>` when you want the PRs. Because progress lives in the ticket files, the **Phase** and **Landed** lines and `review.md`, a build that stops picks up where it left off.
 
@@ -131,6 +131,24 @@ Every pipeline branch starts with `sdd/`, so `git branch --list 'sdd/*'` finds t
 #### Release branches
 
 When a spec's base is first defined in a repository that has `rlse/vX.Y.Z` branches, `/build` asks whether to start from the default branch or from the most recent release branch (the highest version, local or on `origin` as you last fetched it). From a release branch it also suggests the next version (patch, minor or major, one of them recommended from the spec) or keeping the branch as it is. You can answer up front, as in `/build s03 — main` or `/build s03 — rlse, minor`. A repository without release branches keeps its default, without a question. Whatever you pick must hold what the spec's dependencies landed. A release branch that is behind `origin` is fast-forwarded first. When you accept a version, `/build` creates that branch (`rlse/v1.2.3` → `rlse/v1.3.0`, or takes it when it already exists), raises the version in the files that declare it (`package.json`, `pom.xml` and the like, with their modules and lockfile entries), commits that on the new branch, and builds and lands the spec there. The new branch stays local. When you ask `/open-pr` to open the PR, it shows you what creating that branch on the remote would push and asks first, so the PR holds only the spec's commits.
+
+A spec that lands on a release branch is on that release only, so at the hand-over `/build` offers to port it to the default branch, and `/open-pr` opens that port's PR.
+
+#### One build per repository
+
+A repository has one working tree, so a `/build` claims each repository it changes in the brain's `.brain/locks/`, and releases the claims when the call ends. A build of another spec that needs a claimed repository stops and asks you whether the first build still runs. `/brain status` shows each claim.
+
+#### Changing or stopping a spec
+
+- `/write-tickets <spec-id> --amend` changes a spec that is already ticketed or building. Work already built stays as it is: every squashed or closing milestone, and every ticket past `todo`. The change goes into the open tickets and milestones, and into new ones numbered after the highest.
+- `/build <spec-id> --abandon <reason>` stops a spec for good. It writes the **Abandoned** line, deletes the spec's branches, and lists the milestones that already landed, whose work stays on the base.
+
+### 5. After the PRs
+
+`build` lands on your local base only. Once `/open-pr <spec-id>` has opened the PRs:
+
+- `/open-pr <spec-id> --comments` gathers the review comments on the open PRs. You mark each one fix, reply or skip. A fixer commits the fixes on the PR's branch, and once you agree, the PR gets the push and one reply.
+- `/open-pr <spec-id> --merged` records that the PRs merged. It brings each local base level with `origin`, and after a squash or rebase merge it drops the local copies of the squashes once you agree. Then it writes the spec's **Merged** line. A spec that depends on this one builds only once its **Merged** line names every repository that has a remote. `/brain status` lists the landed specs still waiting for their merge.
 
 ## The workshop pane
 

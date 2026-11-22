@@ -1,0 +1,12 @@
+schema_version: "1.1"
+name: build-abandon
+description: /build --abandon marks the spec abandoned, tries to delete its branches, and builds nothing.
+tags: [build, abandon]
+runs: 2
+expected_outcome: spec.md holds an Abandoned line with the reason, no builder runs, and the agent deletes the spec's sdd/001-greeting branches or reports what refused it.
+context:
+  scaffold_script: fixture.sh
+execution:
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill, Bash, Edit, Write, Agent]

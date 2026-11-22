@@ -1,0 +1,12 @@
+schema_version: "1.1"
+name: build-blocked-by-hand
+description: The user built a blocked ticket by hand; /build records it as done with that commit instead of dispatching a builder.
+tags: [build, blocked]
+runs: 2
+expected_outcome: Ticket 002 is done with the milestone branch's last commit, and no builder or fixer runs for it.
+context:
+  scaffold_script: fixture.sh
+execution:
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill, Bash, Edit, Write, Agent]

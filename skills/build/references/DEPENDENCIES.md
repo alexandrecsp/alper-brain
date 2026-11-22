@@ -14,4 +14,4 @@ Then dispatch one `alper-brain:spec-reviewer` agent per dependency, in waves by 
 
 > Check whether the dependency was built as this spec assumes. For each bullet of this spec's **Relies On** section that names the dependency, read the code it touches as it stands on the branch the dependency's **Base** line names for that repository, with `git -C <root> show <base>:<path>` (the working tree may hold another branch), and the Notes of the dependency's tickets, and report the bullet as **holds** or **drifted**, with what the code does instead. Change nothing. Done when every such bullet has its verdict, or you report that no bullet names the dependency.
 
-When any bullet drifted, show the user the report and stop: revising the spec is the user's call. Done when every dependency has landed and every Relies On bullet has a verdict from its reviewer and holds, or the spec has none.
+When any bullet drifted, show the user the report and stop: revising the spec is the user's call, with `/write-tickets <spec-id> --amend`. Done when every dependency has landed and every Relies On bullet has a verdict from its reviewer and holds, or the spec has none.

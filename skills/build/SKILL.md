@@ -1,7 +1,7 @@
 ---
 name: build
 description: Build the next frontier of a spec in the brain's .brain/specs/, one track per repository, the tracks side by side, and land each repository once its milestones are built.
-argument-hint: "[spec-id]"
+argument-hint: "[spec-id] [--abandon <reason>]"
 disable-model-invocation: true
 metadata:
   type: process
@@ -22,6 +22,10 @@ Write the pipeline files through `sdd` too, each write one call that needs no re
 ## Branches
 
 In each repository, the spec's branch is `sdd/<spec-folder>/spec` and each milestone of its track has `sdd/<spec-folder>/M<NNN>`, with `NNN` the milestone's number in that track, such as `sdd/003-invoice-export/spec` and `sdd/003-invoice-export/M001`: the `sdd/<spec-folder>/` prefix groups a spec's branches, so they are listed and cleaned up with one glob. A repository's **base branch** is its `<slug>@<branch>` entry in the **Base** line of `spec.md`; when it has none, its remote's default. `state` gives it as the track's `repo.base`: when `repo.baseFrom` is `remote` and `repo.releases` is absent, add the entry to the **Base** line, creating it under the **Key** line, so every landing and every spec that depends on this one reads the same base; when `repo.base` is missing, step 1 asks the user. When the repository has a **release branch**, `rlse/vX.Y.Z`, the base is the user's pick, the default or a release branch with its next version, by [RELEASE.md](references/RELEASE.md), and its entry waits for that pick.
+
+## Locks
+
+A repository has one working tree, so two builds in it would check out branches under each other. A call claims each repository its spec still changes with `sdd lock <spec-folder> --brain <the active brain>`, at step 1, or before it lands when step 1 finds no milestone open. A `held:` line names a repository another spec's build holds: only the user knows whether that build still runs. Once they say it has stopped, claim it with `--take`. Every way a call ends releases its claims with `sdd unlock <spec-folder> --brain <the active brain>`: the **Drain**, LAND.md's hand-over, each stop at steps 1 and 2, and STOPPED.md's **Abandon a spec**. A claim that names this spec while no call of it runs in this session means a call elsewhere may still be building it: before changing the spec's files or branches outside a build, ask the user whether it still runs, and stop while it does. A `not written:` line means a read-only sandbox: go on.
 
 ## Tracks
 
@@ -53,20 +57,21 @@ Once squashed, a milestone is unlanded and resumes in LAND.md, which writes `lan
 ## Process
 
 1. **Start the call.**
-   - Run `sdd state <spec-id> --brain <the active brain>`, which resolves the id by [SPEC-ID.md](../write-spec/references/SPEC-ID.md), or, without one, `sdd state <spec-folder>` with the spec folder from this conversation. When it fails to resolve, report it and stop. When `abandoned` is set, report it and stop.
+   - Run `sdd state <spec-id> --brain <the active brain>`, which resolves the id by [SPEC-ID.md](../write-spec/references/SPEC-ID.md), or, without one, `sdd state <spec-folder>` with the spec folder from this conversation. When it fails to resolve, report it and stop. With `--abandon <reason>`, follow [STOPPED.md](references/STOPPED.md)'s **Abandon a spec** instead. When `abandoned` is set, report it and stop.
    - When `layout` is `flat`, move the milestones into tracks by [MIGRATE.md](../brain/references/MIGRATE.md)'s **Tracks** first, then run `state` again.
    - When `migrate` is set, its milestones still wait on another track through a ticket's **Depends on**, as specs ticketed before **Builds after** do: move each wait onto its milestone by MIGRATE.md's **Builds after**, then run `state` again.
-   - When `noneOpen`, follow LAND.md's **When no milestone is open** instead.
-   - Check the repository of every track holding an open or unlanded milestone. Then ask the user, in one message, whatever the call's arguments and this conversation have not already answered:
+   - When `noneOpen`, claim the repositories by **Locks**, then follow LAND.md's **When no milestone is open** instead.
+   - Check the repository of every track holding an open or unlanded milestone, and claim them by **Locks**. Then ask the user, in one message, whatever the call's arguments and this conversation have not already answered:
+     - whether the build holding each repository a `held:` line names has stopped, so this call takes it over;
      - to run `/brain link` for any repository in `unlinked`, and `/add-dir <root>` for any not open;
      - to clean any whose `repo.clean` is false, since the commits must hold only this spec's work;
      - for the base branch of any repository whose `repo.base` is missing;
      - for the base, and from a release branch its next version, of any repository with a `repo.releases`, by RELEASE.md's **Offer**; when the user names a release branch as a base, make that offer as soon as they name it;
      - for each milestone at `ask`, the user's answer to each escalated finding with no **Answer** line: fix it as proposed, fix it another way, or skip it; or to leave them to the arbiter.
-   - Stop until every repository is linked, open and clean, and every Offer has the user's pick. Add each repository's base to the **Base** line by **Branches**, except one picked at an Offer, which step 2 sets and records, and write each answer the user gave by step 7's form, with the reason `decided by the user`, adding step 7's Notes bullet to each ticket the answer builds differently from.
+   - Stop until every repository is claimed, linked, open and clean, and every Offer has the user's pick. Add each repository's base to the **Base** line by **Branches**, except one picked at an Offer, which step 2 sets and records, and write each answer the user gave by step 7's form, with the reason `decided by the user`, adding step 7's Notes bullet to each ticket the answer builds differently from. Record each ticket the user built by hand by STOPPED.md's **Built by hand**.
    - The **cap** is `state`'s `cap`; when `capProblem` is set, tell the user.
 
-   Done when the spec is in tracks with no `migrate`, every repository the call changes is linked, open and clean and has its base or the user's pick for it, you hold the cap and who decides escalations, every escalated finding at `ask` has its Answer or the user left it for later or to the arbiter, and `state` gives each track's next step.
+   Done when the spec is in tracks with no `migrate`, every repository the call changes is claimed, linked, open and clean and has its base or the user's pick for it, you hold the cap and who decides escalations, every escalated finding at `ask` has its Answer or the user left it for later or to the arbiter, and `state` gives each track's next step.
 
 2. **Check the dependencies.** Skip the check unless `allTodo` and `state` lists `dependencies`: otherwise an earlier call already ran it, or the spec has none. Check each by [DEPENDENCIES.md](references/DEPENDENCIES.md). Then, checked or skipped, set each base picked at step 1 by RELEASE.md's **Set the base**, only now so it holds what the dependencies landed, and run `state` again when you set one. Done when every dependency has landed, every Relies On bullet that names it holds and every base picked is recorded, or the call stopped.
 
@@ -78,7 +83,7 @@ Once squashed, a milestone is unlanded and resumes in LAND.md, which writes `lan
    - **Close.** While the queue holds a milestone, take its first through steps 6 to 10, in this session. Before each of those steps, act on every report that has arrived, then run **Dispatch**.
    - **After each squash**, report one line: the milestone, its repository, its squash commit and the number of findings fixed. Put at the back of the queue every milestone in `waits` whose expand just squashed. When the squash leaves its track no open milestone, land it; after each landing, land every other track with no open milestone and a landable one, since one track's landing can make another's landable.
    - **Wait.** When a builder or fixer runs and nothing is queued or can be dispatched, end your turn with one line naming each running track and its ticket, and each track waiting for a slot: each report starts you again at **On a builder's or fixer's report**.
-   - **Drain.** When, after acting on every report that has arrived, no builder or fixer runs, the queue is empty and no frontier milestone can be dispatched, the loop ends. When no milestone is open, follow LAND.md's **When no milestone is open**. Otherwise report each blocked track with what stopped it, each milestone in `waits` with the expand it waits on, and every **Needs the user** item reported so far; then run `state` again and end with its `frontier`, each milestone with its repository, and the line `Run /clear, then /build <spec-id> to build it.`
+   - **Drain.** When, after acting on every report that has arrived, no builder or fixer runs, the queue is empty and no frontier milestone can be dispatched, the loop ends; release the claims by **Locks** once the steps below are done. When no milestone is open, follow LAND.md's **When no milestone is open**. Otherwise report each blocked track with what stopped it and the user's options by STOPPED.md's **Blocked tracks**, each milestone in `waits` with the expand it waits on, and every **Needs the user** item reported so far; then run `state` again and end with its `frontier`, each milestone with its repository, and the line `Run /clear, then /build <spec-id> to build it.`
 
    Done when the loop has drained: every frontier milestone is squashed, blocked or in `waits`.
 

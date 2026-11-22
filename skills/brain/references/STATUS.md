@@ -23,8 +23,9 @@ The `status` branch of [`brain`](../SKILL.md): report the active brain's whole e
 
 5. **Report**, needs-attention first:
    - **Needs you:** `blocked` specs with the ticket or check that stopped them; `waiting` specs with what they wait on; specs with an open milestone in a repository that is unregistered (`/brain setup`), unlinked (`/brain link`) or not open (`/add-dir <path>`); uncovered contract changes with the consumers left out; linked repositories with a dirty tree on an `sdd/*` branch.
+   - **Merging:** each landed spec not merged, with the repositories its **Merged** line lacks, and the hint `/open-pr <spec-id> --merged` once their PRs merge.
    - **In flight:** the other specs, one line each: spec id, state, repositories, and for `building` each track's first open milestone, with its repository and its phase.
-   - **Repositories:** one line each: slug, unlinked, linked or open, unpushed commits, and its explored state. Unlinked repositories end with the hint `/brain link`, and linked ones that are behind or never explored with `/brain explore <slug>`.
+   - **Repositories:** one line each: slug, unlinked, linked or open, unpushed commits, its explored state, and the spec whose build claims it, from `.brain/locks/<slug>.json` by build's **Locks**, when one does. Unlinked repositories end with the hint `/brain link`, and linked ones that are behind or never explored with `/brain explore <slug>`.
    - **Brain:** the brain's unpushed commits (`git log --oneline @{u}..`), or that it is local only, or has never been pushed, and the drafts waiting in `.brain/drafts/`, each by name, with the hint `/brain sync` when there are any of either.
 
    Done when the user has the report, and every in-flight spec and every registered repository appears in it once. The page `/brain view` opens shows the same specs, live.
