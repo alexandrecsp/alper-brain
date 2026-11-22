@@ -5,7 +5,8 @@
 //   node sdd.mjs state <spec-id|spec-folder> [--brain <brain>] [--no-git]
 //     Prints the spec as JSON: its lines, its dependencies, the cap, and per track its milestones with each one's
 //     state (open, unlanded, landed), the step it resumes at, whether it is ready or landable, the frontier a call
-//     builds, and, read from git through .brain/links.json, whether its branch exists and the repository is clean.
+//     builds, and, read from git through .brain/links.json, whether its branch exists and the repository is clean,
+//     and, while its base is still to be defined, the release branches RELEASE.md's **Offer** gives.
 //   node sdd.mjs brief <ticket-file> [--no-git]
 //     Prints, as Markdown, what the ticket's builder needs from around it: its milestone's lines, the Notes and
 //     changed files of each earlier ticket of its milestone and each ticket its Depends on names, and each
@@ -238,6 +239,32 @@ const readLinks = (brain) => {
   try { return JSON.parse(read(path)) } catch { return {} }
 }
 
+// --- release branches -----------------------------------------------------------------------------------------
+
+/** An `rlse/vX.Y.Z` branch's version and the three after it, by RELEASE.md; null for any other branch. */
+export const releaseOf = (branch) => {
+  const m = /^rlse\/v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(branch ?? '')
+  if (!m) return null
+  const [major, minor, patch] = m.slice(1).map(Number)
+  return {
+    version: `${major}.${minor}.${patch}`,
+    next: { patch: `${major}.${minor}.${patch + 1}`, minor: `${major}.${minor + 1}.0`, major: `${major + 1}.0.0` },
+  }
+}
+
+/**
+ * The release branches RELEASE.md's **Offer** gives, from git's full ref names: the default branch when it is one,
+ * then the highest version among the local and origin's branches, each once, as { branch, version, next }.
+ */
+export const releasesToOffer = (refs, defaultBranch) => {
+  const found = refs
+    .map((ref) => ref.replace(/^refs\/(?:heads|remotes\/origin)\//, ''))
+    .filter(releaseOf)
+    .sort((a, b) => a.localeCompare(b, 'en', { numeric: true }))
+  const picked = new Set([defaultBranch, found.at(-1)].filter(releaseOf))
+  return [...picked].map((branch) => ({ branch, ...releaseOf(branch) }))
+}
+
 // --- git --------------------------------------------------------------------------------------------------------
 
 const git = (root, args) => {
@@ -255,6 +282,11 @@ const repoState = (root, specFolder, base) => {
     const d = git(root, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'])
     if (d) { baseBranch = d.replace(/^origin\//, ''); baseFrom = 'remote' }
   }
+  const specBranch = branches.includes(`sdd/${specFolder}/spec`)
+  const releases = base || specBranch ? [] : releasesToOffer(
+    (git(root, ['for-each-ref', '--format=%(refname)', 'refs/heads/rlse/', 'refs/remotes/origin/rlse/']) ?? '').split('\n').filter(Boolean),
+    baseBranch,
+  )
   return {
     root,
     git: true,
@@ -262,7 +294,8 @@ const repoState = (root, specFolder, base) => {
     clean: (git(root, ['status', '--porcelain']) ?? 'x') === '',
     base: baseBranch,
     baseFrom,
-    specBranch: branches.includes(`sdd/${specFolder}/spec`),
+    releases,
+    specBranch,
     branches,
   }
 }

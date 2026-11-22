@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { appendLine, assembleReview, commitKey, contextBlock, dispatch, findingMap, ids, land, mapRows, markFinding, next, readCap, resolveSpec, resumeStep, setLine, specState, squash, ticketDigest, toFix, unanswered, verify } from './sdd.mjs'
+import { appendLine, assembleReview, commitKey, contextBlock, dispatch, findingMap, ids, land, mapRows, markFinding, next, readCap, releaseOf, releasesToOffer, resolveSpec, resumeStep, setLine, specState, squash, ticketDigest, toFix, unanswered, verify } from './sdd.mjs'
 
 const put = (path, text) => { mkdirSync(join(path, '..'), { recursive: true }); writeFileSync(path, text) }
 const milestone = ({ n, phase = 'none', squash = 'none', landed = 'none', buildsAfter = 'None', landsAfter = 'None', repo }) =>
@@ -138,6 +138,56 @@ test('reads the flat layout, its track from each Repo line', () => {
   assert.equal(st.layout, 'flat')
   assert.deepEqual(st.tracks.map((t) => t.slug), ['api', 'web'])
   assert.deepEqual(ms(st, 'web', '002').waitsOn, ['api/001'])
+})
+
+test('reads a release branch and the versions after it', () => {
+  assert.deepEqual(releaseOf('rlse/v1.9.9'), { version: '1.9.9', next: { patch: '1.9.10', minor: '1.10.0', major: '2.0.0' } })
+  assert.deepEqual(releaseOf('rlse/v0.0.0').next, { patch: '0.0.1', minor: '0.1.0', major: '1.0.0' })
+  const others = [null, undefined, 'main', 'release', 'rlse/1.2.3', 'rlse/v1.2', 'rlse/v1.2.3.4', 'rlse/v01.2.3', 'rlse/v1.2.3-rc1', 'x/rlse/v1.2.3', 'rlse/vX.X.X']
+  for (const b of others) assert.equal(releaseOf(b), null, String(b))
+})
+
+test('offers the default when it is a release branch, then the most recent one', () => {
+  const names = (refs, dflt) => releasesToOffer(refs, dflt).map((r) => r.branch)
+  const refs = ['refs/heads/rlse/v1.9.0', 'refs/remotes/origin/rlse/v1.10.0', 'refs/heads/rlse/v1.10.0', 'refs/remotes/origin/rlse/v1.2.30', 'refs/heads/rlse/v9.0.0-rc1', 'refs/remotes/upstream/rlse/v8.0.0']
+  assert.deepEqual(names(refs, 'main'), ['rlse/v1.10.0'])
+  assert.deepEqual(names(refs, null), ['rlse/v1.10.0'])
+  assert.deepEqual(names(refs, 'rlse/v1.9.0'), ['rlse/v1.9.0', 'rlse/v1.10.0'])
+  assert.deepEqual(names(refs, 'rlse/v1.10.0'), ['rlse/v1.10.0'])
+  assert.deepEqual(names(['refs/heads/rlse/v2.0.0', 'refs/remotes/origin/rlse/v10.0.0'], 'main'), ['rlse/v10.0.0'])
+  assert.deepEqual(names([], 'main'), [])
+})
+
+test('offers releases only while the base is being defined and no spec branch exists', () => {
+  const b = brain()
+  const s = twoTracks(b)
+  const repo = join(b, 'clones/api')
+  mkdirSync(repo, { recursive: true })
+  const g = (...a) => {
+    const r = spawnSync('git', ['-C', repo, '-c', 'user.name=t', '-c', 'user.email=t@t', ...a], { encoding: 'utf8' })
+    assert.equal(r.status, 0, r.stderr)
+  }
+  const remoteDefault = (name) => {
+    g('update-ref', `refs/remotes/origin/${name}`, 'HEAD')
+    g('symbolic-ref', 'refs/remotes/origin/HEAD', `refs/remotes/origin/${name}`)
+  }
+  g('init', '-q', '-b', 'main')
+  g('commit', '-q', '--allow-empty', '-m', 'start')
+  put(join(b, '.brain/links.json'), JSON.stringify({ api: repo }))
+  const releases = () => track(specState(s), 'api').repo.releases
+
+  put(join(s, 'spec.md'), spec())
+  assert.deepEqual(releases(), [])
+  g('update-ref', 'refs/remotes/origin/rlse/v1.2.3', 'HEAD')
+  assert.equal(releases()[0].branch, 'rlse/v1.2.3', 'without a remote default')
+  remoteDefault('main')
+  assert.equal(track(specState(s), 'api').repo.base, 'main')
+  assert.equal(releases()[0].next.minor, '1.3.0', 'beside a default of main, only on origin')
+  put(join(s, 'spec.md'), spec('\n**Base:** api@main\n'))
+  assert.deepEqual(releases(), [])
+  put(join(s, 'spec.md'), spec())
+  g('branch', 'sdd/004-invoice-export/spec')
+  assert.deepEqual(releases(), [])
 })
 
 test('resolves spec ids by SPEC-ID.md', () => {

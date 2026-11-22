@@ -21,7 +21,7 @@ Write the pipeline files through `sdd` too, each write one call that needs no re
 
 ## Branches
 
-In each repository, the spec's branch is `sdd/<spec-folder>/spec` and each milestone of its track has `sdd/<spec-folder>/M<NNN>`, with `NNN` the milestone's number in that track, such as `sdd/003-invoice-export/spec` and `sdd/003-invoice-export/M001`: the `sdd/<spec-folder>/` prefix groups a spec's branches, so they are listed and cleaned up with one glob. A repository's **base branch** is its `<slug>@<branch>` entry in the **Base** line of `spec.md`; when it has none, its remote's default. `state` gives it as the track's `repo.base`: when `repo.baseFrom` is `remote`, add the entry to the **Base** line, creating it under the **Key** line, so every landing and every spec that depends on this one reads the same base; when `repo.base` is missing, step 1 asks the user.
+In each repository, the spec's branch is `sdd/<spec-folder>/spec` and each milestone of its track has `sdd/<spec-folder>/M<NNN>`, with `NNN` the milestone's number in that track, such as `sdd/003-invoice-export/spec` and `sdd/003-invoice-export/M001`: the `sdd/<spec-folder>/` prefix groups a spec's branches, so they are listed and cleaned up with one glob. A repository's **base branch** is its `<slug>@<branch>` entry in the **Base** line of `spec.md`; when it has none, its remote's default. `state` gives it as the track's `repo.base`: when `repo.baseFrom` is `remote` and `repo.releases` is absent, add the entry to the **Base** line, creating it under the **Key** line, so every landing and every spec that depends on this one reads the same base; when `repo.base` is missing, step 1 asks the user. When the repository has a **release branch**, `rlse/vX.Y.Z`, the base is the user's pick, the default or a release branch with its next version, by [RELEASE.md](references/RELEASE.md), and its entry waits for that pick.
 
 ## Tracks
 
@@ -61,13 +61,14 @@ Once squashed, a milestone is unlanded and resumes in LAND.md, which writes `lan
      - to run `/brain link` for any repository in `unlinked`, and `/add-dir <root>` for any not open;
      - to clean any whose `repo.clean` is false, since the commits must hold only this spec's work;
      - for the base branch of any repository whose `repo.base` is missing;
+     - for the base, and from a release branch its next version, of any repository with a `repo.releases`, by RELEASE.md's **Offer**; when the user names a release branch as a base, make that offer as soon as they name it;
      - for each milestone at `ask`, the user's answer to each escalated finding with no **Answer** line: fix it as proposed, fix it another way, or skip it; or to leave them to the arbiter.
-   - Stop until every repository is linked, open and clean. Add each repository's base to the **Base** line by **Branches**, and write each answer the user gave by step 7's form, with the reason `decided by the user`, adding step 7's Notes bullet to each ticket the answer builds differently from.
+   - Stop until every repository is linked, open and clean, and every Offer has the user's pick. Add each repository's base to the **Base** line by **Branches**, except one picked at an Offer, which step 2 sets and records, and write each answer the user gave by step 7's form, with the reason `decided by the user`, adding step 7's Notes bullet to each ticket the answer builds differently from.
    - The **cap** is `state`'s `cap`; when `capProblem` is set, tell the user.
 
-   Done when the spec is in tracks with no `migrate`, every repository the call changes is linked, open and clean and has its base, you hold the cap and who decides escalations, every escalated finding at `ask` has its Answer or the user left it for later or to the arbiter, and `state` gives each track's next step.
+   Done when the spec is in tracks with no `migrate`, every repository the call changes is linked, open and clean and has its base or the user's pick for it, you hold the cap and who decides escalations, every escalated finding at `ask` has its Answer or the user left it for later or to the arbiter, and `state` gives each track's next step.
 
-2. **Check the dependencies.** Skip this unless `allTodo` and `state` lists `dependencies`: otherwise an earlier call already ran it, or the spec has none. Check each by [DEPENDENCIES.md](references/DEPENDENCIES.md). Done when every dependency has landed and every Relies On bullet that names it holds, or the call stopped.
+2. **Check the dependencies.** Skip the check unless `allTodo` and `state` lists `dependencies`: otherwise an earlier call already ran it, or the spec has none. Check each by [DEPENDENCIES.md](references/DEPENDENCIES.md). Then, checked or skipped, set each base picked at step 1 by RELEASE.md's **Set the base**, only now so it holds what the dependencies landed, and run `state` again when you set one. Done when every dependency has landed, every Relies On bullet that names it holds and every base picked is recorded, or the call stopped.
 
 3. **Run the loop.** Build the frontier, keeping as many tracks busy as the cap allows, and close one milestone at a time:
 
