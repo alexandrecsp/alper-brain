@@ -5,8 +5,9 @@ Build's step 2, for a spec whose **Depends on** names other specs, on the call t
 For each of `state`'s `dependencies`, stop at the first of these that holds:
 
 - `found` is false: report it;
-- `abandoned` is set: report that this spec must be revised to drop it;
+- `abandoned` is set: report that this spec must be revised to drop it, with `/write-tickets <spec-id> --amend`;
 - an `onBase` entry is `unlinked`: ask the user to run `/brain link`;
+- an `onBase` entry is `not merged`: report that this spec waits for the dependency's PR to merge in that repository, and that `/open-pr <the dependency> --merged` records the merge;
 - `landed` is missing, or an `onBase` entry is not `true`: report that this spec waits on it.
 
 Then dispatch one `alper-brain:spec-reviewer` agent per dependency, in waves by [BRIEF.md](../../brain/references/BRIEF.md)'s **Fanning out**, with the Context block (the repositories the dependency's **Landed** line names under **Works in** and **Also reads**, read only, and **Writes** nothing), the paths of both `spec.md` files, and this brief:

@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process'
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { appendLine, assembleReview, commitKey, contextBlock, dispatch, findingMap, ids, land, mapRows, markFinding, next, readCap, releaseOf, releasesToOffer, resolveSpec, resumeStep, setLine, specState, squash, ticketDigest, toFix, unanswered, verify } from './sdd.mjs'
+import { appendLine, assembleReview, commitKey, contextBlock, dispatch, findingMap, ids, land, mapRows, lock, markFinding, merged, next, readCap, releaseOf, releasesToOffer, resolveSpec, resumeStep, setLine, specState, squash, ticketDigest, toFix, unanswered, unlock, verify } from './sdd.mjs'
 
 const put = (path, text) => { mkdirSync(join(path, '..'), { recursive: true }); writeFileSync(path, text) }
 const milestone = ({ n, phase = 'none', squash = 'none', landed = 'none', buildsAfter = 'None', landsAfter = 'None', repo }) =>
@@ -536,4 +536,74 @@ test('a landing stops on a failing suite at the tip, and folds the fix into the 
   assert.equal(g('log', '-1', '--format=%s', 'main'), 'Breaks the suite')
   assert.equal(g('rev-list', '--count', 'main'), '2')
   assert.equal(readFileSync(join(repo, 'f'), 'utf8').replace(/\r/g, ''), 'ok\nfixed\n')
+})
+
+test('follows a squash merge on the remote: drops the local squashes once asked, records Merged, and frees dependents', () => {
+  const b = brain()
+  const oneRepo = (deps) => spec('\n**Base:** api@main\n').replace('**Repos:** api, web', '**Repos:** api').replace('**Depends on:** None', `**Depends on:** ${deps}`)
+  const s = join(b, '.brain/specs/004-invoice-export')
+  put(join(s, 'spec.md'), oneRepo('None'))
+  const m1 = join(s, 'milestones/api/001-expand')
+  put(join(m1, 'milestone.md'), milestone({ n: '001' }))
+  put(join(m1, '001-add-v2.md'), ticket({ n: '001', status: 'done' }))
+  const { repo, g } = builtRepo(b)
+  const start = g('rev-parse', 'main')
+  writeFileSync(join(repo, 'f'), 'ok\nv2\n')
+  g('commit', '-qam', 'ticket 001')
+  squash(m1, { title: 'Adds the v2 export' })
+  assert.deepEqual(land(s, 'api'), { landed: ['001'], stopped: null })
+  const landedSha = g('rev-parse', 'main')
+
+  // The PR squash-merges on the remote: the same tree under another SHA.
+  const origin = join(b, 'origin.git')
+  spawnSync('git', ['init', '-q', '--bare', '-b', 'main', origin])
+  g('remote', 'add', 'origin', origin)
+  g('push', '-q', 'origin', `${start}:refs/heads/main`)
+  const mergedSha = g('commit-tree', g('rev-parse', `${landedSha}^{tree}`), '-p', start, '-m', 'Adds the v2 export (#7)')
+  g('push', '-q', 'origin', `${mergedSha}:refs/heads/main`)
+  g('fetch', '-q', 'origin')
+
+  const card = join(b, 'notes/repos/api/REPO.md')
+  writeFileSync(card, readFileSync(card, 'utf8').replace('remote: local only', 'remote: git@example.com:o/api.git'))
+  const s5 = join(b, '.brain/specs/005-invoice-email')
+  put(join(s5, 'spec.md'), oneRepo('004'))
+  const dep = () => specState(s5, { brain: b }).dependencies[0]
+  assert.equal(dep().onBase.api, 'not merged')
+
+  assert.equal(merged(s, 'api').stopped.at, 'open')
+  const drops = [`${landedSha.slice(0, 7)} Adds the v2 export`]
+  const ask = merged(s, 'api', { commit: mergedSha })
+  assert.equal(ask.stopped.at, 'realign')
+  assert.deepEqual(ask.drops, drops)
+  assert.equal(g('rev-parse', 'main'), landedSha)
+
+  assert.deepEqual(merged(s, 'api', { commit: mergedSha, realign: true }), { merged: mergedSha, moved: true, drops, stopped: null })
+  assert.equal(g('rev-parse', 'main'), mergedSha)
+  assert.ok(readFileSync(join(s, 'spec.md'), 'utf8').includes(`**Landed:** api@${landedSha}\n\n**Merged:** api@${mergedSha}\n`))
+  assert.equal(dep().onBase.api, true)
+  assert.deepEqual(merged(s, 'api'), { merged: mergedSha, moved: false, drops: [], stopped: null })
+})
+
+test('a build claims the repositories it changes, and another spec waits until the claim is released or taken', () => {
+  const b = brain()
+  const s4 = twoTracks(b)
+  const s5 = join(b, '.brain/specs/005-invoice-email')
+  put(join(s5, 'spec.md'), spec('\n**Base:** api@main\n').replace('**Repos:** api, web', '**Repos:** api'))
+  put(join(s5, 'milestones/api/001-email/milestone.md'), milestone({ n: '001' }))
+  put(join(s5, 'milestones/api/001-email/001-send.md'), ticket({ n: '001' }))
+
+  assert.deepEqual(lock(s4), { locked: ['api', 'web'], held: [], unwritten: [] })
+  const since = JSON.parse(readFileSync(join(b, '.brain/locks/api.json'), 'utf8')).since
+  assert.deepEqual(lock(s4).locked, ['api', 'web'])
+  assert.equal(JSON.parse(readFileSync(join(b, '.brain/locks/api.json'), 'utf8')).since, since)
+
+  const held = lock(s5)
+  assert.deepEqual(held.locked, [])
+  assert.deepEqual(held.held, [{ slug: 'api', spec: '004-invoice-export', since }])
+
+  assert.deepEqual(unlock(s4), ['api', 'web'])
+  assert.deepEqual(lock(s5).locked, ['api'])
+  assert.deepEqual(lock(s4).held.map((h) => h.slug), ['api'])
+  assert.deepEqual(lock(s4, { take: true }).locked, ['api', 'web'])
+  assert.deepEqual(unlock(s5), [])
 })

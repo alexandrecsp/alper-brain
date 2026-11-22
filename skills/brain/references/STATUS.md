@@ -15,7 +15,7 @@ The `status` branch of [`brain`](../SKILL.md): report the active brain's whole e
    | `ticketed` | it has a `milestones/` folder |
    | `drafted` | none of the above |
 
-   A `building` spec also names each track's first open milestone, with its **Phase**. For each spec not yet `landing`, take every track holding an open milestone. Done when every in-flight spec has its state and repositories.
+   A `building` spec also names each track's first open milestone, with its **Phase**. For each spec not yet `landing`, take every track holding an open milestone. Also take each landed spec that is not **merged**, by FORMAT.md, with the repositories its **Merged** line lacks. Done when every in-flight spec has its state and repositories, and every landed spec not merged has its missing repositories.
 
 3. **Find the risks.** As soon as step 2 lists the in-flight specs, dispatch one `alper-brain:scout` agent in the background, its brief opening with the Context block by [BRIEF.md](BRIEF.md) (**Works in** the brain, read only, **Writes** nothing), with the paths of every `contract` note and of every in-flight `spec.md`, and this brief: "For each contract note, list each spec whose Implementation Decisions or Design Patterns rows change the interface it records, and for each, the slugs in the note's `repos` missing from that spec's **Repos** line. Report every contract, writing 'untouched' for one no spec changes." Map the repositories while it runs. Done when the report marks every contract untouched, covered or uncovered, with the specs that change it.
 

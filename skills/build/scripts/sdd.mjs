@@ -27,7 +27,7 @@
 //     Build's step 10: squashes the milestone's branch into the spec's as one commit keyed by
 //     the commit skill's step 1 (or --key, `none` for no key), with its Sdd-Milestone trailer, and writes it into
 //     Phase and Squash. Idempotent.
-//   node sdd.mjs verify <ticket|milestone.md> [--commit <sha>]... [--brain-head <sha>]
+//   node sdd.mjs verify <ticket|milestone.md> [--commit <sha>]... [--brain-head <sha>] [--branch <b>]
 //     BRIEF.md's check after a sub-agent that changes a repository, and for a ticket that it is done with its commit:
 //     prints the ticket's Status and Commit, then `ok`, or each problem and exits 1.
 //   node sdd.mjs context <ticket|milestone.md> --agent <builder|fixer|arbiter|reviewer|spec-reviewer> [--writes <f>]...
@@ -40,6 +40,13 @@
 //   node sdd.mjs land <spec-id|spec-folder> --track <slug> [--brain <brain>] [--fold]
 //     LAND.md's **Land a track**: rebase, follow each squash, full suite, fast-forward the base, record the landing.
 //     Exits 1 with `stopped: <why>` when it cannot; --fold first folds a fixer's commits into the track's last squash.
+//   node sdd.mjs lock <spec-id|spec-folder> [--brain <brain>] [--take]
+//     Build's **Locks**: claims each repository the spec still changes in .brain/locks/<slug>.json. Exits 1 with a
+//     `held:` line per repository another spec's build holds, unless --take. `unlock` releases this spec's claims.
+//   node sdd.mjs merged <spec-id|spec-folder> --track <slug> [--brain <brain>] [--commit <sha>] [--realign]
+//     open-pr's **Follow the merge**: once origin/<base> (as last fetched) holds the track's last landing, or the
+//     PR's merge --commit, brings the local base level with it and records spec.md's **Merged** entry. Exits 1 with
+//     `stopped: <why>`, and `drops:` lines for the squashes --realign would drop from the local base.
 //
 // Exits 1 with one line on stderr when it cannot read or write what it was given.
 import { spawnSync } from 'node:child_process'
@@ -217,6 +224,7 @@ const readSpecLines = (specDir) => {
     brainNotes: field(md, 'Brain notes'),
     landings: landings ? landings.split(';').map((s) => s.trim()).filter(Boolean) : [],
     landed: field(md, 'Landed') === null ? null : atEntries(field(md, 'Landed')),
+    merged: field(md, 'Merged') === null ? null : atEntries(field(md, 'Merged')),
     abandoned: field(md, 'Abandoned'),
   }
 }
@@ -476,12 +484,15 @@ export const specState = (specDir, { brain = resolve(specDir, '..', '..', '..'),
     let dir
     try { dir = resolveSpec(id, brain) } catch { return { id, found: false } }
     const dep = readSpecLines(dir)
-    const d = { id, folder: basename(dir), found: true, abandoned: dep.abandoned, landed: dep.landed }
+    const d = { id, folder: basename(dir), found: true, abandoned: dep.abandoned, landed: dep.landed, merged: dep.merged }
     if (dep.landed && useGit) {
-      d.onBase = Object.fromEntries(Object.entries(dep.landed).map(([slug, sha]) => {
+      // A repository with a remote counts the dependency once its PR merged, by its Merged entry; a local-only one
+      // once it landed.
+      d.onBase = Object.fromEntries(Object.entries(dep.landed).map(([slug, landedSha]) => {
         const root = links[slug]
         const base = dep.base[slug]
-        return [slug, !root ? 'unlinked' : !base ? 'no base' : isAncestor(root, sha, base)]
+        const sha = localOnly(brain, slug) ? landedSha : dep.merged?.[slug]
+        return [slug, !root ? 'unlinked' : !base ? 'no base' : !sha ? 'not merged' : isAncestor(root, sha, base)]
       }))
     }
     return d
@@ -778,8 +789,9 @@ export const squash = (path, { title, details = [], key: given }) => {
  * milestone path names: the repository is on its branch and clean, each commit (and a ticket's **Commit**) is on
  * that branch, and the brain has no change outside `.brain/` and, given one, is still at `brainHead`.
  */
-export const verify = (path, { commits = [], brainHead } = {}) => {
-  const { root, branch, brain } = locate(path)
+export const verify = (path, { commits = [], brainHead, branch: onBranch } = {}) => {
+  const { root, branch: msBranch, brain } = locate(path)
+  const branch = onBranch ?? msBranch
   const problems = []
   const ticket = /\d{3}-[^/\\]+\.md$/.test(path) && !/milestone\.md$/.test(path) ? read(resolve(path)) : null
   const shas = [...commits, ...(ticket && orNull(field(ticket, 'Commit')) ? [field(ticket, 'Commit')] : [])]
@@ -935,12 +947,22 @@ export const next = (ticketPath, { commits = [], brainHead } = {}) => {
 
 // --- landing a track --------------------------------------------------------------------------------------------
 
-/** A repository's full suite by its card, `unit` then `e2e` unless `none`, run from its root. */
-const fullSuite = (brain, slug) => {
+/** A field of a repository's card frontmatter, or null. */
+const cardField = (brain, slug, key) => {
   const card = [join(brain, 'notes', 'repos', slug, 'REPO.md'), join(brain, 'repos', slug, 'REPO.md')].find(existsSync)
   const fm = card ? (/^---\r?\n([\s\S]*?)\r?\n---/.exec(read(card))?.[1] ?? '') : ''
-  return ['unit', 'e2e'].map((k) => new RegExp(`^${k}:\\s*(.*)$`, 'm').exec(fm)?.[1].trim()).filter((c) => c && !isNone(c) && c !== 'null')
+  return new RegExp(`^${key}:\\s*(.*)$`, 'm').exec(fm)?.[1].trim() ?? null
 }
+
+/** Whether a repository has no remote: its card's `remote` is `local only`, or it has no card. */
+const localOnly = (brain, slug) => {
+  const r = cardField(brain, slug, 'remote')
+  return !r || isNone(r) || /^local only$/i.test(r)
+}
+
+/** A repository's full suite by its card, `unit` then `e2e` unless `none`, run from its root. */
+const fullSuite = (brain, slug) =>
+  ['unit', 'e2e'].map((k) => cardField(brain, slug, k)).filter((c) => c && !isNone(c) && c !== 'null')
 
 const runSuite = (root, commands) => {
   for (const c of commands) {
@@ -1038,6 +1060,89 @@ export const land = (specDir, slug, { fold = false } = {}) => {
   return finish()
 }
 
+const lockFile = (brain, slug) => join(brain, '.brain', 'locks', `${slug}.json`)
+const readLock = (brain, slug) => {
+  try { return JSON.parse(read(lockFile(brain, slug))) } catch { return null }
+}
+
+/**
+ * Build's claim on the repositories it changes, by its **Locks**: each repository of a track with a milestone not
+ * landed. A claim another spec holds stops the claim, unless `take`. Returns { locked, held, unwritten }: the slugs
+ * claimed, the claims of other specs as { slug, spec, since }, and the slugs a read-only sandbox kept it from writing.
+ */
+export const lock = (specDir, { take = false } = {}) => {
+  const brain = resolve(specDir, '..', '..', '..')
+  const spec = basename(specDir)
+  const slugs = readTracks(specDir).tracks.filter((t) => t.milestones.some((m) => !m.landed)).map((t) => t.slug)
+  const held = slugs.map((slug) => ({ slug, ...readLock(brain, slug) })).filter((l) => l.spec && l.spec !== spec)
+  if (held.length && !take) return { locked: [], held, unwritten: [] }
+  const since = new Date().toISOString()
+  const unwritten = slugs.filter((slug) => {
+    const mine = readLock(brain, slug)?.spec === spec
+    return !tryWrite(lockFile(brain, slug), `${JSON.stringify({ spec, since: mine ? readLock(brain, slug).since : since })}\n`)
+  })
+  return { locked: slugs.filter((s) => !unwritten.includes(s)), held: [], unwritten }
+}
+
+/** Releases the claims this spec holds; returns their slugs. */
+export const unlock = (specDir) => {
+  const brain = resolve(specDir, '..', '..', '..')
+  const spec = basename(specDir)
+  const dir = join(brain, '.brain', 'locks')
+  const mine = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)).filter((slug) => readLock(brain, slug)?.spec === spec) : []
+  return mine.filter((slug) => {
+    try { rmSync(lockFile(brain, slug), { force: true }); return true } catch { return false }
+  })
+}
+
+/**
+ * open-pr's **Follow the merge** in one call, for one track of a landed spec: finds the commit on `origin/<base>`, as
+ * last fetched, that holds the track's last landing (its **Landed** SHA when the remote kept it, as a fast-forward or
+ * a merge commit does, else the `commit` its PR merged as, after a squash or rebase merge), brings the local base level
+ * with `origin/<base>`, and writes `<slug>@<SHA>` into spec.md's **Merged** line. The local base drops only this
+ * track's own squashes, which the remote holds under other SHAs, and only with `realign`. Returns { merged, moved,
+ * drops, stopped }, `stopped.at` one of `unlanded`, `unfetched`, `open`, `foreign`, `realign` or `dirty`.
+ */
+export const merged = (specDir, slug, { commit, realign = false } = {}) => {
+  const specFolder = basename(specDir)
+  const st = specState(specDir)
+  const t = st.tracks.find((x) => x.slug === slug)
+  if (!t) throw new Error(`No track ${slug} in ${specFolder}`)
+  const { root, base } = t.repo
+  if (!t.repo.git) throw new Error(`${slug} is not linked to a git clone`)
+  if (!base) throw new Error(`${slug} has no base branch in spec.md's Base line`)
+  const stop = (at, why, more = {}) => ({ merged: null, moved: false, drops: [], stopped: { at, why }, ...more })
+  const last = t.milestones.at(-1)
+  if (!last || t.milestones.some((m) => !m.landed)) return stop('unlanded', `${slug} has milestones that have not landed: run /build first`)
+  const remote = `refs/remotes/origin/${base}`
+  if (git(root, ['rev-parse', '--verify', '-q', remote]) === null) return stop('unfetched', `origin/${base} is not fetched in ${root}`)
+  const known = readSpecLines(specDir).merged?.[slug]
+  const sha = [last.landed, commit, known].filter(Boolean).map((c) => git(root, ['rev-parse', '-q', '--verify', `${c}^{commit}`]))
+    .find((c) => c && isAncestor(root, c, remote)) ?? null
+  if (!sha) return stop('open', `origin/${base} does not hold ${slug}'s last landing yet: its PR has not merged`)
+
+  const ahead = (git(root, ['log', '--format=%H%x09%(trailers:key=Sdd-Milestone,valueonly,separator=%x2C)%x09%s', `${remote}..refs/heads/${base}`]) ?? '')
+    .split('\n').filter(Boolean).map((l) => l.split('\t'))
+  const foreign = ahead.filter(([, trailer]) => !trailer.startsWith(`${specFolder}/${slug}/`))
+  if (foreign.length) return stop('foreign', `${base} holds commits origin/${base} lacks that are not this track's: ${foreign.map(([h, , s]) => `${h.slice(0, 7)} ${s}`).join('; ')}`)
+  const drops = ahead.map(([h, , s]) => `${h.slice(0, 7)} ${s}`)
+  if (drops.length && !realign) return stop('realign', `${base} keeps this track's squashes, which origin/${base} holds under other SHAs`, { drops })
+
+  const checkedOut = git(root, ['symbolic-ref', '--short', '-q', 'HEAD']) === base
+  const tip = git(root, ['rev-parse', `refs/heads/${base}`])
+  const target = git(root, ['rev-parse', remote])
+  if (tip !== target) {
+    if (checkedOut && git(root, ['status', '--porcelain']) !== '') return stop('dirty', `${root} has uncommitted changes on ${base}`, { drops })
+    if (checkedOut) run(root, ['reset', '-q', '--hard', target])
+    else run(root, ['branch', '-f', base, target])
+  }
+  const specPath = join(specDir, 'spec.md')
+  const entries = { ...(readSpecLines(specDir).merged ?? {}), [slug]: sha }
+  const order = [...readSpecLines(specDir).repos, ...Object.keys(entries)].filter((s, i, all) => s in entries && all.indexOf(s) === i)
+  writeFileSync(specPath, setLine(read(specPath), 'Merged', order.map((s) => `${s}@${entries[s]}`).join(', '), 'Landed'))
+  return { merged: sha, moved: tip !== target, drops, stopped: null }
+}
+
 // --- the command line -----------------------------------------------------------------------------------------
 
 const main = (argv) => {
@@ -1047,7 +1152,7 @@ const main = (argv) => {
   const many = { detail: [], commit: [], writes: [] }
   for (let i = 0; i < rest.length; i++) {
     if (rest[i] === '--no-git') opts.noGit = true
-    else if (rest[i] === '--fold' || rest[i] === '--full') opts[rest[i].slice(2)] = true
+    else if (['--fold', '--full', '--realign', '--take'].includes(rest[i])) opts[rest[i].slice(2)] = true
     else if (rest[i].slice(2) in many) many[rest[i].slice(2)].push(rest[++i])
     else if (rest[i].startsWith('--')) opts[rest[i].slice(2)] = rest[++i]
     else pos.push(rest[i])
@@ -1112,13 +1217,36 @@ const main = (argv) => {
     }
     return
   }
+  if (cmd === 'lock' && pos.length === 1) {
+    const r = lock(resolveSpec(pos[0], resolve(opts.brain ?? '.')), { take: opts.take })
+    for (const h of r.held) console.log(`held: ${h.slug} by ${h.spec} since ${h.since}`)
+    if (r.held.length) process.exit(1)
+    if (r.unwritten.length) console.log(`not written: ${r.unwritten.join(', ')}, a read-only sandbox; go on`)
+    console.log(`locked: ${r.locked.join(', ') || 'nothing'}`)
+    return
+  }
+  if (cmd === 'unlock' && pos.length === 1) {
+    console.log(`unlocked: ${unlock(resolveSpec(pos[0], resolve(opts.brain ?? '.'))).join(', ') || 'nothing'}`)
+    return
+  }
+  if (cmd === 'merged' && pos.length === 1 && opts.track) {
+    const brain = resolve(opts.brain ?? '.')
+    const r = merged(resolveSpec(pos[0], brain), opts.track, { commit: many.commit[0], realign: opts.realign })
+    for (const d of r.drops) console.log(`drops: ${d}`)
+    if (r.stopped) {
+      console.log(`stopped: ${r.stopped.at}: ${r.stopped.why}`)
+      process.exit(1)
+    }
+    console.log(`merged: ${opts.track}@${r.merged}${r.moved ? ', base moved to origin' : ''}`)
+    return
+  }
   if (cmd === 'squash' && pos.length === 1) {
     const { sha, already } = squash(pos[0], { title: opts.title, details: many.detail, key: opts.key })
     console.log(already ? `already squashed: ${sha}` : `squashed: ${sha}`)
     return
   }
   if (cmd === 'verify' && pos.length === 1) {
-    const r = verify(pos[0], { commits: many.commit, brainHead: opts['brain-head'] })
+    const r = verify(pos[0], { commits: many.commit, brainHead: opts['brain-head'], branch: opts.branch })
     if (r.status) console.log(`ticket: Status ${r.status}, Commit ${r.commit ?? 'none'}`)
     for (const p of r.problems) console.log(`problem: ${p}`)
     if (r.problems.length) process.exit(1)
@@ -1152,10 +1280,12 @@ const main = (argv) => {
     '       node sdd.mjs mark <review.md> <ID> "<Line>: <value>" [<ID> "<Line>: <value>"]...\n' +
     '       node sdd.mjs review <review.md> --title <t> --fixed <sha> --head <sha> [--summary <file>] <review.<axis>[.<slug>].md>...\n' +
     '       node sdd.mjs squash <milestone-folder|milestone.md> --title <title> [--detail <bullet>]... [--key <key|none>]\n' +
-    '       node sdd.mjs verify <ticket|milestone.md> [--commit <sha>]... [--brain-head <sha>]\n' +
+    '       node sdd.mjs verify <ticket|milestone.md> [--commit <sha>]... [--brain-head <sha>] [--branch <b>]\n' +
     `       node sdd.mjs context|dispatch <ticket|milestone.md> --agent <${AGENTS.join('|')}> [--writes <file>]... [--branch <b>]\n` +
     '       node sdd.mjs next <ticket> [--commit <sha>]... [--brain-head <sha>]\n' +
-    '       node sdd.mjs land <spec-id|spec-folder> --track <slug> [--brain <brain>] [--fold]')
+    '       node sdd.mjs land <spec-id|spec-folder> --track <slug> [--brain <brain>] [--fold]\n' +
+    '       node sdd.mjs merged <spec-id|spec-folder> --track <slug> [--brain <brain>] [--commit <sha>] [--realign]\n' +
+    '       node sdd.mjs lock|unlock <spec-id|spec-folder> [--brain <brain>] [--take]')
   process.exit(2)
 }
 
