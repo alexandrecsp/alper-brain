@@ -6,6 +6,7 @@ Each release lists what changed for a user of the plugin. **Migrates by itself**
 
 ### New
 
+- **Embedded brain.** A project that is one repository keeps its brain in that repository's `brain/` folder: `/brain setup`, run inside the repository, offers it. Notes are committed on your current branch and ship with the code. `/brain export` moves the brain, history included, into a repository of its own.
 - **Release branches.** `/build` offers the default branch or the most recent `rlse/vX.Y.Z` as a spec's base, and from a release branch the next version, which it raises in the version files.
 - **The workshop.** The build pane is now a live star chart of the session: the core, a star per station, and each agent as light. Open it with `/workshop`.
 - **Follow the merge.** `/open-pr <spec-id> --merged` records that a spec's PRs merged: it brings each local base level with `origin` (after a squash or rebase merge too, once you agree) and writes the spec's **Merged** line. `/brain status` lists landed specs still waiting for their merge.
@@ -24,6 +25,8 @@ Each release lists what changed for a user of the plugin. **Migrates by itself**
 - **Milestones wait on other tracks through a Builds after line**, not a ticket's Depends on. Migrates by itself, at the next `/build` on the spec.
 - **A spec waits for its dependencies to merge**, not only to land, in every repository that has a remote. A dependency that landed before 2.1.0 needs `/open-pr <its id> --merged` once.
 - **Builders run on Sonnet**, not Haiku.
+- When `/brain setup` records `docs/STRUCTURE.md`, it asks per app: record the layout as-is, or the plugin's default layout, with the moves it needs as refactor candidates. It also offers to keep a section that already exists.
+- `/brain explore` asks whether to read the default branch or the branch you have checked out, when they differ.
 - `/brain explore` gives each monorepo package its own area, and a rerun reads only the changed files.
 - The brain page answers escalations, abandons specs and drafts notes.
 - Evals grade what the agent does, not what git saves, so a read-only sandbox no longer lowers their scores. New cases cover abandoning a spec, a ticket built by hand, and amending a spec. The brain's scripts have tests.

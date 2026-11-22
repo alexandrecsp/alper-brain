@@ -2,13 +2,14 @@
 
 The `setup` branch of [`brain`](../SKILL.md): connect this machine to a brain, laid out by [FORMAT.md](FORMAT.md), and register a repository in it so the pipeline can work on it. It is safe to run again: a rerun keeps what is settled. Run it once per brain on each machine, then once per repository.
 
-1. **Find the brain.** When an open folder holds `BRAIN.md`, show its path and brain name, and ask whether to use it or to set up another brain. Otherwise, or for another brain, ask whether to clone the team's brain (ask for its remote URL) or create a new one, and where the local clone goes, recommending `~/brains/<brain name>`.
+1. **Find the brain.** When an open folder holds `BRAIN.md`, or an open repository's `brain/` folder does, show its path and brain name, and ask whether to use it or to set up another brain. Otherwise, or for another brain, ask whether to clone the team's brain (ask for its remote URL), create a new one, or, when the primary working directory sits in a git repository, embed one in that repository by [FORMAT.md](FORMAT.md)'s **Embedded brain**: recommend embedding when the project is that one repository. To clone or create, ask where the local clone goes, recommending `~/brains/<brain name>`.
    - To clone: `git clone <url> <path>`.
    - To create: `git init <path>`, write `BRAIN.md` from the template below, the `CLAUDE.md` below, `.gitignore` holding `.brain/`, `notes/authored/.gitkeep` and `notes/repos/.gitkeep`, and commit them as `Creates the second brain`. Then offer to add a remote; given its URL, run `git remote add origin <url>`. The first push waits for the user's first sync.
+   - To embed: the host is what `git -C <primary working directory> rev-parse --show-toplevel` prints, and the brain is `<host>/brain/`. Write there what creating writes except `CLAUDE.md`, the template's two paragraphs on joining replaced by **Joining an embedded brain** below, and commit them in the host as `Creates the second brain`, by FORMAT.md's **One git**.
 
-   When the brain's `.gitignore` lacks `.brain/`, add the line; when the brain lacks `CLAUDE.md`, write it; commit what either changed as one commit, `Prepares the brain for the pipeline`. When the brain is not open, every later step works on it by its path. Done when the path holds `BRAIN.md` and `CLAUDE.md` in a git repository whose `.gitignore` holds `.brain/`.
+   When the brain's `.gitignore` lacks `.brain/`, add the line; when a brain that is not embedded lacks `CLAUDE.md`, write it; commit what either changed as one commit, `Prepares the brain for the pipeline`. When the brain is not open, every later step works on it by its path. Done when the path holds `BRAIN.md`, and `CLAUDE.md` unless it is embedded, in a git repository whose `.gitignore`, or the brain's own, holds `.brain/`.
 
-2. **Pick the repositories.** Take those the user named, by path or slug; otherwise list the open git repositories other than the brain that it does not register yet, and ask which to register: all of them by default. With none, skip to step 11. Setup writes into each, so each must be open: list those that are not with `/add-dir <path>`, and stop. Run steps 3 to 9 for each picked repository in turn, then step 10 once for them all. Done when you hold every picked root, or there is none.
+2. **Pick the repositories.** In an embedded brain, the host is the one repository: pick it, and when the user names another, say that an embedded brain covers only its host and that `/brain export` moves it into a repository of its own. Otherwise, take those the user named, by path or slug; otherwise list the open git repositories other than the brain that it does not register yet, and ask which to register: all of them by default. With none, skip to step 11. Setup writes into each, so each must be open: list those that are not with `/add-dir <path>`, and stop. Run steps 3 to 9 for each picked repository in turn, then step 10 once for them all. Done when you hold every picked root, or there is none.
 
 3. **Register it.** Work out the repository's slug by FORMAT.md and confirm it with the user. When `notes/repos/<slug>/REPO.md` exists and its `remote` names another repository, propose a longer slug from the remote's owner and name (`acme-api`) and confirm it. Write `notes/repos/<slug>/REPO.md` by FORMAT.md: its `slug`, its `remote`, and a one-paragraph summary from its README, checked by [PROSE.md](PROSE.md)'s **Check**; keep any field a card already there holds. Add the slug to the **Repositories** list in `BRAIN.md`, with a one-line summary. Done when the card exists and `BRAIN.md` lists the slug.
 
@@ -18,11 +19,11 @@ The `setup` branch of [`brain`](../SKILL.md): connect this machine to a brain, l
 
 6. **Move its old pipeline state.** Skip this unless the repository holds `.sdd/` at its root, from before the brain held it. Follow [MIGRATE.md](MIGRATE.md)'s **A repository's `.sdd/`**. Done when the user has moved or kept each of its specs.
 
-7. **Settle the layout.** Invoke the `project-structure` skill and record this repository's `docs/STRUCTURE.md` by its RECORDING.md, iterating with the user. Done when the user confirms `docs/STRUCTURE.md`.
+7. **Settle the layout.** Invoke the `project-structure` skill and record this repository's `docs/STRUCTURE.md` by its RECORDING.md, which offers the layout as-is or the plugin's default, iterating with the user. Done when the user confirms `docs/STRUCTURE.md`.
 
 8. **Settle the suites.** The card names the repository's two suites, as FORMAT.md's `REPO.md` defines them. When the card already holds `unit` and `e2e`, or the repository's agent file a **Suites** line, show them and ask whether to keep them. Otherwise read the project's scripts and propose one command for each suite, or `none` when the repository has no e2e tests. When one script runs both suites, propose scripts that split them, and add them when the user agrees. Write both into the card. Done when the user confirms both commands, and running each one from the root starts the tests it names.
 
-9. **Point the agent file.** The repository's agent file points every session working in it at its layout and its domain, in the repository's own words, and names no brain: the card holds everything the brain needs. Ask whether its agent instructions live in `AGENTS.md` or `CLAUDE.md`, recommending the one that exists. When the user picks `AGENTS.md` and no `CLAUDE.md` exists, offer a `CLAUDE.md` holding only `@AGENTS.md`: Claude Code reads `CLAUDE.md`, never `AGENTS.md`. Delete any **Spec workflow** section; from a **Second brain** section an earlier setup wrote, delete this brain's line and the `sdd/` branch bullet, and its heading and opening paragraph once no brain's line is left. Then add each line below whose file the agent file does not point at yet, under its `# References` heading, creating the heading and the file when needed:
+9. **Point the agent file.** The repository's agent file points every session working in it at its layout and its domain, in the repository's own words, and names no brain: the card holds everything the brain needs. The host of an embedded brain is the exception: its agent file also takes the **Brain** line below, since sessions start there. Ask whether its agent instructions live in `AGENTS.md` or `CLAUDE.md`, recommending the one that exists. When the user picks `AGENTS.md` and no `CLAUDE.md` exists, offer a `CLAUDE.md` holding only `@AGENTS.md`: Claude Code reads `CLAUDE.md`, never `AGENTS.md`. Delete any **Spec workflow** section; from a **Second brain** section an earlier setup wrote, delete this brain's line and the `sdd/` branch bullet, and its heading and opening paragraph once no brain's line is left. Then add each line below whose file the agent file does not point at yet, under its `# References` heading, creating the heading and the file when needed:
 
    ```markdown
    # References
@@ -31,11 +32,17 @@ The `setup` branch of [`brain`](../SKILL.md): connect this machine to a brain, l
    - `GLOSSARY.md` and `docs/adr/` (or `GLOSSARY-MAP.md`), when present: the domain's terms and the decisions already made. Name code in the glossary's terms, and work within the ADRs.
    ```
 
-   Done when the user declines, or the file points at both and no line of it names this brain.
+   The **Brain** line, for the host of an embedded brain only:
+
+   ```markdown
+   - `brain/`: this repository's second brain (see `brain/BRAIN.md`). Before changing code, invoke the `brain` skill to recall its notes.
+   ```
+
+   Done when the user declines, or the file points at both, and names the brain in the **Brain** line alone when it hosts an embedded brain, or nowhere otherwise.
 
 10. **Commit the brain.** Commit every picked repository's `notes/repos/<slug>/REPO.md` and `BRAIN.md` as one commit, titled by what changed: `Registers <slug>` for a new card, `Updates <slug>'s card` for a rerun's, joined for several (`Registers api and web`, `Registers api and updates web's card`). Done when `git -C <brain> status --porcelain -- notes/repos/ BRAIN.md` lists nothing, and one commit holds them.
 
-11. **Hand over.** Report the brain's path and name, the slug, and what you created, changed or deleted in which repository, including the repository's files to commit (`docs/STRUCTURE.md` and the agent file). Say that nothing was pushed, since `/brain sync` shares the notes. When the brain is not open, tell the user to launch Claude in its folder from now on. Then name the next steps: `/brain link` to link the brain's other repositories, `/brain explore <slug>` to write what the repository does for teammates who never open its code, `/brain view` to see the brain, and `/brainstorm` a feature, then `/write-spec`. Done when the user has the report.
+11. **Hand over.** Report the brain's path and name, the slug, and what you created, changed or deleted in which repository, including the repository's files to commit (`docs/STRUCTURE.md` and the agent file). Say that nothing was pushed, since `/brain sync` shares the notes; for an embedded brain, that its commits sit on the host's current branch and ship with it, and that `/brain export` moves it into a repository of its own once the project grows past one repository. When the brain is not open, tell the user to launch Claude in its folder from now on, or in its host's for an embedded brain. Then name the next steps: `/brain link` to link the brain's other repositories (none for an embedded brain), `/brain explore <slug>` to write what the repository does for teammates who never open its code, `/brain view` to see the brain, and `/brainstorm` a feature, then `/write-spec`. Done when the user has the report.
 
 ## CLAUDE.md
 
@@ -55,4 +62,10 @@ To join, install the plugin (`/plugin marketplace add alexandrecsp/alper-brain`,
 You need only this repository, not the code: `/brain explore` keeps notes on what each repository does, and `/brain ask <question>` answers from them, saying how old its answer is.
 
 ## Repositories
+```
+
+### Joining an embedded brain
+
+```markdown
+This brain lives in the `brain/` folder of the repository it covers, so its notes travel with the code and reach the team through the repository's pull requests. To join, install the plugin (`/plugin marketplace add alexandrecsp/alper-brain`, then `/plugin install alper-brain@alper-brain`), launch Claude in the repository and run `/brain setup`. `/brain view` shows the notes and the specs. Obsidian can also open this folder as a vault. `/brain export` moves the brain into a repository of its own, once it should cover more repositories.
 ```

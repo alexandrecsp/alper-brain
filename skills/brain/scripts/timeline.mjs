@@ -25,8 +25,10 @@ const git = (args, input) => {
 
 const hasCommits = spawnSync('git', ['-C', brain, 'rev-parse', '--verify', '--quiet', 'HEAD']).status === 0
 const RS = '\x1e', US = '\x1f'
+// --relative and the ./ in each <sha>:./<path> read paths from the brain's folder, so an embedded brain, in its host
+// repository's brain/ folder, writes the same paths as a brain of its own.
 const log = hasCommits
-  ? git(['log', '--reverse', '--no-merges', '-M', '--name-status', `--format=${RS}%H${US}%aI${US}%an${US}%s`, '--', 'notes', 'repos', 'shared']).toString('utf8')
+  ? git(['log', '--relative', '--reverse', '--no-merges', '-M', '--name-status', `--format=${RS}%H${US}%aI${US}%an${US}%s`, '--', 'notes', 'repos', 'shared']).toString('utf8')
   : ''
 
 // A note's file: an authored or explored note in either layout, never a repository's card.
@@ -54,7 +56,7 @@ for (const block of log.split(RS).slice(1)) {
 const wanted = commits.flatMap((c) => c.changes.filter((x) => x.letter !== 'D').map((x) => `${c.sha}:${x.path}`))
 const texts = new Map()
 if (wanted.length) {
-  const out = git(['cat-file', '--batch'], wanted.join('\n') + '\n')
+  const out = git(['cat-file', '--batch'], wanted.map((k) => k.replace(':', ':./')).join('\n') + '\n')
   let at = 0
   for (const key of wanted) {
     const nl = out.indexOf(10, at)

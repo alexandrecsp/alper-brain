@@ -43,7 +43,16 @@ The user works from the brain: it is one of the session's **working directories*
 
 A machine can hold several brains. Each one is a separate **knowledge base**, with its own notes, remote and `.brain/`: whatever the user keeps apart, such as a company, a client or a field. Brains are **isolated**: a run reads and writes one brain only, and never carries a note, spec or path from one brain into another. A **brain name** is the last segment of the brain's `git remote get-url origin` without `.git`, else its folder's name, in kebab-case.
 
-The **active brain** is the open folder holding `BRAIN.md`. When several are open, it is the one the user names in this conversation (such as `@side-projects` in a command's arguments), or else the one holding the primary working directory; failing both, ask the user once per conversation. When none is open, the session has no brain: a skill stops and tells the user to launch Claude in the brain's folder or run `/add-dir <brain>`, or to run `/brain setup` when they have no brain yet; only `commit`, `tdd` and `diagnose` run instead, by **With no brain open** in **The working repository**. When the active brain holds a `.sdd/` folder at its root, the old name of `.brain/`, rename it by [MIGRATE.md](MIGRATE.md)'s **The brain's `.sdd/`** before reading or writing anything in `.brain/`.
+The **active brain** is the open folder holding `BRAIN.md`, or an open repository's `brain/` folder holding one, by **Embedded brain**. When several are open, it is the one the user names in this conversation (such as `@side-projects` in a command's arguments), or else the one holding the primary working directory, or embedded in the repository holding it; failing both, ask the user once per conversation. When none is open, the session has no brain: a skill stops and tells the user to launch Claude in the brain's folder or run `/add-dir <brain>`, or to run `/brain setup` when they have no brain yet; only `commit`, `tdd` and `diagnose` run instead, by **With no brain open** in **The working repository**. When the active brain holds a `.sdd/` folder at its root, the old name of `.brain/`, rename it by [MIGRATE.md](MIGRATE.md)'s **The brain's `.sdd/`** before reading or writing anything in `.brain/`.
+
+## Embedded brain
+
+An **embedded brain** lives in the `brain/` folder of the one repository it covers, its **host**: a project that is a single repository keeps its notes beside its code, with no second clone. A brain is embedded when `git -C <brain> rev-parse --show-toplevel` prints a folder other than the brain's own, and that folder is its host. Its layout is the one above, under `<host>/brain/`, its own `.gitignore` holding `.brain/`. The rest of this reference holds for it, except:
+
+- **Open with its host.** The user launches Claude in the host, so the brain is open whenever the host is.
+- **One repository.** The brain registers its host and no other repository, so the host is always the working repository: linked by `.brain/links.json` like any repository, and always open. To cover a second repository, move the brain into a repository of its own first, by [EXPORT.md](EXPORT.md).
+- **One git.** The brain's commits are the host's, made on whatever branch the host has checked out, so its notes reach the team with the code, through the host's pull requests. Each commit names its paths (`git -C <host> commit -m <message> -- <path>...`), so the host's staged work stays staged, and takes a key by the `commit` skill's **Find the key**, as any commit in the host does. **Sync** in [SKILL.md](../SKILL.md) neither pulls nor pushes.
+- **The agent file.** A session started in the host loads the host's agent file, so that file points at the brain, by [SETUP.md](SETUP.md)'s step 9, and the brain holds no `CLAUDE.md` of its own.
 
 ## Repositories
 
@@ -61,7 +70,7 @@ A repository moves through three states, each building on the one before:
 
 Read a linked repository that is not open by its path, even though the user may be asked to allow each read. Before changing one, ask the user to run `/add-dir <path>`, and stop until it is open: running the same command again picks up from there.
 
-A **snapshot** reads a linked repository's default branch without touching its clone's working tree, and inside the brain, so no read asks for permission: `git -C <root> fetch --quiet origin` (then `git -C <root> remote set-head origin --auto` when `origin/HEAD` is missing); when an earlier run left a snapshot, `git -C <root> worktree remove --force <brain>/.brain/snapshots/<slug>`; then `git -C <root> worktree add --detach <brain>/.brain/snapshots/<slug> origin/HEAD` (the clone's `HEAD` for a `local only` repository). It writes only to the clone's `.git`, so the repository need only be linked. Remove it with `git -C <root> worktree remove --force <snapshot>` once its reads are done.
+A **snapshot** reads a linked repository's default branch, or its clone's current branch when a skill asks for it, without touching its clone's working tree, and inside the brain, so no read asks for permission: `git -C <root> fetch --quiet origin` (then `git -C <root> remote set-head origin --auto` when `origin/HEAD` is missing); when an earlier run left a snapshot, `git -C <root> worktree remove --force <brain>/.brain/snapshots/<slug>`; then `git -C <root> worktree add --detach <brain>/.brain/snapshots/<slug> <commit>`, the commit being `origin/HEAD` for the default branch, and the clone's `HEAD` for its current branch or a `local only` repository. Either way it holds committed work only. It writes only to the clone's `.git`, so the repository need only be linked. Remove it with `git -C <root> worktree remove --force <snapshot>` once its reads are done.
 
 `REPO.md` is the repository's card:
 
@@ -90,7 +99,7 @@ A skill that reads or changes code first names its **working repository**, and i
 
 - **With no brain open**, only `commit`, `tdd` and `diagnose` run; every other skill stops, by **The open session**. The working repository is the one holding the primary working directory, and its root is what `git -C <primary working directory> rev-parse --show-toplevel` prints; when that fails, ask the user to launch Claude inside the repository, and stop. It has no card, notes or specs: take the suites from the project's scripts, read the repository's own glossary and ADRs, and skip every step that recalls from or records to the brain or reads its `.brain/`. Another repository is read only by a path the user gives. The numbered rules below are for a brain; the bullets after them hold in both cases.
 
-With a brain open, the session's primary folder is the brain, so the working repository is the one the first of these rules gives:
+In an embedded brain, it is the host, by **Embedded brain**. With any other brain open, the session's primary folder is the brain, so the working repository is the one the first of these rules gives:
 
 1. The repository whose track holds the milestone the work builds, by **Specs**.
 2. The repository the user names, by slug or by a path inside its clone.

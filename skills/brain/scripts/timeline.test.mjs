@@ -123,6 +123,21 @@ test('skips the notes-folder migration\'s renames, and reads the legacy notes be
   assert.deepEqual(json.commits[1].changes.map((x) => `${x.action} ${x.path}`), ['updated notes/authored/api-retry.md'])
 })
 
+test('reads an embedded brain, in its host repository\'s brain/ folder, with paths relative to the brain', () => {
+  const { b: host, commit } = brain()
+  const b = join(host, 'brain')
+  put(join(b, 'BRAIN.md'), '# Brain\n')
+  put(join(host, 'src/app.js'), 'export {}\n')
+  put(join(b, 'notes/authored/api-retry.md'), note(retry))
+  commit('Records the retry key beside the code')
+  put(join(host, 'notes/authored/host-doc.md'), note({ ...retry, name: 'host-doc' }))
+  commit('Adds a host folder named like the brain\'s')
+  const r = timeline(b)
+  assert.equal(r.status, 0, r.err)
+  assert.deepEqual(r.json.commits.map((c) => c.title), ['Records the retry key beside the code'])
+  assert.deepEqual(r.json.commits[0].changes.map((x) => `${x.action} ${x.path} ${x.type}`), ['recorded notes/authored/api-retry.md how-to'])
+})
+
 test('running it again on the same history leaves the file unchanged', () => {
   const { b, commit } = brain()
   put(join(b, 'notes/authored/api-retry.md'), note(retry))

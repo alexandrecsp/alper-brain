@@ -1,12 +1,12 @@
 ---
 name: brain
-description: Recall from and record to the second brain, the team's notes on every repository and the hub specs are worked from. Use before working on a repository's code from the brain; when the user asks to set up, link, explore, view, remember, recall or sync the brain; when the user asks what is in flight, or a question that spans several repositories; or when you learn a gotcha, decision or contract a repository itself does not record.
-argument-hint: "[setup | link | explore [<repo>] | status | ask <question> | view | recall | remember <fact> | sync] [@<brain>]"
+description: Recall from and record to the second brain, the team's notes on every repository and the hub specs are worked from. Use before working on a repository's code from the brain; when the user asks to set up, link, explore, view, remember, recall, sync or export the brain; when the user asks what is in flight, or a question that spans several repositories; or when you learn a gotcha, decision or contract a repository itself does not record.
+argument-hint: "[setup | link | explore [<repo>] | status | ask <question> | view | recall | remember <fact> | sync | export] [@<brain>]"
 metadata:
   type: process
 ---
 
-The **second brain** is a git repository holding the team's notes on many repositories, cloned on each teammate's machine and shared by pull and push, with this machine's pipeline work kept beside them in an ignored `.brain/`. The user works from it: Claude is launched in the brain's folder, with the repositories the work needs open beside it. [FORMAT.md](references/FORMAT.md) gives its layout, the active brain, the repo slug, **registered**, **linked** and **open**, the working repository, the note format and the spec lines. The brain is everything a teammate knows about the repositories, readable without cloning them, so a product owner or a newcomer can ask it too. **Authored** and **explored** notes are defined in FORMAT.md; the user's personal preferences belong in your own memory.
+The **second brain** is a git repository holding the team's notes on many repositories, cloned on each teammate's machine and shared by pull and push, with this machine's pipeline work kept beside them in an ignored `.brain/`. The user works from it: Claude is launched in the brain's folder, with the repositories the work needs open beside it, or, for a project that is one repository, in that repository, holding an **embedded brain** in its `brain/` folder. [FORMAT.md](references/FORMAT.md) gives its layout, the active brain, the repo slug, **registered**, **linked** and **open**, the working repository, the note format and the spec lines. The brain is everything a teammate knows about the repositories, readable without cloning them, so a product owner or a newcomer can ask it too. **Authored** and **explored** notes are defined in FORMAT.md; the user's personal preferences belong in your own memory.
 
 The first argument picks the branch:
 
@@ -21,6 +21,7 @@ The first argument picks the branch:
 | `recall` | [RECALL.md](references/RECALL.md) |
 | `remember <fact>` | **Record** below |
 | `sync` | **Sync** below |
+| `export` | [EXPORT.md](references/EXPORT.md) |
 
 With no argument: recall before working in a registered repository, follow ASK.md when the user's question spans several repositories, and record when you have learned something the brain should hold.
 
@@ -52,7 +53,7 @@ Turn drafts into commits. `sync` runs it after its pull, on every draft in `.bra
 
 ## Sync
 
-Only when the user asks, since a push publishes the notes to every teammate:
+Only when the user asks, since a push publishes the notes to every teammate. An embedded brain skips step 1 and step 4's push, still listing the drafts kept: its commits land on the host's current branch and reach the team with it, by FORMAT.md's **Embedded brain**, so name that branch when Consolidate proposes the drafts, and again once they are committed.
 
 1. **Pull** with `git pull --rebase`. When the brain has no remote, say it is local only and offer to add one (`git remote add origin <url>`); when the user declines, skip this step and step 4. When its branch has no upstream yet, skip the pull. A conflict in `timeline.json` resolves by running step 3's command, staging the file and continuing the rebase. A conflict in a note means two people changed one note: merge both versions' facts into one, show the user the merged note, and continue the rebase once they confirm. Done when the rebase completes, or was skipped.
 2. **Consolidate** every draft in `.brain/drafts/`, by **Consolidate**. Before it, when the brain has FORMAT.md's legacy layout, ask the user once to move it into `notes/`, then move it by [MIGRATE.md](references/MIGRATE.md)'s **Notes folder**; a brain the user keeps in the legacy layout stays readable, and its drafts land at legacy paths. Then run RECALL.md's script with `--legacy`: when it lists notes, draft their migration by [MIGRATE.md](references/MIGRATE.md)'s **Note types**, so Consolidate proposes it with the other drafts. Done when Consolidate's last step is done, or `.brain/drafts/` was empty.

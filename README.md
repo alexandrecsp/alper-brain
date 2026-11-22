@@ -27,13 +27,14 @@ The skills then show up as `/alper-brain:<name>`. Below they are written by thei
 - **Knowledge is shared, work stays local.** Everything outside `.brain/` is committed and shared by pull and push. Specs and tickets stay on your machine; what they teach reaches the team as notes.
 - **You work from the brain.** Claude is launched in the brain's folder, so it always knows where the brain is. The repositories the work needs are opened beside it.
 - **Each repository moves through three states.** **Registered**: the brain holds its `REPO.md` card (its remote, commit key pattern and test commands), so its notes and specs work. **Linked**: the brain knows where it is cloned on this machine, so skills can read its code. **Open**: it is open in the session, so skills can change it. Skills ask you to open a repository (`/add-dir <path>`) when they need to change it.
+- **Or embed it in a single repository.** A project that is one repository can keep its brain in that repository's `brain/` folder instead: you launch Claude in the repository, and the notes are committed on your current branch and ship with the code. `/brain export` later moves the brain, history included, into a repository of its own, so it can cover more.
 - **One brain per knowledge base.** A company, a client, your side projects: each gets its own brain, with its own notes, remote and `.brain/`. Nothing crosses between them.
 
 `skills/brain/references/FORMAT.md` defines all of it.
 
 ## Getting started
 
-1. **Create or clone a brain.** Run `/brain setup` anywhere. It clones your team's brain or creates one, and tells you to launch Claude in it from then on.
+1. **Create or clone a brain.** Run `/brain setup` anywhere. It clones your team's brain or creates one, and tells you to launch Claude in it from then on. Run inside a repository, it can embed the brain there instead, and registers that repository in the same run.
 2. **Register each repository.** In the brain, with a repository open (`/add-dir <path>`), run `/brain setup` again. It writes the repository's card (commit key, unit and e2e commands), settles its layout in `docs/STRUCTURE.md`, points its `CLAUDE.md` or `AGENTS.md` at the layout and the glossary, and moves its old `.sdd/` into the brain if it has one.
 3. **Link the rest.** `/brain link` finds this machine's clones of every registered repository.
 4. **Explore them.** `/brain explore` writes what each linked repository does into the brain, so teammates who never clone the code can ask about it. `/brain sync` shares the notes.
