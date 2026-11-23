@@ -1,4 +1,5 @@
 import { expect, test } from 'claude-code/testing'
+import { spendOn } from './workshop/crew'
 
 const PANE = {
   plugin: 'alper-brain',
@@ -291,4 +292,32 @@ test("a migrate waiting on its producer's expand shows its track waiting", async
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await ui.find({ type: 'Text', text: /^web-app M001 1\/1 · check waits on billing-api\/001$/ })).toBeDefined()
   await ui.unmount()
+})
+
+test("each request's tokens count at the stations of the calls it asked for, the rest at the core", async ($, on) => {
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', () => ({ value: undefined }))
+  clockAt(on)
+  on('store.get', () => ({ value: undefined }))
+  on('store.set', () => ({ value: undefined }))
+  on('fs.list', () => ({ value: [] }))
+  on('agent.list', () => ({ value: [] }))
+  const steps = [
+    [{ name: 'Edit', input: { file_path: 'src/map.ts' } }, { name: 'Read', input: { file_path: 'src/rows.ts' } }],
+    [],
+  ]
+  on('turn.step', async function* (_, e) {
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: steps[e.index] ?? [], stopReason: 'tool_use' as const, usage: USAGE }
+  })
+
+  for (const index of [0, 1]) for await (const _ of $.turn.step({ turnId: 't1', index, model: 'claude-sonnet-5-5', messageCount: 1 })) {
+  }
+
+  // the steps ran through the pane's hooks; the rule they apply: 10,000 tokens a request,
+  // the first split between the forge and the archive, the second all thinking at the core
+  const once = spendOn({}, 10_000, steps[0] ?? [])
+  expect(once).toEqual({ bay: 5000, shelves: 5000 })
+  expect(spendOn(once, 10_000, [])).toEqual({ bay: 5000, shelves: 5000, holo: 10_000 })
+  // a review's agent counts at the council whatever it calls
+  expect(spendOn({}, 600, [{ name: 'Read', input: { file_path: 'src/a.ts' } }], 'review')).toEqual({ table: 600 })
 })

@@ -162,6 +162,8 @@ export type Crew = {
   spawned: number
   edits: number
   commits: number
+  /** The session's tokens by the station each request's tool calls went to; a request with none counts at the core (`holo`). */
+  spent: Partial<Record<Station, number>>
 }
 
 declare module 'claude-code' {

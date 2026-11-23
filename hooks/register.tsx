@@ -25,7 +25,7 @@ import {
   waitsOnUser,
 } from './sdd'
 import { NEEDS_USER, OTHER_ROLE_HEX, ROLES, STATUS_LINE_GLYPH, color, roleOf, trackTone } from './theme'
-import { MAIN, STATION_LABEL, crewSpawn, crewStart, crewToolCall, crewTurnComplete, crewTurnStart, readCrew } from './workshop/crew'
+import { MAIN, STATION_LABEL, crewSpawn, crewSpend, crewStart, crewToolCall, crewTurnComplete, crewTurnStart, readCrew } from './workshop/crew'
 import { drawWorkshop } from './workshop/draw'
 import type { SceneBuild, SceneView } from './workshop/draw'
 
@@ -466,7 +466,8 @@ const sceneView = async ($: EngineInterface): Promise<SceneView> => {
     return { id: a.id, name: a.name, role, color: hex, station: a.station, from: a.from, movedAt: a.movedAt, walkMs: a.walkMs, task: a.task, job, isDone: a.isDone, isLead: a.id === lead }
   })
   const first = followed[0]
-  if (spec === null && first === undefined) return { now: at, agents, build: null }
+  const areas = crew.spent ?? {}
+  if (spec === null && first === undefined) return { now: at, agents, areas, build: null }
 
   const building = followed.filter(isUnlanded)
   const counted = building.length > 0 ? building : followed
@@ -493,7 +494,7 @@ const sceneView = async ($: EngineInterface): Promise<SceneView> => {
       tickets: (followed.find(b => b.key === line.key)?.tickets ?? []).map(t => ({ status: t.status })),
     })),
   }
-  return { now: at, agents, build }
+  return { now: at, agents, areas, build }
 }
 
 export const register: Register = on => {
@@ -540,9 +541,10 @@ export const register: Register = on => {
       // The main session's own requests count toward the milestone it builds.
       const result = yield* next(e)
       const current = fallback(await read($, builds))
-      if (result.usage !== null && current !== undefined) {
+      if (result.usage !== null) {
         const spent = usageTotal(result.usage)
-        await charge($, current.key, l => ({ ...l, mainTokens: l.mainTokens + spent }))
+        await crewSpend($, spent, result.toolUses)
+        if (current !== undefined) await charge($, current.key, l => ({ ...l, mainTokens: l.mainTokens + spent }))
       }
 
       return result
@@ -560,6 +562,7 @@ export const register: Register = on => {
     const run = await findRun($, id)
     if (result.usage !== null && run !== undefined) {
       const spent = usageTotal(result.usage)
+      await crewSpend($, spent, result.toolUses, run.job, run.ticket !== undefined)
       await charge($, run.milestone, l =>
         chargeTicket({ ...l, agentTokens: l.agentTokens + spent }, run.ticket, { tokens: spent }),
       )

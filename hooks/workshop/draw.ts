@@ -36,7 +36,13 @@ export type SceneTrack = {
   tickets: { status: string }[]
 }
 export type SceneBuild = { spec: string; tokens: number; edits: number; commits: number; alerts: string[]; tracks: SceneTrack[] }
-export type SceneView = { now: number; agents: SceneAgent[]; build: SceneBuild | null }
+export type SceneView = {
+  now: number
+  agents: SceneAgent[]
+  /** The session's tokens by station, which the core's ring draws as shares of the busiest. */
+  areas?: Partial<Record<Station, number>>
+  build: SceneBuild | null
+}
 
 /** What one Svg may hold. */
 export const CAP = 128000
@@ -446,8 +452,42 @@ function dust(sc: Box, sky: Sky, now: number, lite: boolean): string {
   return s
 }
 
-// The core: an aura, a dark disc, swirling orbits around a white-hot heart, and turning rings of ticks and arcs.
-function core(sky: Sky, now: number, busy: number, hot: boolean, lite: boolean): string {
+const arcPath = (cx: number, cy: number, r: number, a0: number, a1: number) => {
+  const p = (d: number) => `${f1(cx + r * Math.cos((d * Math.PI) / 180))} ${f1(cy + r * Math.sin((d * Math.PI) / 180))}`
+  return `M${p(a0)}A${f1(r)} ${f1(r)} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${p(a1)}`
+}
+
+// What each area has spent, as still arcs on the core's amber ring: one aimed at each
+// star, as long as its share of the busiest area's tokens, over a faint track of its
+// full length; the core's own, thinking and answering, on the inner ring from the top.
+// Shares step by 5%, so a request's tokens redraw the picture only when an arc grows.
+function spentRing(sky: Sky, areas: Partial<Record<Station, number>>): string {
+  const { cx, cy, rc } = sky
+  const max = Math.max(0, ...Object.values(areas).map(v => v ?? 0))
+  const share = (st: Station) => (max > 0 ? Math.round(((areas[st] ?? 0) / max) * 20) / 20 : 0)
+  const dirs = STARS.map(st => {
+    const p = placeOf(sky, st.st)
+    return { st: st.st, d: (Math.atan2(p.y - cy, p.x - cx) * 180) / Math.PI }
+  })
+  const r = rc * 1.15
+  let track = ''
+  let lit = ''
+  for (const { st, d } of dirs) {
+    // as wide as the nearest neighbour leaves room for
+    const gap = Math.min(...dirs.filter(o => o.st !== st).map(o => Math.abs((((o.d - d) % 360) + 540) % 360 - 180)))
+    const half = gap * 0.36
+    track += `<path d="${arcPath(cx, cy, r, d - half, d + half)}"/>`
+    const k = share(st)
+    if (k > 0) lit += `<path d="${arcPath(cx, cy, r, d - half * k, d + half * k)}"/>`
+  }
+  let s = `<g fill="none" stroke="${AMBER}" stroke-width="1.6" stroke-linecap="round"><g stroke-opacity=".14">${track}</g><g stroke-opacity=".85" filter="url(#glow)">${lit}</g></g>`
+  const k = share('holo')
+  if (k > 0) s += `<path d="${arcPath(cx, cy, rc * 0.84, -90 - 150 * k, -90 + 150 * k)}" fill="none" stroke="${AMBER}" stroke-width="1.4" stroke-opacity=".8" stroke-linecap="round"/>`
+  return s
+}
+
+// The core: an aura, a dark disc, swirling orbits around a white-hot heart, turning rings of ticks, and each area's spending.
+function core(sky: Sky, now: number, busy: number, hot: boolean, lite: boolean, areas: Partial<Record<Station, number>>): string {
   const { cx, cy, rc } = sky
   const c = (r: number, attrs: string) => `<circle cx="${f1(cx)}" cy="${f1(cy)}" r="${f1(r)}" ${attrs}/>`
   let s = c(rc * 3.2, 'fill="url(#aura)"')
@@ -457,7 +497,7 @@ function core(sky: Sky, now: number, busy: number, hot: boolean, lite: boolean):
   s += c(rc * 1.55, `fill="none" stroke="${COOL}" stroke-opacity=".4" stroke-width=".7" stroke-dasharray="1 5"`)
   // ticks and arcs
   s += `<g>${spin(cx, cy, 60, now, true)}${c(rc * 1.02, `fill="none" stroke="${COOL}" stroke-opacity=".45" stroke-width="3.5" stroke-dasharray=".7 4.3"`)}</g>`
-  s += `<g>${spin(cx, cy, 24, now)}${c(rc * 1.15, `fill="none" stroke="${AMBER}" stroke-opacity=".75" stroke-width="1.6" pathLength="100" stroke-dasharray="18 6 7 12 30 27" stroke-linecap="round" filter="url(#glow)"`)}</g>`
+  s += spentRing(sky, areas)
   s += `<g>${spin(cx, cy, 40, now)}${c(rc * 0.84, `fill="none" stroke="${ICE}" stroke-opacity=".35" stroke-width=".8" stroke-dasharray="2 5"`)}</g>`
   // sparks about the heart
   if (!lite) {
@@ -650,7 +690,7 @@ function sky(view: SceneView, sc: Box, lite: boolean): string {
   s += `<ellipse cx="${f1(sk.cx)}" cy="${f1(sk.cy)}" rx="${f1(sk.rx * 1.2)}" ry="${f1(sk.ry * 1.2)}" fill="none" stroke="${COOL}" stroke-opacity=".22" stroke-width=".6" stroke-dasharray="1 7"/>`
   s += links(sk)
   for (const a of live) s += spoke(sk, a)
-  s += core(sk, now, thinking, hot, lite)
+  s += core(sk, now, thinking, hot, lite, view.areas ?? {})
   for (const st of STARS) s += star(sk, st, at[st.st] ?? [], now, fs)
   // finished agents drift about the core, dim, each on a lane of its own
   for (const a of resting) s += drift(sk, a, now)

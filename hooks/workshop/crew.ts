@@ -15,10 +15,10 @@ export const STAY_MS = 1000
 export const KEEP_DONE = 12
 
 // Change the tag when Crew's fields change: a reload then starts from empty.
-const crew = atom({ plugin: 'alper-brain', key: 'crew' } as const, emptyCrew(), { shape: 'crew-2' })
+const crew = atom({ plugin: 'alper-brain', key: 'crew' } as const, emptyCrew(), { shape: 'crew-3' })
 
 function emptyCrew(): Crew {
-  return { agents: [], spawned: 0, edits: 0, commits: 0 }
+  return { agents: [], spawned: 0, edits: 0, commits: 0, spent: {} }
 }
 
 /** Each station as the terminal's list names it. */
@@ -192,6 +192,39 @@ export async function crewToolCall(
     const t = moving(agentId ?? MAIN, r.station, r.task)(c, now)
     return { ...t, edits: t.edits + (r.isEdit ? 1 : 0), commits: t.commits + (r.isCommit ? 1 : 0) }
   })
+}
+
+/**
+ * At turn.step, once the request answered: its tokens count at the stations of the tool
+ * calls it asked for, routed as the calls move their agent, shared evenly among them; a
+ * request that called nothing (thinking, writing the answer) counts at the core.
+ */
+export function spendOn(
+  spent: Crew['spent'],
+  tokens: number,
+  calls: readonly { name: string; input: unknown }[],
+  job?: Job,
+  hasTicket = false,
+): Crew['spent'] {
+  if (tokens <= 0) return spent
+  const args = (input: unknown) => (typeof input === 'object' && input !== null ? (input as Record<string, unknown>) : {})
+  // Agent and Task calls spawn at the core, as route sends any tool it does not know
+  const stations = calls.length === 0 ? ['holo' as const] : calls.map(c => route(c.name, args(c.input), job, hasTicket).station)
+  const share = tokens / stations.length
+  const next = { ...spent }
+  for (const st of stations) next[st] = (next[st] ?? 0) + share
+  return next
+}
+
+export async function crewSpend(
+  $: EngineInterface,
+  tokens: number,
+  calls: readonly { name: string; input: unknown }[],
+  job?: Job,
+  hasTicket = false,
+): Promise<void> {
+  if (tokens <= 0) return
+  await change($, c => ({ ...c, spent: spendOn(c.spent ?? {}, tokens, calls, job, hasTicket) }))
 }
 
 /** At agent.spawn, once the engine named the subagent: it is born at the core, and its caller goes there to call it. */
