@@ -1,323 +1,138 @@
 import { expect, test } from 'claude-code/testing'
-import { spendOn } from './workshop/crew'
+
+import { brainOfPath, findBrain, readBrain } from './brain'
+import type { Files } from './brain'
+import { trackState } from './draw'
+import { areaOf } from './register'
 
 const PANE = {
   plugin: 'alper-brain',
   component: 'Pane',
-  requestId: 'workshop',
-  props: {
-    title: 'Workshop',
-    isFocused: false,
-    bodyColumns: 80,
-    placement: 'dock',
-    scroll: { offset: 0, bodyRows: 40 },
-    view: {},
-  },
+  requestId: 'agent-watcher',
+  props: { title: 'Agent Watcher', isFocused: false, bodyColumns: 70, placement: 'dock', scroll: { offset: 0, bodyRows: 60 }, view: {} },
 } as const
 
-// The engine hands a hook Windows paths with backslashes.
-const slash = (path: string) => path.replace(/\\/g, '/')
+const USAGE = { model: 'claude-sonnet-5-5', input_tokens: 1000, output_tokens: 500, cache_read_input_tokens: 8000, cache_creation_input_tokens: 500 }
 
-type On = Parameters<Parameters<typeof test>[1]>[1]
+test('rooms follow what a call touches', () => {
+  expect(areaOf('Bash', { command: 'git status' })).toBe('git')
+  expect(areaOf('Bash', { command: 'npm test' })).toBe('tests')
+  expect(areaOf('Edit', { file_path: 'src/a.ts' })).toBe('code')
+  expect(areaOf('Edit', { file_path: 'C:/r/.brain/x.md' })).toBe('brain')
+  expect(areaOf('Read', { file_path: 'README.md' })).toBe('docs')
+  expect(areaOf('Edit', { file_path: 'src/a.ts' }, 'reviewer')).toBe('review')
+})
 
-// A clock the test moves on by hand: two seconds on, an agent has stood its second at a station and may walk on.
-const clockAt = (on: On) => {
+test("a subagent at work lights its room, on every surface", async ($, on) => {
   const time = { at: 1_000_000 }
-  on('clock.now', () => ({ value: time.at }))
-  return time
-}
-
-// What a folder of `tree` lists: its files, and the folders below it.
-const listing = (tree: Record<string, string>, path: string) => {
-  const dir = `${slash(path)}/`
-  const names = new Map<string, 'file' | 'dir'>()
-  for (const one of Object.keys(tree).filter(key => key.startsWith(dir))) {
-    const [name, ...rest] = one.slice(dir.length).split('/')
-    if (name !== undefined) names.set(name, rest.length > 0 ? 'dir' : 'file')
-  }
-  return [...names].map(([name, kind]) => ({ name, kind, size: 1, mtimeMs: 1, isLink: false }))
-}
-
-// A spec's milestones sit in one folder per repository, its track; the folder names the repository.
-const DIR = 'C:/repo/.brain/specs/003-invoice-export/milestones/billing-api/001-parse-invoices'
-
-const files: Record<string, string> = {
-  'C:/repo/.brain/specs/003-invoice-export/spec.md': '# Spec: Invoice export\n\n**Key:** None\n',
-  [`${DIR}/milestone.md`]: '# Milestone 001: Parse invoices\n\n**Phase:** none\n\n**Squash:** none\n',
-  [`${DIR}/001-read-rows.md`]: '# Ticket 001: Read rows\n\n**Status:** done\n\n**Commit:** a1b2c3d4\n',
-  [`${DIR}/002-map-columns.md`]: '# Ticket 002: Map columns\n\n**Status:** doing\n\n**Commit:** none\n',
-  [`${DIR}/003-check-totals.md`]: '# Ticket 003: Check totals\n\n**Status:** todo\n\n**Commit:** none\n',
-}
-
-const USAGE = {
-  model: 'claude-sonnet-5-5',
-  input_tokens: 1200,
-  output_tokens: 300,
-  cache_read_input_tokens: 8000,
-  cache_creation_input_tokens: 500,
-}
-
-test("a /build ticket's builder works at the mech bay, under its track, with its spending", async ($, on) => {
-  // Nothing sits beneath the plugin: each hook here stands for the engine.
   const stored: Record<string, unknown> = {}
-  on('ui.open', () => ({ value: { isPlaced: true } }))
-  on('ui.status', () => ({ value: undefined }))
-  const time = clockAt(on)
+  on('clock.now', () => ({ value: time.at }))
+  on('clock.every', () => ({ value: undefined }))
+  on('clock.after', () => ({ value: undefined }))
   on('store.get', (_, e) => ({ value: stored[e.key] }))
   on('store.set', (_, e) => {
     stored[e.key] = e.value
     return { value: undefined }
   })
-  on('fs.list', (_, e) => ({ value: listing(files, e.path) }))
-  on('fs.read', (_, e) => {
-    const text = files[slash(e.path)]
-    if (text === undefined) throw new Error(`no file ${e.path}`)
-    return { value: text }
-  })
-  on('agent.list', () => ({
-    value: [
-      { id: 'a1', type: 'alper-brain:builder', description: 'Build ticket 002', status: 'running' },
-    ],
-  }))
+  on('command.register', () => ({ value: { command: 'watcher' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'a1' }))
   on('turn.start', (_, e) => ({ turnId: e.turnId }))
   on('turn.step', async function* (_, e) {
-    return {
-      turnId: e.turnId,
-      index: e.index,
-      answer: '',
-      toolUses: [{ name: 'Edit', input: { file_path: 'src/map.ts' } }],
-      stopReason: 'tool_use' as const,
-      usage: USAGE,
-    }
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [{ name: 'Edit', input: { file_path: 'src/map.ts' } }], stopReason: 'tool_use' as const, usage: USAGE }
   })
   on('tool.call', () => ({ result: {} }))
-  on('turn.complete', (_, e) => ({ text: e.answer }))
 
-  await $.turn.start({
-    text: `## Context\n- **Works in:** billing-api at C:/work/billing-api (open), changes it\n\nBuild this ticket: ${DIR}/002-map-columns.md, ${DIR}/milestone.md, C:/repo/.brain/specs/003-invoice-export/spec.md`,
-    turnId: 't1',
-    agentId: 'a1',
-  })
-  for await (const _ of $.turn.step({
-    turnId: 't1',
-    index: 0,
-    model: 'claude-sonnet-5-5',
-    messageCount: 1,
-    agentId: 'a1',
-  })) {
+  await $.session.start({ cwd: '/', surface: 'vscode', isInteractive: true })
+  await $.agent.spawn({ tool_use_id: 'tu1', prompt: 'Map', description: 'Map columns', subagentType: 'alper-brain:builder', parentModel: 'claude-opus-5-5', background: true, fork: false } as never)
+  await $.turn.start({ text: 'Map', turnId: 't1', agentId: 'a1' })
+  for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-sonnet-5-5', messageCount: 1, agentId: 'a1' })) {
   }
-  time.at += 2000
   await $.tool.call({ tool: 'Edit', file_path: 'src/map.ts', old_string: 'a', new_string: 'b', agentId: 'a1' })
 
-  const terminal = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect(await terminal.find({ type: 'Text', text: /Workshop · 1 at work · 003 Invoice export · 0\.0M tok · 1 edits · 0 commits/ })).toBeDefined()
-  // The track's line reads its files when the builder arrives, and again on the clock's tick.
-  expect(await terminal.find({ type: 'Text', text: /^billing-api M001 1\/3 · builder T002 · starting$/ })).toBeDefined()
-  expect(await terminal.find({ type: 'Text', text: /· builder T002 · Forge · editing map\.ts/ })).toBeDefined()
-  await terminal.unmount()
+  const term = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await term.find({ type: 'Text', text: /^Code\s+100% 10k$/ })).toBeDefined()
+  expect(await term.find({ type: 'Text', text: /● builder · code · edit map\.ts/ })).toBeDefined()
+  await term.unmount()
 
-  // Where it has Svg, the surface draws the workshop as one Svg, under the 128 KB an Svg holds.
-  const desktop = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  const strips = await desktop.findAll({ type: 'Svg' })
-  expect(strips.map(found => found.props.alt)).toEqual(['Vega, builder T002, editing map.ts'])
-  for (const strip of strips) expect(String(strip.props.source).length).toBeLessThan(128_000)
-  await desktop.unmount()
-
-  // The spending is saved under the milestone, for the next /build call.
-  const saved = stored[`ledger:${DIR}`] as { agentTokens: number; byTicket: Record<string, { tokens: number }> }
-  expect(saved.agentTokens).toBe(10_000)
-  expect(saved.byTicket['002']?.tokens).toBe(10_000)
+  for (const surface of ['desktop', 'vscode', 'mobile'] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    const svg = await ui.find({ type: 'Svg' })
+    const source = String((svg?.props as { source?: string } | undefined)?.source ?? '')
+    expect(source.startsWith('<svg')).toBe(true)
+    expect(source.length).toBeLessThan(131072)
+    expect(source).toContain('edit map.ts')
+    expect(String((svg?.props as { alt?: string }).alt)).toContain('builder in code, edit map.ts')
+    await ui.unmount()
+  }
 })
 
-test("the decide phase's arbiter sits at the meeting table", async ($, on) => {
-  const reviewing: Record<string, string> = {
-    ...files,
-    [`${DIR}/milestone.md`]: '# Milestone 001: Parse invoices\n\n**Phase:** `decide`\n\n**Squash:** none\n',
-    [`${DIR}/review.md`]: '# Review\n',
+/** A folder of files held in memory: each key a file's path, its value the text. */
+const filesOf = (tree: Record<string, string>): Files => {
+  const paths = Object.keys(tree)
+  return {
+    exists: async p => paths.some(k => k === p || k.startsWith(`${p}/`)),
+    read: async p => {
+      const text = tree[p]
+      if (text === undefined) throw new Error(`ENOENT ${p}`)
+      return text
+    },
+    list: async p => {
+      const seen = new Map<string, 'file' | 'dir'>()
+      for (const k of paths.filter(k => k.startsWith(`${p}/`))) {
+        const [head, ...rest] = k.slice(p.length + 1).split('/')
+        seen.set(head!, rest.length > 0 ? 'dir' : 'file')
+      }
+      return [...seen].map(([name, kind]) => ({ name, kind }))
+    },
   }
-  on('ui.open', () => ({ value: { isPlaced: true } }))
-  on('ui.status', () => ({ value: undefined }))
-  const time = clockAt(on)
-  on('store.get', () => ({ value: undefined }))
-  on('store.set', () => ({ value: undefined }))
-  on('fs.list', (_, e) => ({ value: listing(reviewing, e.path) }))
-  on('fs.read', (_, e) => ({ value: reviewing[slash(e.path)] ?? '' }))
-  on('agent.list', () => ({
-    value: [{ id: 'a2', type: 'alper-brain:arbiter', description: 'Decide the escalations', status: 'running' }],
-  }))
-  on('turn.start', (_, e) => ({ turnId: e.turnId }))
-  on('tool.call', () => ({ result: {} }))
+}
 
-  // The main session reading the milestone is how a build starts or resumes.
-  await $.tool.call({ tool: 'Read', file_path: `${DIR}/milestone.md` })
-  // The arbiter is handed review.md, as the fixer is.
-  await $.turn.start({ text: `Decide the escalations: ${DIR}/review.md`, turnId: 't2', agentId: 'a2' })
-  time.at += 2000
-  await $.tool.call({ tool: 'Read', file_path: `${DIR}/review.md`, agentId: 'a2' })
+const MS = (phase: string, squash = 'none', landed = 'none') => `# M
 
-  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  // Whatever it reads, a decision's agent works at the meeting table.
-  expect(await ui.find({ type: 'Text', text: /· arbiter decide · Council · reading review\.md/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /^billing-api M001 1\/3 · arbiter · starting$/ })).toBeDefined()
-  await ui.unmount()
+**Phase:** ${phase}
+**Squash:** ${squash}
+**Landed:** ${landed}
+`
+const TICKET = (status: string) => `# T
+
+**Status:** ${status}
+`
+const B = 'C:/work/acme-brain'
+const BRAIN = filesOf({
+  [`${B}/BRAIN.md`]: '# acme',
+  [`${B}/notes/authored/retry-keys.md`]: 'x',
+  [`${B}/notes/repos/api/REPO.md`]: 'x',
+  [`${B}/notes/repos/api/explored/billing.md`]: 'x',
+  [`${B}/notes/repos/web/REPO.md`]: 'x',
+  [`${B}/.brain/drafts/idea.md`]: 'x',
+  [`${B}/.brain/specs/001-old/spec.md`]: '# Old\n\n**Landed:** api@abc1234\n',
+  [`${B}/.brain/specs/002-gone/spec.md`]: '# Gone\n\n**Abandoned:** not needed\n',
+  [`${B}/.brain/specs/003-v2/spec.md`]: '# Billing v2\n\n**Repos:** api, web\n',
+  [`${B}/.brain/specs/003-v2/milestones/api/001-expand/milestone.md`]: MS('none', 'abc', 'def1234'),
+  [`${B}/.brain/specs/003-v2/milestones/api/001-expand/001-add.md`]: TICKET('done'),
+  [`${B}/.brain/specs/003-v2/milestones/api/002-contract/milestone.md`]: MS('review'),
+  [`${B}/.brain/specs/003-v2/milestones/api/002-contract/002-drop.md`]: TICKET('done'),
+  [`${B}/.brain/specs/003-v2/milestones/web/001-migrate/milestone.md`]: MS('ask'),
+  [`${B}/.brain/specs/003-v2/milestones/web/001-migrate/001-use.md`]: TICKET('done'),
+  [`${B}/.brain/specs/003-v2/milestones/web/001-migrate/002-ui.md`]: TICKET('doing'),
 })
 
-test('an ask shows as waiting on the user while an escalation has no answer', async ($, on) => {
-  const waiting: Record<string, string> = {
-    ...files,
-    [`${DIR}/milestone.md`]: '# Milestone 001: Parse invoices\n\n**Phase:** ask\n\n**Squash:** none\n',
-    [`${DIR}/review.md`]:
-      '# Review: Parse invoices\n\n## Standards\n\nST1. parse.ts: rounds early. Judgement call, **escalate**.\n**Answer:** fix it as proposed — decided by the user\n\nST2. parse.ts: renames a field the web app reads. Judgement call, **escalate**.\n\nST3. parse.ts: long function. Hard violation.\n',
-  }
-  on('ui.open', () => ({ value: { isPlaced: true } }))
-  on('ui.status', () => ({ value: undefined }))
-  clockAt(on)
-  on('store.get', () => ({ value: undefined }))
-  on('store.set', () => ({ value: undefined }))
-  on('fs.list', (_, e) => ({ value: listing(waiting, e.path) }))
-  on('fs.read', (_, e) => ({ value: waiting[slash(e.path)] ?? '' }))
-  on('agent.list', () => ({ value: [] }))
-  on('turn.start', (_, e) => ({ turnId: e.turnId }))
-  on('tool.call', () => ({ result: {} }))
-
-  await $.tool.call({ tool: 'Read', file_path: `${DIR}/milestone.md` })
-
-  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  // ST1 has its answer and ST3 is no escalation, so only ST2 holds the build.
-  expect(await ui.find({ type: 'Text', text: /^⚠ billing-api M001: 1 escalation waits on your answers — \/build 003$/ })).toBeDefined()
-  await ui.unmount()
+test('the brain is found from a folder inside it, or from a path into its .brain', async () => {
+  expect(await findBrain(BRAIN, `${B}/notes/repos`)).toBe(B)
+  expect(await findBrain(BRAIN, 'C:/elsewhere')).toBe(undefined)
+  expect(brainOfPath('C:\\work\\acme-brain\\.brain\\specs\\003-v2\\spec.md')).toBe(B)
+  expect(brainOfPath('C:/work/api/src/main.ts')).toBe(undefined)
 })
 
-test("each track's milestone shows under its own repository, though both are numbered 001", async ($, on) => {
-  const DIR2 = 'C:/repo/.brain/specs/003-invoice-export/milestones/web-app/001-show-totals'
-  const wave: Record<string, string> = {
-    ...files,
-    [`${DIR2}/milestone.md`]: '# Milestone 001: Show totals\n\n**Phase:** none\n\n**Squash:** none\n',
-    [`${DIR2}/001-totals-page.md`]: '# Ticket 001: Totals page\n\n**Status:** doing\n\n**Commit:** none\n',
-  }
-  on('ui.open', () => ({ value: { isPlaced: true } }))
-  on('ui.status', () => ({ value: undefined }))
-  clockAt(on)
-  on('store.get', () => ({ value: undefined }))
-  on('store.set', () => ({ value: undefined }))
-  on('fs.list', (_, e) => ({ value: listing(wave, e.path) }))
-  on('fs.read', (_, e) => ({ value: wave[slash(e.path)] ?? '' }))
-  on('agent.list', () => ({
-    value: [
-      { id: 'w1', type: 'alper-brain:builder', description: 'Build ticket 002', status: 'running' },
-      { id: 'w2', type: 'alper-brain:builder', description: 'Build ticket 001', status: 'running' },
-    ],
-  }))
-  on('turn.start', (_, e) => ({ turnId: e.turnId }))
-  on('tool.call', () => ({ result: {} }))
-
-  // The tracks' builders run side by side, one per repository.
-  await $.turn.start({
-    text: `## Context\n- **Works in:** billing-api at C:/work/billing-api (open), changes it\n\nBuild this ticket: ${DIR}/002-map-columns.md`,
-    turnId: 'tw1',
-    agentId: 'w1',
-  })
-  await $.turn.start({
-    text: `## Context\n- **Works in:** web-app at C:/work/web-app (open), changes it\n\nBuild this ticket: ${DIR2}/001-totals-page.md`,
-    turnId: 'tw2',
-    agentId: 'w2',
-  })
-
-  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect(await ui.find({ type: 'Text', text: /^billing-api M001 1\/3 · builder T002 · starting$/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /^web-app M001 0\/1 · builder T001 · starting$/ })).toBeDefined()
-  // Each is born at the core, and thinks there first.
-  expect(await ui.find({ type: 'Text', text: /● Vega · builder T002 · Core · thinking/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /● Orion · builder T001 · Core · thinking/ })).toBeDefined()
-  await ui.unmount()
-})
-
-test('the fixer shows fixing in the fix phase, in a milestone still in the flat layout', async ($, on) => {
-  // A spec ticketed before tracks keeps its milestones straight under milestones/, each naming its repository on a Repo line.
-  const FLAT = 'C:/repo/.brain/specs/002-old-export/milestones/001-parse-invoices'
-  const fixing: Record<string, string> = {
-    'C:/repo/.brain/specs/002-old-export/spec.md': '# Spec: Old export\n\n**Key:** None\n',
-    [`${FLAT}/milestone.md`]: '# Milestone 001: Parse invoices\n\n**Repo:** billing-api\n\n**Phase:** fix\n\n**Squash:** none\n',
-    [`${FLAT}/001-read-rows.md`]: '# Ticket 001: Read rows\n\n**Status:** done\n\n**Commit:** a1b2c3d4\n',
-    [`${FLAT}/review.md`]: '# Review\n',
-  }
-  on('ui.open', () => ({ value: { isPlaced: true } }))
-  on('ui.status', () => ({ value: undefined }))
-  const time = clockAt(on)
-  on('store.get', () => ({ value: undefined }))
-  on('store.set', () => ({ value: undefined }))
-  on('fs.list', (_, e) => ({ value: listing(fixing, e.path) }))
-  on('fs.read', (_, e) => ({ value: fixing[slash(e.path)] ?? '' }))
-  on('agent.list', () => ({
-    value: [{ id: 'a3', type: 'alper-brain:fixer', description: 'Fix the review findings', status: 'running' }],
-  }))
-  on('turn.start', (_, e) => ({ turnId: e.turnId }))
-  on('tool.call', () => ({ result: {} }))
-
-  await $.tool.call({ tool: 'Read', file_path: `${FLAT}/milestone.md` })
-  await $.turn.start({
-    text: `## Context\n- **Works in:** billing-api at C:/work/billing-api (open), changes it\n\nFix the findings in this review: ${FLAT}/review.md`,
-    turnId: 't3',
-    agentId: 'a3',
-  })
-  time.at += 2000
-  await $.tool.call({ tool: 'Edit', file_path: 'C:/work/billing-api/src/parse.ts', old_string: 'a', new_string: 'b', agentId: 'a3' })
-
-  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect(await ui.find({ type: 'Text', text: /^billing-api M001 1\/1 · fixer · starting$/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /· fixer fix · Forge · editing parse\.ts/ })).toBeDefined()
-  await ui.unmount()
-})
-
-test("a migrate waiting on its producer's expand shows its track waiting", async ($, on) => {
-  const DIR3 = 'C:/repo/.brain/specs/003-invoice-export/milestones/web-app/001-show-totals'
-  const waiting: Record<string, string> = {
-    ...files,
-    [`${DIR3}/milestone.md`]: '# Milestone 001: Show totals\n\n**Lands after:** billing-api/001\n\n**Phase:** waits\n\n**Squash:** none\n',
-    [`${DIR3}/001-totals-page.md`]: '# Ticket 001: Totals page\n\n**Status:** done\n\n**Commit:** b2c3d4e5\n',
-  }
-  on('ui.open', () => ({ value: { isPlaced: true } }))
-  on('ui.status', () => ({ value: undefined }))
-  clockAt(on)
-  on('store.get', () => ({ value: undefined }))
-  on('store.set', () => ({ value: undefined }))
-  on('fs.list', (_, e) => ({ value: listing(waiting, e.path) }))
-  on('fs.read', (_, e) => ({ value: waiting[slash(e.path)] ?? '' }))
-  on('agent.list', () => ({ value: [] }))
-  on('tool.call', () => ({ result: {} }))
-
-  // The main session writing the Phase line is how the pane hears the milestone left the closing queue.
-  await $.tool.call({ tool: 'Edit', file_path: `${DIR3}/milestone.md`, old_string: 'check', new_string: 'waits' })
-
-  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect(await ui.find({ type: 'Text', text: /^web-app M001 1\/1 · check waits on billing-api\/001$/ })).toBeDefined()
-  await ui.unmount()
-})
-
-test("each request's tokens count at the stations of the calls it asked for, the rest at the core", async ($, on) => {
-  on('ui.open', () => ({ value: { isPlaced: true } }))
-  on('ui.status', () => ({ value: undefined }))
-  clockAt(on)
-  on('store.get', () => ({ value: undefined }))
-  on('store.set', () => ({ value: undefined }))
-  on('fs.list', () => ({ value: [] }))
-  on('agent.list', () => ({ value: [] }))
-  const steps = [
-    [{ name: 'Edit', input: { file_path: 'src/map.ts' } }, { name: 'Read', input: { file_path: 'src/rows.ts' } }],
-    [],
-  ]
-  on('turn.step', async function* (_, e) {
-    return { turnId: e.turnId, index: e.index, answer: '', toolUses: steps[e.index] ?? [], stopReason: 'tool_use' as const, usage: USAGE }
-  })
-
-  for (const index of [0, 1]) for await (const _ of $.turn.step({ turnId: 't1', index, model: 'claude-sonnet-5-5', messageCount: 1 })) {
-  }
-
-  // the steps ran through the pane's hooks; the rule they apply: 10,000 tokens a request,
-  // the first split between the forge and the archive, the second all thinking at the core
-  const once = spendOn({}, 10_000, steps[0] ?? [])
-  expect(once).toEqual({ bay: 5000, shelves: 5000 })
-  expect(spendOn(once, 10_000, [])).toEqual({ bay: 5000, shelves: 5000, holo: 10_000 })
-  // a review's agent counts at the council whatever it calls
-  expect(spendOn({}, 600, [{ name: 'Read', input: { file_path: 'src/a.ts' } }], 'review')).toEqual({ table: 600 })
+test('the brain counts its notes and specs, and reads each track of a spec in flight', async () => {
+  const b = await readBrain(BRAIN, B)
+  expect([b.name, b.notes, b.repos, b.drafts, b.inFlight, b.landed]).toEqual(['acme-brain', 2, 2, 1, 1, 1])
+  expect(b.specs.map(s => [s.id, s.title])).toEqual([['003', 'Billing v2']])
+  const [api, web] = b.specs[0]!.tracks
+  expect(api!.milestones.map(m => [m.num, m.landed, m.phase])).toEqual([['001', true, 'none'], ['002', false, 'review']])
+  expect(trackState(api!)).toMatchObject({ word: 'review', hot: false })
+  expect(web!.milestones[0]).toMatchObject({ done: 1, total: 2 })
+  expect(trackState(web!)).toMatchObject({ word: 'waits on you', hot: true })
 })

@@ -2,7 +2,7 @@
 
 Every sub-agent the skills dispatch starts in the brain, with no user, and sees nothing of this conversation. Open each brief with a **Context** block, filled from [FORMAT.md](FORMAT.md)'s working repository rules, then add the task's own inputs and instructions. Give paths, never pasted file contents: pass every file that exists on disk by its absolute path (the repository's docs, the brain's notes, this plugin's reference files such as SMELLS.md or DIAGRAMS.md), and paste only what you assembled yourself (an area list, a digest of ADRs, another agent's report).
 
-Name files in the brief by what the agent works on: a ticket's path only for the agent building that ticket, its builder or the fixer finishing it, `review.md` only for the arbiter and the fixer of its findings, and the milestone's `milestone.md` or the spec folder for everyone else. The build pane files each agent under the ticket or job its brief's paths name.
+Name files in the brief by what the agent works on: a ticket's path only for the agent building that ticket, its builder or the fixer finishing it, `review.md` only for the arbiter and the fixer of its findings, and the milestone's `milestone.md` or the spec folder for everyone else.
 
 ## The Context block
 
@@ -31,7 +31,7 @@ Rules:
    - **Changed:** each file changed and commit made, with its repository, or nothing
 ```
 
-The **Works in** line's `<slug> at <root>` form is fixed: the build pane reads it to show each agent's repository. `build` hands the block over as a file, filled by `sdd dispatch`: its briefs open with `## Context`, the **Works in** line, and a line naming the file that holds the whole block, which the agent reads first; the agents it dispatches take either form. A sub-agent's **Needs the user** items reach the user through the dispatching skill's hand-over, beside its own decisions.
+`build` hands the block over as a file, filled by `sdd dispatch`: its briefs open with `## Context`, the **Works in** line, and a line naming the file that holds the whole block, which the agent reads first; the agents it dispatches take either form. A sub-agent's **Needs the user** items reach the user through the dispatching skill's hand-over, beside its own decisions.
 
 ## Fanning out
 

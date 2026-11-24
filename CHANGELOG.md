@@ -2,6 +2,12 @@
 
 Each release lists what changed for a user of the plugin. **Migrates by itself** means the next command on an old brain or spec moves it to the new form; you do nothing.
 
+## Unreleased
+
+### Changed
+
+- **Agent Watcher replaces the workshop.** The pane now shows the session's tokens: how full the context window is, the share per area, tokens per minute, and what each agent is doing. Open it with `/watcher`; `/watcher <theme>` picks one of six looks. With a brain open it adds a strip of the brain's counts and a **Building** card, a row per track of each spec in flight, red where a track waits on you. The build's status line is gone.
+
 ## 2.1.0
 
 ### New

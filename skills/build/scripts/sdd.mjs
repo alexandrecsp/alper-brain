@@ -906,7 +906,7 @@ const tryWrite = (file, text) => {
 
 /**
  * A dispatch in one call: writes the agent's Context block to `<milestone>/.context/<agent>[-<ticket>].md`, sets a
- * ticket's builder's ticket to `doing`, and returns the brief's opening, the **Works in** line the build pane reads
+ * ticket's builder's ticket to `doing`, and returns the brief's opening, the **Works in** line
  * and the file holding the rest, followed by the paths the agent works on. When a sandbox refuses a write, the brief
  * holds the whole block instead, and stderr names the **Status** line the caller writes with Edit.
  */

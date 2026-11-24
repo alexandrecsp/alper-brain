@@ -1363,7 +1363,7 @@ function front(t) {
 // scripts/check-phases.mjs checks every phase of build's Phase table is a key here.
 const PHASE_LABEL = { check: 'Checking', failed: 'Check failed', waits: 'Waiting on its expand', review: 'In review', decide: 'Deciding escalations', ask: 'Waiting on your answers', fix: 'Fixing review', squash: 'Squashing' };
 // How many of a review.md's findings are flagged escalate with no Answer line yet; a finding runs from its ID
-// (ST1, SP2, CN3) to the next. The same rule as hooks/sdd.ts's awaitingOf.
+// (ST1, SP2, CN3) to the next.
 const awaitingOf = (md) => md.split(/^(?=\s*(?:[-*]\s+|#{1,4}\s+)?(?:\*\*)?(?:ST|SP|CN)\d+\b)/m).slice(1)
   .filter((f) => /\bescalate\b/i.test(f) && !/\*\*Answer:\*\*/.test(f)).length;
 const ticketsStatus = (ts) => (!ts.length ? 'draft' : ts.every((t) => t.status === 'done') ? 'done' : ts.some((t) => t.status === 'blocked') ? 'blocked'

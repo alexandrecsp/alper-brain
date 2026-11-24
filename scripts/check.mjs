@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Runs every check that needs no model and no API key: the section references, the phases, the scripts' tests and
-// the workshop pane's tests. Exits 1 when any fails. `.github/workflows/checks.yml` runs it on every push.
+// the Agent Watcher pane's tests. Exits 1 when any fails. `.github/workflows/checks.yml` runs it on every push.
 //   node scripts/check.mjs
 import { spawnSync } from 'node:child_process'
 import { readdirSync } from 'node:fs'
@@ -18,7 +18,7 @@ const checks = [
   ['section references', 'node', ['scripts/check-refs.mjs']],
   ['phases', 'node', ['scripts/check-phases.mjs']],
   ['script tests', 'node', ['--test', ...tests(join(root, 'skills'))]],
-  ['workshop pane tests', 'claude', ['plugin', 'test', '.']],
+  ['Agent Watcher pane tests', 'claude', ['plugin', 'test', '.']],
 ]
 
 let failed = 0

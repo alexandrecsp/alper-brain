@@ -151,35 +151,33 @@ A repository has one working tree, so a `/build` claims each repository it chang
 - `/open-pr <spec-id> --comments` gathers the review comments on the open PRs. You mark each one fix, reply or skip. A fixer commits the fixes on the PR's branch, and once you agree, the PR gets the push and one reply.
 - `/open-pr <spec-id> --merged` records that the PRs merged. It brings each local base level with `origin`, and after a squash or rebase merge it drops the local copies of the squashes once you agree. Then it writes the spec's **Merged** line. A spec that depends on this one builds only once its **Merged** line names every repository that has a remote. `/brain status` lists the landed specs still waiting for their merge.
 
-## The workshop pane
+## Agent Watcher
 
-While `/build` runs, **the workshop**, a live pane beside the chat, draws the session as a star chart, amber for what works and blue for the frame: a glowing core at the centre, where sub-agents are born and agents think, and each station a star on a ring around it, linked to the core and to its neighbours. The main session and each sub-agent are light: a comet running along the line to the star of what they do, then an arc orbiting that star, its spoke lit in the agent's colour, with the agent's name and ticket or job under the star. A finished sub-agent stays, a faint comet drifting about the core on a lane of its own; the latest twelve do. Beside the chart, a rail lists what waits on you, the spec's tokens, its tracks and the crew.
+**Agent Watcher** is a live pane beside the chat that shows what the session spends and what each agent is doing. It opens with the session; `/watcher` opens it again, and `/watcher <theme>` switches its look: `ember`, `gold`, `tide`, `slate`, `dusk` or `mono`. The theme you pick is kept for the next session.
 
-| Station | What sends an agent there |
+- **Tokens.** A ring gauge of how full the main session's context window is (its last request against the model's window, red from 85%, when compaction nears), and the mix of the session's input, output, cache reads and cache writes.
+- **Areas.** What share of the tokens went to each area, a bar per area; an area glows while an agent works in it.
+- **Tokens per minute.** The last few hours as a curve, the latest minute tagged.
+- **Brain.** With a brain open, a strip of its counts: notes, registered repositories, specs in flight and landed, and drafts waiting for `sync`.
+- **Building.** Each ticketed spec in flight, a row per track: a segment per milestone (dim once landed, filling with its tickets while it builds), the milestone and its tickets, and where it stands: `ready`, `building`, a closing step such as `review`, `landing`, or, in red, `waits on you`, `blocked` or `check failed`.
+- **Agents.** The main session and each sub-agent: its area, what it is doing now (`edit register.tsx`, `run npm test`), its tokens and how long it has run. The latest six finished stay listed.
+
+| Area | What counts there |
 | --- | --- |
-| Council | a review's or a decision's agent, whatever it calls |
-| Git | `git` and `gh` commands, and `sdd squash` and `sdd land` |
+| Review | every call of a reviewer's or an arbiter's agent |
+| Git | `git` and `gh` commands |
+| Brain | reading or editing under `.brain/`, and `sdd` commands |
 | Tests | test runs (`npm test`, `pytest`, `go test`…) |
 | Shell | any other `Bash` or `PowerShell` command |
-| Forge | editing code; a `/build` builder's edits to its own ticket too |
-| Memory | reading or editing under `.brain/`, and the other `sdd` commands, which keep the spec's files there |
-| Archive | reading or searching code |
+| Code | editing code |
+| Read | reading or searching code |
 | Docs | reading or editing documents (`.md`, `.txt`…) |
-| Uplink | `WebSearch`, `WebFetch` and MCP tools |
-| Core | a sub-agent's birth; thinking, `Skill`, `ToolSearch` and any other tool |
-| Standby | the main session between turns, an orbit around the core |
+| Web | `WebSearch`, `WebFetch` and MCP tools |
+| Think | a turn with no tool call, and any other tool |
 
-Agents travel at an even pace, easing in and out of each star, and an agent stays at least a second at a star before its next call sends it on. A star brightens and its ring turns while someone works there, and the core swirls faster while someone thinks.
+A turn's tokens are split evenly across the areas of its tool calls. Narrow, the pane stacks its cards and lists the areas as rows; wide, the gauge and the areas sit side by side. The pane finds the brain from the session's folder, or from the first path a tool call names inside one, and reads its files again every 30 s and after each turn; it only reads. The terminal draws no pictures, so there it is a list: the areas by share, each track, then each agent.
 
-- **Waits on you.** A card on top of the rail for each track that waits on the user: escalations left to answer (`ask`), a check or a landing that gave up (`failed`), or a `blocked` ticket with the last line of its Notes. The core then pulses red, and each one also raises a toast when it happens.
-- **Tracks.** One card per repository of the spec, read from its files: the next open milestone (else the first unlanded one), its tickets as a bar, and where it stands: the agent at work, closing by the main session, paused, ready, after another track's milestone, waiting at its check, landing, or landed.
-- **Tokens.** What the milestones being built have spent, the sub-agents and the main session together, saved per milestone so the total carries across `/build` calls and sessions; with no milestone, what this session's sub-agents spent.
-- **The crew.** Each agent at work by role (`builder`, `fixer`, `reviewer`, `arbiter`, `scout`…), with its ticket or job and the star it is at; the main session is outlined in gold, and the finished ones share one line, drifting.
-- **A status line** under the prompt, such as `⚙ M002 web-app 2/3 tickets · review · 1 agent running · 412.0k tok`, or with tracks side by side, each track's stage, `⚠ waits on you` among them.
-
-Open it with `/workshop`; it also opens by itself when a sub-agent starts or a milestone is picked up. It only reads `.brain/`. The terminal draws no pictures, so there the workshop is a list: what waits on you, the tracks, and each agent with its station.
-
-`hooks/register.tsx` is the module, `hooks/sdd.ts` and `hooks/events.ts` what it reads from the files, `hooks/workshop/` the crew (`crew.ts`) and the drawing (`draw.ts`), `hooks/register.test.tsx` and `hooks/tracks.test.tsx` its tests (`claude plugin test .`), and `types/index.d.ts` the state it keeps. The chart is drawn in code, one Svg under the 128 KB an Svg holds. The editor draws that Svg as an image, which reloads, animations and all, whenever its source changes: so the drawing changes only when something on screen does, at most once every 2 s, and leaves what an agent is doing this second to the alt text and the terminal's list.
+`hooks/register.tsx` is the module and its bookkeeping, `hooks/brain.ts` what it reads from the brain, `hooks/draw.ts` the drawing and the themes, `hooks/register.test.tsx` its tests (`claude plugin test .`), and `types/index.d.ts` the state it keeps. The drawing is one Svg under the 128 KB an Svg holds. The editor draws that Svg as an image, which reloads whenever its source changes: so the drawing changes at most once every 2 s, and its clocks move by the minute.
 
 ## The brain
 
@@ -229,9 +227,9 @@ The pipeline skills (`write-spec`, `write-tickets`, `build`), `refactor`, `onboa
 
 ## Moving from alper-skills
 
-Install alper-brain in place of alper-skills, then run `/brain setup` in a brain with each repository open. Setup moves the repository's `.sdd/` into the brain's: each spec keeps its folder name unless its number is taken (then it is renumbered, and its branches renamed), gains its **Repos** line, its milestones move into that repository's track, and its research, tours and refactor reports come along. The commit key from `.brain/settings.json` moves to the repository's card, and the **Spec workflow** section of its agent file is removed. The dashboard and the graph page are now the one brain page, `/brain view`. The alper-flow mod is built in as the workshop pane, opened with `/workshop`: uninstall `alper-flow@alper-mods`.
+Install alper-brain in place of alper-skills, then run `/brain setup` in a brain with each repository open. Setup moves the repository's `.sdd/` into the brain's: each spec keeps its folder name unless its number is taken (then it is renumbered, and its branches renamed), gains its **Repos** line, its milestones move into that repository's track, and its research, tours and refactor reports come along. The commit key from `.brain/settings.json` moves to the repository's card, and the **Spec workflow** section of its agent file is removed. The dashboard and the graph page are now the one brain page, `/brain view`. The alper-flow mod is replaced by the Agent Watcher pane, opened with `/watcher`: uninstall `alper-flow@alper-mods`.
 
-A spec ticketed before tracks keeps its milestones straight under `milestones/`, each naming its repository on a **Repo** line. The brain page and the workshop pane read it as it is, and the next `/build` on it moves it into tracks first: it renumbers each track's milestones and tickets from `001`, rewrites the **Depends on** lines and renames the milestone branches. A PR branch (`sdd/<spec>/pr-M<NNN>`) keeps its old number. A spec whose tickets depend on another track's tickets, from before **Builds after**, has those waits moved onto its milestones the same way.
+A spec ticketed before tracks keeps its milestones straight under `milestones/`, each naming its repository on a **Repo** line. The brain page reads it as it is, and the next `/build` on it moves it into tracks first: it renumbers each track's milestones and tickets from `001`, rewrites the **Depends on** lines and renames the milestone branches. A PR branch (`sdd/<spec>/pr-M<NNN>`) keeps its old number. A spec whose tickets depend on another track's tickets, from before **Builds after**, has those waits moved onto its milestones the same way.
 
 ## Repository layout
 
@@ -239,11 +237,11 @@ A spec ticketed before tracks keeps its milestones straight under `milestones/`,
 .claude-plugin/   plugin.json and marketplace.json
 skills/<name>/    SKILL.md plus any reference files it points to
 agents/           the sub-agents the skills dispatch, each pinned to a model
-hooks/            the workshop pane: hooks.json names register.tsx, the hooks module
-types/            the workshop pane's state contract
+hooks/            the Agent Watcher pane: hooks.json names register.tsx, the hooks module
+types/            the Agent Watcher pane's state contract
 evals/            behaviour checks for the skills (claude plugin eval), by evals/README.md
 scripts/          check.mjs runs every free check: check-refs.mjs (every "FILE.md's **Section**" reference resolves),
-                  check-phases.mjs, the scripts' tests and the workshop pane's tests
+                  check-phases.mjs, the scripts' tests and the Agent Watcher pane's tests
 CHANGELOG.md      what each release changes, and what migrates by itself
 docs/DESIGN.md    why the brain became the hub
 docs/TRACKS.md    why a spec's milestones run in one track per repository

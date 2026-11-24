@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: 22
 
-      # Pinned like evals.yml; `claude plugin test` runs the workshop pane's tests and needs no login.
+      # Pinned like evals.yml; `claude plugin test` runs the Agent Watcher pane's tests and needs no login.
       - name: Install Claude Code
         run: npm install -g @anthropic-ai/claude-code@2.1.318
 
