@@ -347,6 +347,13 @@ export function drawWatcher(v: View, width: number, t: Theme): { source: string;
   const share = (a: Area) => (v.total > 0 ? (v.areas[a] ?? 0) / v.total : 0)
   const topShare = Math.max(0.0001, ...ROOMS.map(r => share(r.area)))
   const lit = new Set(running.map(a => a.area))
+  // the session's total over the areas, in millions, in a light face
+  const AREAS_TOTAL_H = 32
+  const areasTotal = (x: number, base: number) => {
+    const m = `${(v.total / 1e6).toFixed(v.total >= 1e7 ? 1 : 2)}M`
+    out.push(text(x, base, m, { size: 20, font: t.num, weight: 300 }))
+    out.push(label(x + m.length * 11 + 8, base, 'tokens', t.faint, 9.5))
+  }
   if (wide) {
     // a vertical capsule each, beside the gauge
     const ax = P + gw + G
@@ -354,7 +361,8 @@ export function drawWatcher(v: View, width: number, t: Theme): { source: string;
     card(ax, y, aw, gaugeH, 'Areas', 'share of tokens')
     const bx0 = ax + 18
     const bw0 = aw - 36
-    const btop = y + 62
+    areasTotal(bx0, y + 54)
+    const btop = y + 62 + AREAS_TOTAL_H
     const bbot = y + gaugeH - 38
     const bh = bbot - btop
     for (let i = 0; i <= 3; i++) {
@@ -385,16 +393,18 @@ export function drawWatcher(v: View, width: number, t: Theme): { source: string;
     y += gaugeH + G
     const shown = ROOMS.filter(r => share(r.area) > 0 || lit.has(r.area))
     const rowH = 26
-    const areasH = 48 + Math.max(1, shown.length) * rowH + 8
+    const areasH = 48 + AREAS_TOTAL_H + Math.max(1, shown.length) * rowH + 8
     card(P, y, inner, areasH, 'Areas', 'share of tokens')
     const lx = P + 18
     const tx0 = P + 92
     const tw0 = inner - 92 - 18 - 48
-    if (shown.length === 0) out.push(text(lx, y + 66, 'No tokens yet', { size: 12, fill: t.faint }))
+    areasTotal(lx, y + 60)
+    const rows0 = y + 52 + AREAS_TOTAL_H
+    if (shown.length === 0) out.push(text(lx, rows0 + 14, 'No tokens yet', { size: 12, fill: t.faint }))
     shown.forEach((r, i) => {
       const s = share(r.area)
       const on = lit.has(r.area)
-      const mid = y + 52 + i * rowH + rowH / 2
+      const mid = rows0 + i * rowH + rowH / 2
       if (on) out.push(`<circle cx="${r1(lx + 3)}" cy="${r1(mid)}" r="2.5" fill="${t.accent}" filter="url(#glow)"><animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite"/></circle>`)
       out.push(label(lx + 12, mid + 4, r.label, on ? t.accent : t.muted, 10))
       out.push(`<rect x="${r1(tx0)}" y="${r1(mid - 5)}" width="${r1(tw0)}" height="10" rx="5" fill="${t.hair}" fill-opacity="0.45"/>`)
