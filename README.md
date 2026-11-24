@@ -153,7 +153,7 @@ A repository has one working tree, so a `/build` claims each repository it chang
 
 ## Agent Watcher
 
-**Agent Watcher** is a live pane beside the chat that shows what the session spends and what each agent is doing. It opens with the session; `/watcher` opens it again, and `/watcher <theme>` switches its look: `ember`, `gold`, `tide`, `slate`, `dusk` or `mono`. The theme you pick is kept for the next session.
+**Agent Watcher** is a live pane beside the chat that shows what the session spends and what each agent is doing. It opens with the session and again whenever a sub-agent starts; `/watcher` opens it too, and `/watcher <theme>` switches its look: `ember`, `gold`, `tide`, `slate`, `dusk` or `mono`. The theme you pick is kept for the next session.
 
 - **Tokens.** A ring gauge of how full the main session's context window is (its last request against the model's window, red from 85%, when compaction nears), and the mix of the session's input, output, cache reads and cache writes.
 - **Areas.** What share of the tokens went to each area, a bar per area; an area glows while an agent works in it.

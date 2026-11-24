@@ -315,6 +315,8 @@ export const register: Register = on => {
       await quiet(
         patch($, id, a => ({ ...a, kind, name: one(e.name) || kind, task: one(e.description), area: areaOf('', {}, kind) })),
       )
+      // a closed pane comes back when a sub-agent starts; an open one stays as it is
+      void quiet($.ui.open({ id: PANE, title: TITLE }))
     }
 
     return r
