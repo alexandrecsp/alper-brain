@@ -747,6 +747,127 @@ App.register('overview', {
 (function () {
   let view = 'cards', sort = { k: 'num', dir: 1 }, lastKey = null;
 
+  // ---------- the Branches panel: each repository the spec touches, read live from its clone by Clones ----------
+  // The open spec and its ctx, so clones-change redraws the panel alone, keeping each graph's scroll.
+  let shown = null;
+  const ROW = 22, LANE = 14;
+  const agoMs = (ms) => { const m = Math.max(0, (Date.now() - ms) / 6e4); return !ms ? '' : m < 1 ? 'now' : m < 60 ? Math.round(m) + 'm' : m < 1440 ? Math.round(m / 60) + 'h' : m < 43200 ? Math.round(m / 1440) + 'd' : new Date(ms).toLocaleDateString('en', { month: 'short', day: 'numeric' }); };
+  const reposOf = (s, D) => [...new Set([...s.repos, ...s.milestones.map((m) => m.track)])].map((slug) => D.repos.find((r) => r.slug === slug)).filter(Boolean);
+  const baseOf = (s, slug) => ((s.base || '').replace(/`/g, '').split(/[,;]/).map((x) => x.trim()).find((x) => x.startsWith(slug + '@')) || '').slice(slug.length + 1) || null;
+
+  // a branch's chips: its milestone (selects it), the spec's branch, base, checked out, running beside the spec
+  const branchTags = (b, s, slug, ui) => {
+    const { esc } = ui, t = [];
+    if (b.spec) {
+      const m = /^M(\d+)$/.exec(b.spec) && s.milestones.find((x) => x.id === `${slug}/${b.spec.slice(1).padStart(3, '0')}`);
+      t.push(m ? `<span data-sel="milestone|${esc(s.id + '|' + m.id)}" class="cursor-pointer" title="${esc(m.title)}">${ui.pill(m.status, b.spec)}</span>` : `<span class="chip" style="background:var(--accent-soft);color:var(--accent)">${esc(b.spec === 'spec' ? 'spec branch' : b.spec)}</span>`);
+    }
+    if (b.base) t.push('<span class="chip" style="background:var(--panel-2)">base</span>');
+    if (b.head) t.push('<span class="chip" style="background:var(--accent);color:var(--bg)">checked out</span>');
+    if (b.running) t.push('<span class="chip" style="background:color-mix(in srgb, var(--s-active) 16%, transparent);color:color-mix(in srgb, var(--s-active) 80%, white)" title="moved since the spec forked from its base">running</span>');
+    if (b.remote) t.push('<span class="faint text-[10.5px]">remote</span>');
+    else if (b.pushed) t.push('<span class="faint text-[10.5px]" title="origin is at this commit too">pushed</span>');
+    return t.join('');
+  };
+
+  // the graph: lanes and dots in one SVG behind rows of commits; the spec's commits wear the accent
+  function graph(v, ui) {
+    const { esc } = ui, rows = v.rows, width = Math.max(1, ...rows.map((r) => Math.max(r.out.length, r.col + 1))) * LANE + 10;
+    const x = (j) => 9 + j * LANE, y = (i) => i * ROW + ROW / 2, lane = (j) => Theme.color(j + 1);
+    const seg = (j1, i, j2, c) => `<path d="M${x(j1)} ${y(i)}C${x(j1)} ${y(i) + ROW / 2} ${x(j2)} ${y(i) + ROW / 2} ${x(j2)} ${y(i + 1)}" stroke="${c}" stroke-width="1.6" fill="none" stroke-opacity=".8"/>`;
+    let lines = '', dots = '';
+    rows.forEach((r, i) => {
+      const next = rows[i + 1], to = (j) => (next && r.out[j] === next.c.sha ? next.col : j);
+      if (next) {
+        r.out.forEach((sha, j) => { if (sha != null && r.inL[j] === sha && j !== r.col) lines += seg(j, i, to(j), lane(j)); });
+        r.parentCols.forEach((k) => { lines += seg(r.col, i, to(k), lane(k)); });
+      }
+      if (r.cut) lines += `<path d="M${x(r.col)} ${y(i)}V${y(i) + ROW * 0.6}" stroke="${lane(r.col)}" stroke-width="1.4" stroke-dasharray="2 3" stroke-opacity=".6"/>`;
+      const own = v.ofSpec.has(r.c.sha), isHead = r.c.sha === v.head.sha;
+      dots += own ? `<circle cx="${x(r.col)}" cy="${y(i)}" r="4.5" fill="var(--accent)" style="filter:drop-shadow(0 0 4px var(--accent))"/>`
+        : `<circle cx="${x(r.col)}" cy="${y(i)}" r="3.5" fill="var(--panel)" stroke="${lane(r.col)}" stroke-width="1.8"/>`;
+      if (isHead) dots += `<circle cx="${x(r.col)}" cy="${y(i)}" r="7.5" fill="none" stroke="var(--text)" stroke-width="1.2" stroke-opacity=".7"/>`;
+    });
+    const label = (b) => `<span class="chip mono shrink-0" style="padding:0 6px;font-size:10.5px;${b.spec ? 'background:var(--accent-soft);color:var(--accent)' : 'background:var(--panel-2);color:var(--muted)'}${b.head ? ';box-shadow:inset 0 0 0 1px var(--text)' : ''}">${esc(b.name)}</span>`;
+    const row = (r) => {
+      const ls = v.labels.get(r.c.sha) || [], own = v.ofSpec.has(r.c.sha);
+      return `<div class="flex items-center gap-2 pr-3 text-[12px]" title="${esc(r.c.sha)}" style="height:${ROW}px;padding-left:${width + 6}px;${own ? 'background:color-mix(in srgb, var(--accent) 7%, transparent)' : ''}">
+        ${ls.slice(0, 3).map(label).join('')}${ls.length > 3 ? `<span class="faint text-[10.5px]">+${ls.length - 3}</span>` : ''}
+        <span class="min-w-0 flex-1 truncate ${own ? '' : 'muted'}">${esc(r.c.subject)}</span>
+        <span class="faint shrink-0 truncate text-[11px]" style="max-width:110px">${esc(r.c.author)}</span>
+        <span class="mono faint w-9 shrink-0 text-right text-[10.5px]">${agoMs(r.c.time)}</span>
+        <span class="mono faint shrink-0 text-[10.5px]">${r.c.sha.slice(0, 7)}</span></div>`;
+    };
+    return `<div style="position:relative;min-width:${width + 420}px">
+      <svg width="${width}" height="${rows.length * ROW}" style="position:absolute;left:0;top:0;overflow:visible">${lines}${dots}</svg>
+      ${rows.map(row).join('')}</div>${v.more ? '<div class="faint px-3 py-2 text-[11px]">Older commits not shown.</div>' : ''}`;
+  }
+
+  function repoBlock(repo, s, ui) {
+    const { esc } = ui, v = Clones.view(repo), slug = repo.slug;
+    const top = `<div class="flex flex-wrap items-center gap-2 px-4 pb-2 pt-3">${ui.repoDot(slug)}<span class="mono text-[12.5px] font-medium">${esc(slug)}</span>
+      ${repo.path ? `<span class="mono faint truncate text-[11px]">${esc(repo.path)}</span>` : ''}
+      ${v.state === 'ok' ? `<span class="muted ml-auto text-[11.5px]">${v.head.branch ? `on <span class="mono">${esc(v.head.branch)}</span>` : 'detached HEAD'} · base <span class="mono">${esc(v.base || '—')}</span> · ${v.branches.length} branches</span>` : ''}</div>`;
+    const note = v.note ? `<div class="mt-1 text-[11.5px]" style="color:color-mix(in srgb, var(--s-attention) 75%, white)">${esc(v.note)}</div>` : '';
+    const ask = (text, sub, btn) => `${top}<div class="flex items-center gap-3 px-4 pb-3.5 text-[12.5px]"><div class="min-w-0 flex-1"><div class="muted">${text}</div>${sub}${note}</div>${btn}</div>`;
+    if (v.state === 'ungranted') return ask(`Grant read access to this clone once: every spec that touches <b>${esc(slug)}</b> then reads it live.`,
+      repo.path ? `<div class="faint mt-0.5 text-[11px]">Pick <span class="mono">${esc(repo.path)}</span>.</div>` : '<div class="faint mt-0.5 text-[11px]">Not linked on this machine: <span class="mono">/brain link</span> records where its clone is.</div>',
+      `<button class="btn shrink-0 text-[12px]" data-clone-grant="${esc(slug)}">Grant access</button>`);
+    if (v.state === 'denied') return ask('The browser needs your permission to read this clone again.', '', `<button class="btn shrink-0 text-[12px]" data-clone-reconnect="${esc(slug)}">Reconnect</button>`);
+    if (v.state === 'error') return ask(`Could not read this clone: ${esc(v.err)}`, '', `<button class="btn shrink-0 text-[12px]" data-clone-grant="${esc(slug)}">Pick another folder</button>`);
+    if (v.state !== 'ok') return `${top}<div class="faint px-4 pb-3.5 text-[12px]">Reading its branches…</div>`;
+    const list = v.listed.map((b) => `<div class="px-3 py-1" style="border-left:2px solid ${b.spec ? 'var(--accent)' : 'transparent'};${b.spec ? 'background:color-mix(in srgb, var(--accent) 6%, transparent)' : ''}">
+        <div class="flex items-center gap-1.5 text-[12px]"><span class="mono min-w-0 truncate ${b.spec || b.head ? '' : 'muted'}" title="${esc(b.name)}">${esc(b.name)}</span><span class="flex shrink-0 items-center gap-1">${branchTags(b, s, slug, ui)}</span><span class="mono faint ml-auto shrink-0 text-[10.5px]">${agoMs(b.time)}</span></div>
+        <div class="faint truncate text-[11px]">${esc(b.subject)}</div></div>`).join('');
+    const what = v.fork ? `Forked from <span class="mono">${esc(v.base)}</span> at <span class="mono">${v.fork.sha.slice(0, 7)}</span>, ${agoMs(v.fork.time)} ago · ${v.running ? `<b style="color:color-mix(in srgb, var(--s-active) 80%, white)">${v.running} running beside it</b>` : 'nothing else running beside it'}`
+      : bmode === 'explore' ? `${v.listed.length} branch${v.listed.length === 1 ? '' : 'es'} moved in the last ${bdays} days`
+      : v.listed.some((b) => b.spec) ? `No base branch <span class="mono">${esc(v.base || '')}</span> here: the spec's branches alone` : 'No branch of this spec yet: the base, latest first';
+    return `${top}<div class="faint px-4 pb-1.5 text-[11px]">${what}</div><div class="grid border-t hairline" style="grid-template-columns:minmax(230px,320px) minmax(0,1fr)">
+      <div class="overflow-y-auto border-r py-1 hairline" style="max-height:${BOX}px">${list}</div>
+      <div class="overflow-auto py-1" style="max-height:${BOX}px" data-gscroll="${esc(slug)}">${v.rows.length ? graph(v, ui) : `<div class="faint p-4 text-[12px]">No commits${bmode === 'explore' ? ` in the last ${bdays} days` : ''}.</div>`}</div></div>`;
+  }
+
+  // two repositories a page; Simple or Explore, and Explore's window, kept across visits
+  const PER = 2, BOX = 250, PREF = 'brain-page:branches';
+  let bpage = 0, bspec = null, { mode: bmode = 'simple', days: bdays = 7 } = (() => { try { return JSON.parse(localStorage.getItem(PREF)) || {}; } catch { return {}; } })();
+  const seg = (attr, opts, cur) => `<div class="seg text-[11.5px]">${opts.map(([k, l]) => `<button ${attr}="${k}" class="${String(cur) === String(k) ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+  const branchesBody = (s, ctx) => {
+    const repos = reposOf(s, ctx.D), pages = Math.max(1, Math.ceil(repos.length / PER));
+    if (bspec !== s.id) { bspec = s.id; bpage = 0; }
+    bpage = Math.min(bpage, pages - 1);
+    const visible = repos.slice(bpage * PER, bpage * PER + PER);
+    Clones.watch(visible.map((repo) => ({ repo, spec: s.id, base: baseOf(s, repo.slug), mode: bmode, days: bdays })));
+    const pager = pages > 1 ? `<div class="flex items-center gap-1.5 text-[11.5px]"><button class="btn px-2 py-0.5" data-bpage="-1" ${bpage ? '' : 'disabled style="opacity:.35"'}>‹</button><span class="mono muted">${bpage + 1}/${pages}</span><button class="btn px-2 py-0.5" data-bpage="1" ${bpage < pages - 1 ? '' : 'disabled style="opacity:.35"'}>›</button></div>` : '';
+    const right = `<div class="flex flex-wrap items-center justify-end gap-2">${seg('data-bmode', [['simple', 'Simple'], ['explore', 'Explore']], bmode)}${bmode === 'explore' ? seg('data-bdays', [[7, '7d'], [15, '15d'], [30, '30d'], [60, '60d']], bdays) : ''}${pager}</div>`;
+    const sub = `${repos.length} repositor${repos.length === 1 ? 'y' : 'ies'} · live · <span class="inline-flex items-center gap-1"><span class="inline-block h-2 w-2 rounded-full" style="background:var(--accent);box-shadow:0 0 4px var(--accent)"></span>this spec's commits</span>`;
+    return `${ctx.ui.panelHead('Branches', sub, right)}
+      <div class="mt-2">${visible.map((r, i) => `<div class="${i ? 'border-t hairline' : ''}">${repoBlock(r, s, ctx.ui)}</div>`).join('') || '<div class="faint px-4 pb-4 text-[12px]">This spec names no registered repository.</div>'}</div>`;
+  };
+
+  // redraws the panel alone, keeping each graph's scroll
+  const redraw = () => {
+    const el = document.getElementById('branches');
+    if (!el || !shown) return;
+    const scroll = new Map([...el.querySelectorAll('[data-gscroll]')].map((g) => [g.dataset.gscroll, [g.scrollTop, g.scrollLeft]]));
+    el.innerHTML = branchesBody(shown.s, shown.ctx);
+    el.querySelectorAll('[data-gscroll]').forEach((g) => { const p = scroll.get(g.dataset.gscroll); if (p) [g.scrollTop, g.scrollLeft] = p; });
+  };
+  window.addEventListener('clones-change', redraw);
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-clone-grant],[data-clone-reconnect],[data-bpage],[data-bmode],[data-bdays]');
+    if (!t || !shown || t.disabled) return;
+    if (t.dataset.bpage || t.dataset.bmode || t.dataset.bdays) {
+      if (t.dataset.bpage) bpage += Number(t.dataset.bpage);
+      if (t.dataset.bmode) bmode = t.dataset.bmode;
+      if (t.dataset.bdays) bdays = Number(t.dataset.bdays);
+      try { localStorage.setItem(PREF, JSON.stringify({ mode: bmode, days: bdays })); } catch {}
+      return redraw();
+    }
+    const repo = shown.ctx.D.repos.find((r) => r.slug === (t.dataset.cloneGrant || t.dataset.cloneReconnect));
+    if (!repo) return;
+    if (t.dataset.cloneGrant) Clones.grant(repo); else Clones.reconnect([repo]);
+  });
+
   const screen = {
     render(el, ctx) {
       const { D, ui, STATUS, ORDER, STAGE_ICON, route, sel } = ctx;
@@ -767,7 +888,8 @@ App.register('overview', {
       if (route.arg) {
         const s = byId.get(route.arg);
         if (lastKey !== route.arg) { lastKey = route.arg; el.scrollTop = 0; }
-        if (!s) { el.innerHTML = `<div class="p-6"><button class="btn" data-go="overview">← Overview</button><div class="muted mt-4">No spec ${esc(route.arg)}.</div></div>`; return; }
+        if (!s) { shown = null; el.innerHTML = `<div class="p-6"><button class="btn" data-go="overview">← Overview</button><div class="muted mt-4">No spec ${esc(route.arg)}.</div></div>`; return; }
+        shown = { s, ctx };
         const ms = s.milestones, all = tks(s), c = cnt(all), tracks = tracksOf(s), unlocks = unlocksOf(s);
         const byM = new Map(ms.map((m) => [m.id, m]));
         const needs = ms.filter((m) => m.status === 'attention' || m.status === 'blocked').length + c.blocked;
@@ -855,6 +977,7 @@ App.register('overview', {
               ${heads}${lanes}<svg style="position:absolute;left:0;top:0;z-index:0;pointer-events:none;overflow:visible"></svg>${ms.map(node).join('')}</div></div>`
               : '<div class="faint px-4 py-8 text-center">No milestones yet.</div>'}
           </section>
+          <section class="panel pb-1" id="branches">${branchesBody(s, ctx)}</section>
           <section>
             <div class="mb-3 flex items-center gap-2"><h2 class="font-semibold">Milestones</h2><span class="muted text-[12px]">${ms.length}</span></div>
             <div class="grid gap-3" style="grid-template-columns:repeat(auto-fill,minmax(290px,1fr))">${ms.map(msCard).join('')}</div>
@@ -881,7 +1004,7 @@ App.register('overview', {
 
       // ====================================================== the specs section, embedded in Overview
       if (!ctx.asSection) { ctx.go('overview'); return; }
-      lastKey = null;
+      lastKey = null; shown = null;
       const specs = ctx.specs;
       const allT = specs.flatMap(tks), allM = specs.flatMap((s) => s.milestones), c = cnt(allT);
       const needs = allM.filter((m) => m.status === 'attention' || m.status === 'blocked').length + c.blocked;
@@ -1382,6 +1505,244 @@ App.register('overview', {
 </script>
 
 <script>
+// ============================================================ GIT READER
+// Reads a clone's .git through a directory handle, with no git binary: HEAD, the branches (loose and packed refs, local
+// and remote-tracking), and commits from loose objects or packs (idx v2, offset and ref deltas). GitRead.open(root)
+// gives a repo; GitRead.layout(commits) places commits in lanes, as git log --graph does. Commits never change, so a
+// repo keeps every one it parsed. skills/brain/scripts/git-read.test.mjs runs this block in Node against real clones.
+const GitRead = (function () {
+  const dec = new TextDecoder();
+  const hex = (b, o = 0) => { let s = ''; for (let i = 0; i < 20; i++) s += b[o + i].toString(16).padStart(2, '0'); return s; };
+  const inflate = async (u8) => new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('deflate'))).arrayBuffer());
+  const sub = async (d, names) => { for (const n of names) d = await d.getDirectoryHandle(n); return d; };
+  const file = async (d, path) => { const p = path.split('/'); return (await (await sub(d, p.slice(0, -1))).getFileHandle(p.at(-1))).getFile(); };
+  const textOf = async (d, path) => { try { return await (await file(d, path)).text(); } catch { return null; } };
+  async function walk(d, prefix, out) {
+    for await (const [name, h] of d.entries()) {
+      if (h.kind === 'directory') await walk(h, prefix + name + '/', out);
+      else out.push([prefix + name, (await (await h.getFile()).text()).trim()]);
+    }
+  }
+
+  // A pack's idx v2: find(sha) gives the object's offset in the pack, end(offset) where its entry stops (the next
+  // entry's start), so each zlib stream is sliced exactly.
+  async function readIdx(idx, pack) {
+    const b = new Uint8Array(await idx.arrayBuffer()), v = new DataView(b.buffer);
+    if (v.getUint32(0) !== 0xff744f63 || v.getUint32(4) !== 2) return null;
+    const n = v.getUint32(8 + 255 * 4), shaAt = 8 + 1024, offAt = shaAt + n * 24, bigAt = offAt + n * 4;
+    const fan = (i) => (i < 0 ? 0 : v.getUint32(8 + i * 4));
+    const off = (i) => { const o = v.getUint32(offAt + i * 4); return o & 0x80000000 ? Number(v.getBigUint64(bigAt + (o & 0x7fffffff) * 8)) : o; };
+    const offs = Float64Array.from({ length: n }, (_, i) => off(i)).sort();
+    return {
+      pack, cache: new Map(),
+      find(sha) {
+        const first = parseInt(sha.slice(0, 2), 16); let lo = fan(first - 1), hi = fan(first) - 1;
+        while (lo <= hi) { const mid = (lo + hi) >> 1, h = hex(b, shaAt + mid * 20); if (h === sha) return off(mid); if (h < sha) lo = mid + 1; else hi = mid - 1; }
+        return -1;
+      },
+      end(o) { let lo = 0, hi = n - 1; while (lo < hi) { const mid = (lo + hi) >> 1; if (offs[mid] <= o) lo = mid + 1; else hi = mid; } return offs[lo] > o ? offs[lo] : pack.size - 20; },
+    };
+  }
+
+  // a git delta: copy runs of the base and inserted bytes, after the base's and the result's sizes
+  function patch(base, d) {
+    let i = 0;
+    const size = () => { let r = 0, s = 0, c; do { c = d[i++]; r += (c & 0x7f) * 2 ** s; s += 7; } while (c & 0x80); return r; };
+    size();
+    const out = new Uint8Array(size()); let o = 0;
+    while (i < d.length) {
+      const c = d[i++];
+      if (c & 0x80) {
+        let at = 0, len = 0;
+        for (let k = 0; k < 4; k++) if (c & (1 << k)) at += d[i++] * 2 ** (8 * k);
+        for (let k = 0; k < 3; k++) if (c & (0x10 << k)) len += d[i++] * 2 ** (8 * k);
+        len = len || 0x10000; out.set(base.subarray(at, at + len), o); o += len;
+      } else { out.set(d.subarray(i, i + c), o); i += c; o += c; }
+    }
+    return out;
+  }
+
+  const TYPES = [null, 'commit', 'tree', 'blob', 'tag'];
+  async function open(root) {
+    let git;
+    try { git = await root.getDirectoryHandle('.git'); } catch {
+      // a .git file is a worktree's or a submodule's pointer to a git folder elsewhere, which this handle cannot reach
+      try { await root.getFileHandle('.git'); } catch { throw new Error('no-git'); }
+      throw new Error('worktree');
+    }
+    let reftable = false;
+    try { await git.getDirectoryHandle('reftable'); reftable = true; } catch {}
+    if (reftable) throw new Error('reftable');
+
+    const commits = new Map(), idxs = new Map();
+    let packs = null;
+    const listPacks = async () => {
+      if (packs) return packs;
+      const out = [];
+      try {
+        const d = await sub(git, ['objects', 'pack']);
+        for await (const [name, h] of d.entries()) {
+          if (!name.endsWith('.idx')) continue;
+          const pack = await (await d.getFileHandle(name.slice(0, -4) + '.pack')).getFile(), key = `${name}:${pack.size}:${pack.lastModified}`;
+          if (!idxs.has(key)) idxs.set(key, await readIdx(await h.getFile(), pack));
+          if (idxs.get(key)) out.push(idxs.get(key));
+        }
+      } catch {}
+      return (packs = out);
+    };
+    async function packed(p, o) {
+      if (p.cache.has(o)) return p.cache.get(o);
+      const u = new Uint8Array(await p.pack.slice(o, p.end(o)).arrayBuffer());
+      let i = 0, c = u[i++];
+      const type = (c >> 4) & 7;
+      while (c & 0x80) c = u[i++];
+      let obj;
+      if (type === 6) {
+        c = u[i++]; let rel = c & 0x7f;
+        while (c & 0x80) { c = u[i++]; rel = (rel + 1) * 128 + (c & 0x7f); }
+        const base = await packed(p, o - rel);
+        obj = base && { type: base.type, body: patch(base.body, await inflate(u.subarray(i))) };
+      } else if (type === 7) {
+        const base = await object(hex(u, i));
+        obj = base && { type: base.type, body: patch(base.body, await inflate(u.subarray(i + 20))) };
+      } else obj = { type: TYPES[type], body: await inflate(u.subarray(i)) };
+      if (p.cache.size > 4000) p.cache.clear();
+      p.cache.set(o, obj);
+      return obj;
+    }
+    async function object(sha) {
+      try {
+        const u = await inflate(new Uint8Array(await (await file(git, `objects/${sha.slice(0, 2)}/${sha.slice(2)}`)).arrayBuffer()));
+        const z = u.indexOf(0);
+        return { type: dec.decode(u.subarray(0, z)).split(' ')[0], body: u.subarray(z + 1) };
+      } catch {}
+      for (const p of await listPacks()) { const o = p.find(sha); if (o >= 0) return packed(p, o); }
+      return null;
+    }
+
+    const repo = {
+      // HEAD and every branch; sig changes whenever any of them moves, so a caller re-reads only then
+      async refs() {
+        const head = ((await textOf(git, 'HEAD')) || '').trim(), packedRefs = (await textOf(git, 'packed-refs')) || '', loose = [];
+        for (const top of ['heads', 'remotes']) { try { await walk(await sub(git, ['refs', top]), `refs/${top}/`, loose); } catch {} }
+        const all = new Map();
+        for (const l of packedRefs.split('\n')) { const m = /^([0-9a-f]{40}) (refs\/(?:heads|remotes)\/\S+)$/.exec(l.trim()); if (m) all.set(m[2], m[1]); }
+        for (const [ref, v] of loose) if (/^[0-9a-f]{40}$/.test(v)) all.set(ref, v);
+        const ref = head.startsWith('ref: ') ? head.slice(5).trim() : null;
+        return {
+          head: { ref, branch: ref && ref.startsWith('refs/heads/') ? ref.slice(11) : null, sha: ref ? all.get(ref) || null : /^[0-9a-f]{40}$/.test(head) ? head : null },
+          branches: [...all].filter(([r]) => !r.endsWith('/HEAD')).map(([r, sha]) => ({ ref: r, sha, remote: r.startsWith('refs/remotes/'), name: r.replace(/^refs\/(heads|remotes)\//, '') })),
+          sig: [head, packedRefs, ...loose.map((x) => x.join(' ')).sort()].join('\n'),
+        };
+      },
+      // forget the pack list, after a gc or a fetch may have written new packs
+      reload() { packs = null; },
+      async remoteUrl(name = 'origin') {
+        const cfg = (await textOf(git, 'config')) || '';
+        const at = cfg.split(/^\s*\[/m).find((s) => new RegExp(`^remote\\s+"${name}"\\s*\\]`).test(s));
+        return at ? (/^\s*url\s*=\s*(.+)$/m.exec(at) || [])[1]?.trim() || null : null;
+      },
+      // { sha, parents, author, time (ms, the committer's), subject }, or null when the object is missing (a shallow clone)
+      async commit(sha) {
+        if (commits.has(sha)) return commits.get(sha);
+        let o = await object(sha).catch(() => null);
+        if (!o && packs) { packs = null; o = await object(sha).catch(() => null); }
+        if (!o || o.type !== 'commit') return null;
+        const t = dec.decode(o.body), cut = t.indexOf('\n\n');
+        const c = { sha, parents: [], author: '', time: 0, subject: cut < 0 ? '' : t.slice(cut + 2).split('\n')[0].trim() };
+        for (const l of t.slice(0, cut < 0 ? t.length : cut).split('\n')) {
+          if (l.startsWith('parent ')) c.parents.push(l.slice(7, 47));
+          else if (l.startsWith('author ')) c.author = (/^author (.*?) </.exec(l) || [])[1] || '';
+          else if (l.startsWith('committer ')) c.time = Number((/> (\d+) [+-]\d{4}$/.exec(l) || [])[1] || 0) * 1000;
+        }
+        commits.set(sha, c);
+        return c;
+      },
+      // the newest max commits reachable from tips, each after every child of it among them (commits made in the same
+      // second, or a rebase's clock, would otherwise put a parent first), newest first among those free to go. since
+      // (ms) leaves out commits older than it, except those in keep. more: older commits were left out.
+      async walk(tips, opts = {}) {
+        const { max = 80, since = 0, keep = null } = typeof opts === 'number' ? { max: opts } : opts;
+        const seen = new Set(), queue = [], picked = [];
+        let older = false;
+        const add = async (sha) => {
+          if (!sha || seen.has(sha)) return;
+          seen.add(sha);
+          const c = await repo.commit(sha);
+          if (!c) return;
+          if (c.time < since && !(keep && keep.has(sha))) { older = true; return; }
+          queue.push(c);
+        };
+        for (const t of tips) await add(t);
+        while (queue.length && picked.length < max) {
+          queue.sort((a, b) => b.time - a.time);
+          const c = queue.shift(); picked.push(c);
+          for (const p of c.parents) await add(p);
+        }
+        const left = new Map(picked.map((c) => [c.sha, 0])), out = [];
+        for (const c of picked) for (const p of c.parents) if (left.has(p)) left.set(p, left.get(p) + 1);
+        const ready = picked.filter((c) => !left.get(c.sha));
+        while (ready.length) {
+          ready.sort((a, b) => b.time - a.time || picked.indexOf(a) - picked.indexOf(b));
+          const c = ready.shift(); out.push(c);
+          for (const p of c.parents) if (left.has(p) && left.set(p, left.get(p) - 1).get(p) === 0) ready.push(picked.find((x) => x.sha === p));
+        }
+        return { commits: out, more: queue.length > 0 || older };
+      },
+      // the newest commit both a and b reach, where a branch forked from the other (null past limit commits): walks
+      // both histories newest first, marking which side reached each commit, as git merge-base does
+      async mergeBase(a, b, limit = 3000) {
+        if (!a || !b) return null;
+        if (a === b) return a;
+        const side = new Map([[a, 1], [b, 2]]), queue = [];
+        for (const s of [a, b]) { const c = await repo.commit(s); if (c) queue.push(c); }
+        for (let n = 0; queue.length && n < limit; n++) {
+          queue.sort((x, y) => y.time - x.time);
+          const c = queue.shift(), f = side.get(c.sha);
+          if (f === 3) return c.sha;
+          for (const p of c.parents) {
+            const pf = side.get(p) || 0;
+            if ((pf | f) === pf) continue;
+            side.set(p, pf | f);
+            if (!pf) { const pc = await repo.commit(p); if (pc) queue.push(pc); }
+          }
+        }
+        return null;
+      },
+    };
+    return repo;
+  }
+
+  // Lanes, as git log --graph draws them: each row is a commit at a column, with the lanes leaving it (out: the sha
+  // each column waits for), the columns its parents continue in, and cut when a parent is not among the commits.
+  // From row i to row i+1, a column j of out runs from j (or from the commit, when j is one of its parentCols) to the
+  // next commit's column when it is that commit, else straight down.
+  function layout(commits) {
+    const shown = new Set(commits.map((c) => c.sha)), free = (l) => { const k = l.findIndex((s) => s == null); return k < 0 ? l.length : k; };
+    let lanes = [];
+    return commits.map((c) => {
+      const inL = lanes.slice();
+      let col = lanes.indexOf(c.sha);
+      if (col < 0) col = free(lanes);
+      lanes = lanes.map((s) => (s === c.sha ? null : s));
+      const parentCols = []; let cut = false;
+      c.parents.forEach((p, n) => {
+        if (!shown.has(p)) { cut = true; return; }
+        let k = lanes.indexOf(p);
+        if (k < 0) { k = n === 0 && lanes[col] == null ? col : free(lanes); lanes[k] = p; }
+        parentCols.push(k);
+      });
+      for (let j = 0; j < lanes.length; j++) if (lanes[j] === undefined) lanes[j] = null;
+      while (lanes.length && lanes.at(-1) == null) lanes.pop();
+      return { c, col, inL, out: lanes.slice(), parentCols, cut };
+    });
+  }
+
+  return { open, layout };
+})();
+</script>
+
+<script>
 // ============================================================ THE PAGE
 // Lists the brains added on this machine, reads one through the browser's folder access, turns its files into
 // App's data with toData, and re-reads it every few seconds while it is open.
@@ -1508,7 +1869,7 @@ function toData(name, files, times = new Map()) {
   try { links = JSON.parse(read('.brain/links.json') || '{}'); } catch {}
   const repos = paths.filter((p) => placeOf(p)?.kind === 'card').sort().map((p) => {
     const slug = placeOf(p).slug, { fm, body } = front(read(p));
-    return { slug, remote: fm.remote, explored: fm.explored || null, summary: body.trim(), linked: !!links[slug] };
+    return { slug, remote: fm.remote, explored: fm.explored || null, summary: body.trim(), linked: !!links[slug], path: links[slug] || null };
   });
   // notes: a draft is read as the note it would land as, at its target; one that changes a committed note marks it
   const noteOf = (file, draft) => {
@@ -1753,6 +2114,146 @@ function ioFor(b) {
   };
 }
 
+// ---------- clones: each repository's own git, for a spec's Branches panel ----------
+
+// A clone the user grants is kept in IndexedDB by its path in links.json (by its slug when it has none), so every spec,
+// and every brain that links the same clone, reads it with no second grant. watch() names the repositories the open
+// spec touches; tick(), on the page's poll, re-reads each one's refs, rebuilds its branches and graph only when a ref
+// moved, and then fires clones-change, on which the spec's page redraws its panel.
+const Clones = (function () {
+  let grants = null, watched = [], watchKey = '', busy = false;
+  const views = new Map();
+  const keyOf = (r) => (r.path || 'slug:' + r.slug).toLowerCase();
+  const loadGrants = async () => { if (!grants) { try { grants = (await idb('readonly', (s) => s.get('clones'))) || {}; } catch { grants = {}; } } return grants; };
+  const saveGrants = async () => { try { await idb('readwrite', (s) => s.put(grants, 'clones')); } catch {} };
+  // a remote as host/owner/repo, the same written as SSH or HTTPS, with or without .git
+  const norm = (u) => (u || '').trim().toLowerCase().replace(/\/+$/, '').replace(/\.git$/, '').replace(/^[a-z+]+:\/\//, '').replace(/^[^@/]+@/, '').replace(':', '/');
+  const hasRemote = (r) => r.remote && !/^local/i.test(r.remote);
+  const NOTE = {
+    'no-git': "That folder holds no .git: pick the clone's root folder.",
+    worktree: 'That folder is a git worktree, whose .git points elsewhere: pick the main clone.',
+    reftable: 'That clone keeps its refs in a reftable, which this page cannot read.',
+  };
+  const fire = () => window.dispatchEvent(new Event('clones-change'));
+  const viewOf = (r) => { const k = keyOf(r); if (!views.has(k)) views.set(k, { state: 'loading' }); return views.get(k); };
+
+  // A spec's branches are sdd/<spec>/spec and sdd/<spec>/M<NNN> (build's Branches). Simple shows them, the base and
+  // every other branch that moved since the spec forked from the base (running: work alive beside the spec), from the
+  // fork on. Explore shows every branch that moved in the last w.days days, and their commits in that window. A commit
+  // is the spec's when a spec branch reaches it and the base does not.
+  async function build(repo, refs, w) {
+    const prefix = `sdd/${w.spec}/`, all = [];
+    for (const b of refs.branches.slice(0, 400)) { const c = await repo.commit(b.sha); all.push({ ...b, time: c ? c.time : 0, subject: c ? c.subject : '', author: c ? c.author : '' }); }
+    const local = new Map(all.filter((b) => !b.remote).map((b) => [b.name, b]));
+    const shortOf = (b) => (b.remote ? b.name.replace(/^[^/]+\//, '') : b.name);
+    // a remote-tracking branch at its local branch's commit shows as that local branch, marked pushed
+    const branches = all.filter((b) => {
+      if (!b.remote) return true;
+      const l = local.get(shortOf(b));
+      if (l && l.sha === b.sha) { l.pushed = true; return false; }
+      return true;
+    });
+    const base = w.base || ['main', 'master', 'develop'].find((n) => local.has(n)) || refs.head.branch;
+    for (const b of branches) {
+      const short = shortOf(b);
+      b.spec = short.startsWith(prefix) ? short.slice(prefix.length) : null;
+      b.base = short === base && (!b.remote || !local.has(base));
+      b.head = !b.remote && b.name === refs.head.branch;
+    }
+    branches.sort((a, b) => !!b.spec - !!a.spec || b.base - a.base || b.time - a.time);
+    const specB = branches.filter((b) => b.spec), baseB = branches.find((b) => b.base);
+    let since = 0, keep = null, fork = null, max = 150;
+    if (w.mode === 'explore') {
+      since = Date.now() - w.days * 864e5; max = 250;
+      for (const b of branches) b.shown = b.time >= since || !!b.spec || b.base || b.head;
+    } else {
+      // the oldest fork among the spec's branches: where the spec's work began
+      for (const b of baseB ? specB : []) {
+        const sha = await repo.mergeBase(b.sha, baseB.sha), c = sha && (await repo.commit(sha));
+        if (c && (!fork || c.time < fork.time)) fork = c;
+      }
+      if (fork) { since = fork.time; keep = new Set([fork.sha]); } else max = specB.length ? 40 : 20;
+      for (const b of branches) {
+        b.running = !!fork && !b.spec && !b.base && b.time >= since && b.sha !== fork.sha;
+        b.shown = !!b.spec || b.base || b.head || b.running;
+      }
+    }
+    const listed = branches.filter((b) => b.shown);
+    const { commits, more } = await repo.walk([...new Set(listed.map((b) => b.sha).concat(refs.head.sha || []))], { max, since, keep });
+    const bySha = new Map(commits.map((c) => [c.sha, c]));
+    const reach = (starts) => { const seen = new Set(), st = [...starts]; while (st.length) { const x = st.pop(); if (seen.has(x) || !bySha.has(x)) continue; seen.add(x); st.push(...bySha.get(x).parents); } return seen; };
+    const onBase = reach(branches.filter((b) => b.base).map((b) => b.sha));
+    const ofSpec = new Set([...reach(branches.filter((b) => b.spec).map((b) => b.sha))].filter((x) => !onBase.has(x)));
+    const labels = new Map();
+    for (const b of branches) if (bySha.has(b.sha)) labels.set(b.sha, [...(labels.get(b.sha) || []), b]);
+    return { branches, listed, head: refs.head, base, fork, since, rows: GitRead.layout(commits), more, ofSpec, labels, running: listed.filter((b) => b.running).length };
+  }
+
+  // Returns whether what the panel shows for w changed.
+  async function read(w) {
+    const v = viewOf(w.repo), before = v.stamp, h = (await loadGrants())[keyOf(w.repo)];
+    if (!h) v.state = 'ungranted';
+    else if ((await h.queryPermission({ mode: 'read' }).catch(() => 'denied')) !== 'granted') v.state = 'denied';
+    else {
+      try {
+        if (!v.repo || v.handle !== h) Object.assign(v, { repo: await GitRead.open(h), handle: h, sig: null });
+        const refs = await v.repo.refs(), want = `${w.spec}|${w.base || ''}|${w.mode}|${w.days}`;
+        if (refs.sig !== v.sig || want !== v.want || v.state !== 'ok') {
+          v.repo.reload();
+          Object.assign(v, await build(v.repo, refs, w), { state: 'ok', sig: refs.sig, want, err: null });
+        }
+      } catch (e) { Object.assign(v, { state: 'error', err: NOTE[e.message] || String(e.message || e), repo: null }); }
+    }
+    v.stamp = [v.state, v.sig, v.want, v.err, v.note].join('|');
+    return v.stamp !== before;
+  }
+
+  async function tick() {
+    if (busy || !watched.length || !/\/specs\/[^/]+/.test(location.hash) || document.hidden) return;
+    busy = true;
+    try { let changed = false; for (const w of watched) changed = (await read(w)) || changed; if (changed) fire(); } finally { busy = false; }
+  }
+
+  return {
+    // list: [{ repo (a D.repos entry), spec (its folder), base (its branch from the spec's Base line, or null),
+    // mode ('simple' or 'explore'), days (explore's window) }]
+    watch(list) {
+      const key = JSON.stringify(list.map((w) => [keyOf(w.repo), w.spec, w.base, w.mode, w.days]));
+      if (key === watchKey) return;
+      watchKey = key; watched = list; tick();
+    },
+    view: (repo) => viewOf(repo),
+    tick,
+    // Asks for a clone's folder and keeps it when its origin names the card's remote (for a local-only repository,
+    // when the folder's name is the slug or its links.json path's last segment).
+    async grant(repo) {
+      let h;
+      try { h = await window.showDirectoryPicker({ id: 'clone', mode: 'read' }); } catch { return; }
+      const v = viewOf(repo);
+      let g;
+      try { g = await GitRead.open(h); } catch (e) { v.note = NOTE[e.message] || String(e.message || e); return fire(); }
+      const url = await g.remoteUrl(), tail = (repo.path || '').split('/').pop().toLowerCase();
+      const ok = hasRemote(repo) ? norm(url) === norm(repo.remote) : [repo.slug.toLowerCase(), tail].includes(h.name.toLowerCase());
+      if (!ok) {
+        v.note = hasRemote(repo) ? `${h.name}'s origin is ${url || 'not set'}, not ${repo.remote}: pick the clone of ${repo.slug}.` : `Pick the folder named ${tail || repo.slug}.`;
+        return fire();
+      }
+      (await loadGrants())[keyOf(repo)] = h; v.note = null; v.sig = null;
+      await saveGrants();
+      fire(); await tick();
+    },
+    // after a browser restart: asks again for each granted clone of these repositories that lost its permission
+    async reconnect(repos) {
+      const g = await loadGrants();
+      for (const r of repos) {
+        const h = g[keyOf(r)];
+        if (h) { try { if ((await h.queryPermission({ mode: 'read' })) !== 'granted') await h.requestPermission({ mode: 'read' }); } catch {} }
+      }
+      fire(); await tick();
+    },
+  };
+})();
+
 // ---------- reading, adding, removing ----------
 
 // Re-reads what is on screen, the open brain or every listed one, and redraws only when a file changed.
@@ -1764,7 +2265,7 @@ let polling = false;
 setInterval(async () => {
   if (!state.brain || polling || document.hidden) return;
   polling = true;
-  try { await refresh(); } finally { polling = false; }
+  try { await refresh(); await Clones.tick(); } finally { polling = false; }
 }, 2000);
 
 // A brain shows as its folder's name; a clashing name takes the first free number suffix.
@@ -1800,6 +2301,7 @@ async function removeBrain(id) {
 async function reconnect(b) {
   try { await b.handle.requestPermission({ mode: 'read' }); } catch {}
   await readBrain(b);
+  if (b.status === 'ok') await Clones.reconnect(b.data.repos);
   if (state.brain) showBrain(); else showHome();
 }
 
@@ -1825,7 +2327,7 @@ async function restore() {
 $('open').onclick = addBrain;
 $('reload').onclick = refresh;
 window.addEventListener('hashchange', applyRoute);
-window.addEventListener('focus', refresh);
+window.addEventListener('focus', () => refresh().then(Clones.tick));
 restore();
 
 </script>
