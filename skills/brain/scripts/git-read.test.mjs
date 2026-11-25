@@ -9,7 +9,8 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'brain.html'), 'utf8')
+// The working tree may hold CRLF line endings (git's core.autocrlf); the blocks are read with LF.
+const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'brain.html'), 'utf8').replace(/\r\n/g, '\n')
 const block = /\/\/ =+ GIT READER\n([\s\S]*?)<\/script>/.exec(html)[1]
 const GitRead = new Function(`${block}\nreturn GitRead;`)()
 

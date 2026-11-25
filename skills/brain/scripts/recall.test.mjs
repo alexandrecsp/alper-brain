@@ -12,12 +12,13 @@ const put = (path, text) => { mkdirSync(join(path, '..'), { recursive: true }); 
 const note = (fm, body = 'A fact.') => `---\n${Object.entries(fm).filter(([, v]) => v !== undefined).map(([k, v]) => `${k}: ${v}`).join('\n')}\n---\n\n${body}\n`
 const card = (slug, summary) => `---\nslug: ${slug}\nremote: local only\n---\n\n${summary}\n`
 
-// A notes/ brain on `api` and `web`, with notes of both layers, a contract between them, and a draft.
+// A standalone brain's `.brain/` folder on `api` and `web`, with notes of both layers, a contract between them, and a draft.
 const brain = () => {
-  const b = mkdtempSync(join(tmpdir(), 'brain-recall-'))
-  put(join(b, 'BRAIN.md'), '# Brain\n')
-  put(join(b, 'notes/repos/api/REPO.md'), card('api', 'Charges customers and emits invoice events.'))
-  put(join(b, 'notes/repos/web/REPO.md'), card('web', 'The customer web app.'))
+  const b = join(mkdtempSync(join(tmpdir(), 'brain-recall-')), '.brain')
+  put(join(b, 'BRAIN.md'), '---\nkind: standalone\n---\n\n# Brain\n')
+  put(join(b, 'repos/api/REPO.md'), card('api', 'Charges customers and emits invoice events.'))
+  put(join(b, 'repos/web/REPO.md'), card('web', 'The customer web app.'))
+  put(join(b, 'repos/repos.json'), '{}')
   const authored = (name, fm, body) => put(join(b, `notes/authored/${name}.md`), note({ name, ...fm }, body))
   authored('api-retry-keys', { description: 'Billing retries reuse the idempotency key', type: 'how-to', layer: 'application', repos: '[api]' },
     'A retried charge sends the first idempotency key, so the provider never bills twice.')
@@ -27,8 +28,8 @@ const brain = () => {
     'The theme follows the operating system.')
   authored('invoice-event-contract', { description: 'The invoice event api emits and web reads', type: 'contract', layer: 'application', repos: '[api, web]' },
     'An unrelated body about schemas.')
-  put(join(b, 'notes/repos/api/explored/api-invoices.md'), note({ name: 'api-invoices', description: 'Customers receive an invoice per charge', type: 'feature', layer: 'business', explored: 'a1b2c3d' }))
-  put(join(b, '.brain/drafts/api-retry-window.md'), note({ name: 'api-retry-window', description: 'Retries stop after a day', type: 'how-to', layer: 'application', repos: '[api]', target: 'notes/authored/api-retry-window.md', action: 'record' }))
+  put(join(b, 'notes/exploration/api/api-invoices.md'), note({ name: 'api-invoices', description: 'Customers receive an invoice per charge', type: 'feature', layer: 'business', explored: 'a1b2c3d' }))
+  put(join(b, 'notes/drafts/api-retry-window.md'), note({ name: 'api-retry-window', description: 'Retries stop after a day', type: 'how-to', layer: 'application', repos: '[api]', target: 'notes/authored/api-retry-window.md', action: 'record' }))
   return b
 }
 const recall = (b, ...args) => {
@@ -49,7 +50,11 @@ test('without --repo, lists every card with its summary, every contract, and eve
   assert.deepEqual(section(r.out, 'cards:'), ['  api · Charges customers and emits invoice events.', '  web · The customer web app.'])
   assert.deepEqual(paths(section(r.out, 'contracts')), ['notes/authored/invoice-event-contract.md'])
   assert.match(r.out, /^notes: 5 of 5$/m)
-  assert.match(r.out, /\.brain\/drafts\/api-retry-window\.md · draft record → notes\/authored\/api-retry-window\.md/)
+})
+
+test('lists a draft at its notes/drafts/ path', () => {
+  const r = recall(brain())
+  assert.match(r.out, /^ {2}notes\/drafts\/api-retry-window\.md · draft record → notes\/authored\/api-retry-window\.md/m)
 })
 
 test('--repo keeps the notes on that repository, lists the contracts on it, and drops the cards', () => {
@@ -66,7 +71,7 @@ test('--layer keeps that layer and a note with no layer yet, while a contract is
   const r = recall(b, '--repo', 'api', '--layer', 'business')
   assert.equal(r.status, 0, r.err)
   assert.deepEqual(paths(section(r.out, 'contracts on api')), ['notes/authored/invoice-event-contract.md'])
-  assert.deepEqual(paths(section(r.out, 'notes (business)')), ['notes/authored/api-refund-limit.md', 'notes/authored/api-unlayered.md', 'notes/repos/api/explored/api-invoices.md'])
+  assert.deepEqual(paths(section(r.out, 'notes (business)')), ['notes/authored/api-refund-limit.md', 'notes/authored/api-unlayered.md', 'notes/exploration/api/api-invoices.md'])
 })
 
 test('--query ranks the matching notes best first and leaves out the ones it does not match', () => {

@@ -1,5 +1,5 @@
 // Reading the active brain for the pane: its notes, cards and drafts, and the specs in flight with their tracks.
-// The layout is skills/brain/references/FORMAT.md's: notes/ (or the legacy repos/ and shared/) and .brain/specs/.
+// The layout is skills/brain/references/FORMAT.md's: a brain folder holding notes/, repos/ and specs/, `.brain/` in a repository.
 // Every read is best effort: a missing or unreadable file counts as empty.
 
 import type { BrainView, MilestoneView, SpecView, TrackView } from '../types'
@@ -11,18 +11,27 @@ export type Files = {
   exists: (path: string) => Promise<boolean>
 }
 
+/** The pane's copy of the layout's paths in a brain's folder, relative to it: layout-copies.test.mjs checks it against layout.mjs. */
+export const LAYOUT = {
+  specs: 'specs',
+  authored: 'notes/authored',
+  drafts: 'notes/drafts',
+  explorations: 'notes/exploration',
+  repos: 'repos',
+}
+
 const slash = (p: string) => p.replace(/\\/g, '/').replace(/\/+$/, '')
 const up = (p: string) => p.replace(/\/[^/]*$/, '')
 
 /**
- * The brain a folder sits in: the nearest folder up from it holding `BRAIN.md`, or holding a `brain/`
- * folder with one (an embedded brain); undefined when none does.
+ * The brain a folder sits in: the nearest folder up from it holding a `.brain/` folder with `BRAIN.md`, or holding
+ * `BRAIN.md` itself; undefined when none does.
  */
 export async function findBrain(fs: Files, dir: string): Promise<string | undefined> {
   let at = slash(dir)
   for (let i = 0; i < 12 && at !== ''; i++) {
+    if (await fs.exists(`${at}/.brain/BRAIN.md`).catch(() => false)) return `${at}/.brain`
     if (await fs.exists(`${at}/BRAIN.md`).catch(() => false)) return at
-    if (await fs.exists(`${at}/brain/BRAIN.md`).catch(() => false)) return `${at}/brain`
     const next = up(at)
     if (next === at) break
     at = next
@@ -30,11 +39,13 @@ export async function findBrain(fs: Files, dir: string): Promise<string | undefi
   return undefined
 }
 
-/** The brain a path points into, by its `.brain/` folder or its `BRAIN.md`; undefined for any other path. */
-export const brainOfPath = (path: string): string | undefined => {
+/**
+ * The brain a path points into, by its `.brain/` folder or its `BRAIN.md`; undefined for any other path.
+ */
+export async function brainOfPath(fs: Files, path: string): Promise<string | undefined> {
   const p = slash(path)
-  const m = /^(.*?)\/\.brain(?:\/|$)/.exec(p) ?? /^(.*)\/BRAIN\.md$/.exec(p)
-  return m?.[1] === undefined || m[1] === '' ? undefined : m[1]
+  const m = /^(.*?\/\.brain)(?:\/|$)/.exec(p) ?? /^(.*)\/BRAIN\.md$/.exec(p)
+  return m?.[1] === undefined || m[1] === '' ? undefined : findBrain(fs, m[1])
 }
 
 /** A `**Name:** value` line's value, without backticks; '' when absent. */
@@ -87,29 +98,26 @@ async function tracksOf(fs: Files, specDir: string): Promise<TrackView[]> {
   return tracks
 }
 
+/** The notes and repositories of a brain: the authored notes and every repository's exploration notes. */
 async function countNotes(fs: Files, root: string): Promise<{ notes: number; repos: number }> {
-  const modern = await fs.exists(`${root}/notes`).catch(() => false)
-  const reposDir = modern ? `${root}/notes/repos` : `${root}/repos`
-  const repos = await dirs(fs, reposDir)
-  let notes = (await mds(fs, modern ? `${root}/notes/authored` : `${root}/shared`)).length
-  for (const r of repos) {
-    notes += (await mds(fs, `${reposDir}/${r}/explored`)).length
-    if (!modern) notes += (await mds(fs, `${reposDir}/${r}`)).filter(n => n !== 'REPO.md').length
-  }
-  return { notes, repos: repos.length }
+  const explorations = `${root}/${LAYOUT.explorations}`
+  let notes = (await mds(fs, `${root}/${LAYOUT.authored}`)).length
+  for (const slug of await dirs(fs, explorations)) notes += (await mds(fs, `${explorations}/${slug}`)).length
+  return { notes, repos: (await dirs(fs, `${root}/${LAYOUT.repos}`)).length }
 }
 
 /** Everything the pane shows of the brain at `root`. */
 export async function readBrain(fs: Files, root: string): Promise<BrainView> {
   const at = slash(root)
   const { notes, repos } = await countNotes(fs, at)
-  const drafts = (await mds(fs, `${at}/.brain/drafts`)).length
+  const specsDir = `${at}/${LAYOUT.specs}`
+  const drafts = (await mds(fs, `${at}/${LAYOUT.drafts}`)).length
   const specs: SpecView[] = []
   let inFlight = 0
   let landed = 0
-  for (const name of await dirs(fs, `${at}/.brain/specs`)) {
+  for (const name of await dirs(fs, specsDir)) {
     if (!numbered.test(name)) continue
-    const md = await fs.read(`${at}/.brain/specs/${name}/spec.md`).catch(() => '')
+    const md = await fs.read(`${specsDir}/${name}/spec.md`).catch(() => '')
     if (md === '') continue
     if (field(md, 'Landed') !== '') {
       landed++
@@ -117,9 +125,10 @@ export async function readBrain(fs: Files, root: string): Promise<BrainView> {
     }
     if (field(md, 'Abandoned') !== '') continue
     inFlight++
-    const tracks = await tracksOf(fs, `${at}/.brain/specs/${name}`)
+    const tracks = await tracksOf(fs, `${specsDir}/${name}`)
     if (tracks.length > 0) specs.push({ id: name.slice(0, 3), title: heading(md).replace(/^(?:Spec\s*)?\d{3}[\s:·—-]*/i, '') || name.slice(4), tracks })
   }
   const name = at.split('/').pop() ?? at
-  return { name: name === 'brain' ? (at.split('/').slice(-2, -1)[0] ?? name) : name, root: at, notes, repos, drafts, inFlight, landed, specs }
+  // a brain in `.brain/` is named for its host's folder
+  return { name: name === '.brain' ? (at.split('/').slice(-2, -1)[0] ?? name) : name, root: at, notes, repos, drafts, inFlight, landed, specs }
 }

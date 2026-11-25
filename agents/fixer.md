@@ -18,4 +18,6 @@ Your brief gives one of three jobs:
 - **Make a failing check pass**, given its command and the end of its output, or a fakes check's report. Find the cause before changing anything. Fix the code; change a test, the check or the milestone's **Done when** only when it contradicts the ticket or spec it proves, and say so. Done when the failing command passes, or each drifted fake matches, and the unit suite still passes; leave the other checks to the rerun that follows. Report the cause, the commit, and every test you changed.
 - **Finish a ticket** its builder could not, given the builder's report: part of its work may already be committed on the branch. Finish it by the numbered steps of `builder.md` under **Docs**, through its **Commit** and **Status** lines, and report as it says.
 
+Never start a paid run (`claude plugin eval`, any other `claude` session, a paid API) unless your brief names that command, and then run it once, as `builder.md`'s **Paid runs** says.
+
 Done when every finding, failure or ticket you were given is fixed or finished, or listed with why not, the checks your job names pass, and your report names the commit and ends with the Context block's report lines.

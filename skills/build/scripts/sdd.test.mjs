@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { appendLine, assembleReview, commitKey, contextBlock, dispatch, findingMap, ids, land, mapRows, lock, markFinding, merged, next, readCap, releaseOf, releasesToOffer, resolveSpec, resumeStep, setLine, specState, squash, ticketDigest, toFix, unanswered, unlock, verify } from './sdd.mjs'
@@ -14,14 +14,15 @@ const ticket = ({ n, status = 'todo', deps = 'None', commit = 'none' }) =>
   `# Ticket ${n}: T${n}\n\n**Milestone:** 001 M\n\n**Status:** ${status}\n\n**Depends on:** ${deps}\n\n**Commit:** ${commit}\n\n## Notes\n`
 const spec = (lines) => `# Invoice export\n\n**Repos:** api, web\n\n**Key:** None\n\n**Depends on:** None\n\n**Brain notes:** None\n${lines ?? ''}\n## Problem Statement\n`
 
+// A brain in the `.brain/` layout: its root is the `.brain/` folder holding BRAIN.md.
 const brain = () => {
-  const b = mkdtempSync(join(tmpdir(), 'sdd-'))
+  const b = join(mkdtempSync(join(tmpdir(), 'sdd-')), '.brain')
   put(join(b, 'BRAIN.md'), '# Brain\n')
   return b
 }
 
 const twoTracks = (b, { apiM1 = {}, apiM2 = {}, webM1 = {}, webT = {} } = {}) => {
-  const s = join(b, '.brain/specs/004-invoice-export')
+  const s = join(b, 'specs', '004-invoice-export')
   put(join(s, 'spec.md'), spec('\n**Base:** api@main, web@main\n'))
   const a1 = join(s, 'milestones/api/001-expand')
   put(join(a1, 'milestone.md'), milestone({ n: '001', ...apiM1 }))
@@ -128,7 +129,7 @@ test("a ticket's Depends on another track's ticket, from before Builds after, ho
 
 test('reads the flat layout, its track from each Repo line', () => {
   const b = brain()
-  const s = join(b, '.brain/specs/002-old')
+  const s = join(b, 'specs/002-old')
   put(join(s, 'spec.md'), spec())
   put(join(s, 'milestones/001-a/milestone.md'), milestone({ n: '001', repo: 'api' }))
   put(join(s, 'milestones/001-a/001-t.md'), ticket({ n: '001' }))
@@ -173,7 +174,7 @@ test('offers releases only while the base is being defined and no spec branch ex
   }
   g('init', '-q', '-b', 'main')
   g('commit', '-q', '--allow-empty', '-m', 'start')
-  put(join(b, '.brain/links.json'), JSON.stringify({ api: repo }))
+  put(join(b, 'repos/repos.json'), JSON.stringify({ api: repo }))
   const releases = () => track(specState(s), 'api').repo.releases
 
   put(join(s, 'spec.md'), spec())
@@ -200,11 +201,11 @@ test('resolves spec ids by SPEC-ID.md', () => {
 test('reads the cap by FORMAT.md Settings', () => {
   const b = brain()
   assert.deepEqual(readCap(b), { cap: 5 })
-  put(join(b, '.brain/config.json'), '{ "parallelAgents": 2 }')
+  put(join(b, 'config.json'), '{ "parallelAgents": 2 }')
   assert.deepEqual(readCap(b), { cap: 2 })
-  put(join(b, '.brain/config.json'), '{ "parallelAgents": 0 }')
+  put(join(b, 'config.json'), '{ "parallelAgents": 0 }')
   assert.equal(readCap(b).cap, 5)
-  put(join(b, '.brain/config.json'), '{ nope')
+  put(join(b, 'config.json'), '{ nope')
   assert.match(readCap(b).problem, /does not parse/)
 })
 
@@ -221,7 +222,7 @@ test('sets and appends lines, creating them under another and skipping a repeate
   assert.equal(setLine('**Phase:** none\n', 'Phase', 'review'), '**Phase:** review\n')
 })
 
-test('reads git through links.json: branches, cleanliness and squashes on the base', () => {
+test('reads git through repos/repos.json: branches, cleanliness and squashes on the base', () => {
   const b = brain()
   const s = twoTracks(b)
   const repo = join(b, 'clones/api')
@@ -238,7 +239,7 @@ test('reads git through links.json: branches, cleanliness and squashes on the ba
   writeFileSync(join(repo, 'f'), '2')
   g('commit', '-qam', 'squash 001')
   const sha = g('rev-parse', 'HEAD')
-  put(join(b, '.brain/links.json'), JSON.stringify({ api: repo }))
+  put(join(b, 'repos/repos.json'), JSON.stringify({ api: repo }))
   const m1 = join(s, 'milestones/api/001-expand/milestone.md')
   writeFileSync(m1, readFileSync(m1, 'utf8').replace('**Squash:** none', `**Squash:** ${sha}`))
 
@@ -272,7 +273,7 @@ test('a ticket digest gives its milestone and the Notes and files of the tickets
   writeFileSync(join(repo, 'src/export.ts'), 'export const v2 = 1\n')
   g('add', '-A'); g('commit', '-qm', 'adds v2')
   const sha = g('rev-parse', 'HEAD')
-  put(join(b, '.brain/links.json'), JSON.stringify({ api: repo }))
+  put(join(b, 'repos/repos.json'), JSON.stringify({ api: repo }))
   const m1 = join(s, 'milestones/api/001-expand/milestone.md')
   writeFileSync(m1, readFileSync(m1, 'utf8').replace('**Squash:** aaaaaaa', `**Squash:** ${sha}`))
   const t1 = join(s, 'milestones/api/001-expand/001-add-v2.md')
@@ -362,7 +363,7 @@ test('squashes a milestone into the spec branch and verifies where a sub-agent w
   writeFileSync(join(repo, 'f'), '2')
   g('commit', '-qam', 'ticket 001')
   const ticketSha = g('rev-parse', 'HEAD')
-  put(join(b, '.brain/links.json'), JSON.stringify({ api: repo }))
+  put(join(b, 'repos/repos.json'), JSON.stringify({ api: repo }))
   const t1 = join(s, 'milestones/api/001-expand/001-add-v2.md')
   writeFileSync(t1, readFileSync(t1, 'utf8').replace('**Commit:** none', `**Commit:** ${ticketSha}`))
 
@@ -381,7 +382,13 @@ test('squashes a milestone into the spec branch and verifies where a sub-agent w
   const md = readFileSync(join(m1, 'milestone.md'), 'utf8')
   assert.match(md, /\*\*Phase:\*\* squash/)
   assert.ok(md.includes(`**Squash:** ${sha}`))
-  assert.deepEqual(squash(m1, { title: 'again' }), { sha, already: true })
+  assert.equal(g('branch', '--list', 'sdd/004-invoice-export/M001'), '')
+  assert.ok(readFileSync(t1, 'utf8').includes(`**Commit:** ${ticketSha} (squashed into M001)`))
+  // A rerun after a stop finishes the cleanup: a branch left behind is deleted, and a marked ticket stays marked once.
+  g('branch', 'sdd/004-invoice-export/M001', ticketSha)
+  assert.deepEqual(squash(m1, { title: 'again' }), { sha, already: true, warnings: [] })
+  assert.equal(g('branch', '--list', 'sdd/004-invoice-export/M001'), '')
+  assert.equal(readFileSync(t1, 'utf8').split('(squashed into M001)').length, 2)
   writeFileSync(t1, readFileSync(t1, 'utf8').replace('**Status:** done', '**Status:** doing'))
   assert.match(verify(t1).problems.join('\n'), /the ticket is doing with Commit [0-9a-f]{40}, not done/)
   assert.match(verify(t1).problems.join('\n'), /is on sdd\/004-invoice-export\/spec, not sdd\/004-invoice-export\/M001/)
@@ -421,8 +428,8 @@ const builtRepo = (b) => {
   g('add', '-A'); g('commit', '-qm', 'start')
   g('checkout', '-qb', 'sdd/004-invoice-export/spec')
   g('checkout', '-qb', 'sdd/004-invoice-export/M001')
-  put(join(b, '.brain/links.json'), JSON.stringify({ api: repo, web: join(b, 'clones/web') }))
-  put(join(b, 'notes/repos/api/REPO.md'), '---\nslug: api\nremote: local only\ncommitKeyPattern: null\nunit: sh test.sh\ne2e: none\n---\n\nApi.\n')
+  put(join(b, 'repos/repos.json'), JSON.stringify({ api: repo, web: join(b, 'clones/web') }))
+  put(join(b, 'repos/api/REPO.md'), '---\nslug: api\nremote: local only\ncommitKeyPattern: null\nunit: sh test.sh\ne2e: none\n---\n\nApi.\n')
   put(join(b, 'notes/authored/invoice-event-contract.md'), '---\nname: invoice-event-contract\ndescription: x\ntype: contract\nlayer: application\nrepos: [api, web]\n---\n\nThe event.\n')
   put(join(b, 'notes/authored/api-retry.md'), '---\nname: api-retry\ndescription: x\ntype: gotcha\nlayer: application\nrepos: [api]\n---\n\nRetry.\n')
   return { repo, g }
@@ -541,7 +548,7 @@ test('a landing stops on a failing suite at the tip, and folds the fix into the 
 test('follows a squash merge on the remote: drops the local squashes once asked, records Merged, and frees dependents', () => {
   const b = brain()
   const oneRepo = (deps) => spec('\n**Base:** api@main\n').replace('**Repos:** api, web', '**Repos:** api').replace('**Depends on:** None', `**Depends on:** ${deps}`)
-  const s = join(b, '.brain/specs/004-invoice-export')
+  const s = join(b, 'specs/004-invoice-export')
   put(join(s, 'spec.md'), oneRepo('None'))
   const m1 = join(s, 'milestones/api/001-expand')
   put(join(m1, 'milestone.md'), milestone({ n: '001' }))
@@ -563,9 +570,9 @@ test('follows a squash merge on the remote: drops the local squashes once asked,
   g('push', '-q', 'origin', `${mergedSha}:refs/heads/main`)
   g('fetch', '-q', 'origin')
 
-  const card = join(b, 'notes/repos/api/REPO.md')
+  const card = join(b, 'repos/api/REPO.md')
   writeFileSync(card, readFileSync(card, 'utf8').replace('remote: local only', 'remote: git@example.com:o/api.git'))
-  const s5 = join(b, '.brain/specs/005-invoice-email')
+  const s5 = join(b, 'specs/005-invoice-email')
   put(join(s5, 'spec.md'), oneRepo('004'))
   const dep = () => specState(s5, { brain: b }).dependencies[0]
   assert.equal(dep().onBase.api, 'not merged')
@@ -587,15 +594,15 @@ test('follows a squash merge on the remote: drops the local squashes once asked,
 test('a build claims the repositories it changes, and another spec waits until the claim is released or taken', () => {
   const b = brain()
   const s4 = twoTracks(b)
-  const s5 = join(b, '.brain/specs/005-invoice-email')
+  const s5 = join(b, 'specs/005-invoice-email')
   put(join(s5, 'spec.md'), spec('\n**Base:** api@main\n').replace('**Repos:** api, web', '**Repos:** api'))
   put(join(s5, 'milestones/api/001-email/milestone.md'), milestone({ n: '001' }))
   put(join(s5, 'milestones/api/001-email/001-send.md'), ticket({ n: '001' }))
 
   assert.deepEqual(lock(s4), { locked: ['api', 'web'], held: [], unwritten: [] })
-  const since = JSON.parse(readFileSync(join(b, '.brain/locks/api.json'), 'utf8')).since
+  const since = JSON.parse(readFileSync(join(b, 'locks/api.json'), 'utf8')).since
   assert.deepEqual(lock(s4).locked, ['api', 'web'])
-  assert.equal(JSON.parse(readFileSync(join(b, '.brain/locks/api.json'), 'utf8')).since, since)
+  assert.equal(JSON.parse(readFileSync(join(b, 'locks/api.json'), 'utf8')).since, since)
 
   const held = lock(s5)
   assert.deepEqual(held.locked, [])
@@ -606,4 +613,78 @@ test('a build claims the repositories it changes, and another spec waits until t
   assert.deepEqual(lock(s4).held.map((h) => h.slug), ['api'])
   assert.deepEqual(lock(s4, { take: true }).locked, ['api', 'web'])
   assert.deepEqual(unlock(s5), [])
+})
+
+// A brain in the new layout: its root is a `.brain/` folder holding BRAIN.md, its own .gitignore keeping this machine's files out.
+const newBrain = () => {
+  const host = mkdtempSync(join(tmpdir(), 'sdd-new-'))
+  const b = join(host, '.brain')
+  put(join(b, 'BRAIN.md'), '---\nkind: embedded\n---\n# Brain\n')
+  put(join(b, '.gitignore'), 'config.json\nrepos/repos.json\nspecs/\nlocks/\nexplore/\nhandoff/\nnotes/drafts/\n')
+  put(join(b, 'notes/authored/n.md'), '# N\n')
+  return b
+}
+
+test("state reads a new-layout brain's spec, its clones from repos/repos.json", () => {
+  const b = newBrain()
+  const s = twoTracks(b)
+  put(join(b, 'repos/repos.json'), JSON.stringify({ api: join(b, 'clones/api') }))
+  assert.deepEqual(specState(s, { useGit: false }).unlinked, ['web'])
+  assert.equal(resolveSpec('4', b), s)
+})
+
+test("lock and unlock keep the claims in the new-layout brain's locks/", () => {
+  const b = newBrain()
+  const s = twoTracks(b)
+  lock(s)
+  assert.equal(JSON.parse(readFileSync(join(b, 'locks/api.json'), 'utf8')).spec, '004-invoice-export')
+  assert.deepEqual(unlock(s), ['api', 'web'])
+  assert.equal(existsSync(join(b, 'locks/api.json')), false)
+})
+
+test("the cap comes from the new-layout brain's config.json", () => {
+  const b = newBrain()
+  put(join(b, 'config.json'), '{ "parallelAgents": 2 }')
+  assert.deepEqual(readCap(b), { cap: 2 })
+})
+
+test("squash checks its key against repos/<slug>/REPO.md's pattern", () => {
+  const b = newBrain()
+  const s = twoTracks(b, { apiM1: { t: { status: 'done' } } })
+  put(join(b, 'repos/repos.json'), JSON.stringify({ api: join(b, 'clones/api') }))
+  put(join(b, 'repos/api/REPO.md'), '---\nslug: api\ncommitKeyPattern: "FUNC-\\\\d+"\n---\n')
+  assert.throws(() => squash(join(s, 'milestones/api/001-expand'), { title: 'Adds the v2 export', key: 'BAD' }), /does not fully match/)
+})
+
+// A new-layout brain in a git repository of its own, its team files committed, and the api clone on its milestone's branch.
+const verifiable = () => {
+  const b = newBrain()
+  const s = twoTracks(b)
+  const gitIn = (dir, ...a) => {
+    const r = spawnSync('git', ['-C', dir, '-c', 'user.name=t', '-c', 'user.email=t@t', ...a], { encoding: 'utf8' })
+    assert.equal(r.status, 0, r.stderr)
+  }
+  const repo = join(mkdtempSync(join(tmpdir(), 'sdd-clone-')), 'api')
+  mkdirSync(repo, { recursive: true })
+  gitIn(repo, 'init', '-q', '-b', 'main')
+  writeFileSync(join(repo, 'f'), '1')
+  gitIn(repo, 'add', '-A'); gitIn(repo, 'commit', '-qm', 'start')
+  gitIn(repo, 'checkout', '-qb', 'sdd/004-invoice-export/M001')
+  put(join(b, 'repos/repos.json'), JSON.stringify({ api: repo }))
+  gitIn(b, 'init', '-q', '-b', 'main')
+  gitIn(b, 'add', '-A'); gitIn(b, 'commit', '-qm', 'brain')
+  return { b, milestone: join(s, 'milestones/api/001-expand/milestone.md') }
+}
+
+test('verify reports a changed shared file of a new-layout brain', () => {
+  const { b, milestone } = verifiable()
+  put(join(b, 'notes/authored/x.md'), '# X\n')
+  assert.match(verify(milestone).problems.join('\n'), /the brain has changes: .*notes\/authored\/x\.md/)
+})
+
+test('verify passes when only ignored pipeline files of a new-layout brain changed', () => {
+  const { b, milestone } = verifiable()
+  put(join(b, 'specs/x.md'), '# X\n')
+  put(join(b, 'locks/api.json'), '{}')
+  assert.deepEqual(verify(milestone).problems, [])
 })

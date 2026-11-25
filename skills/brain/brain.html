@@ -308,7 +308,7 @@ const App = (function () {
 
   // ============================================================ actions
   // The page writes only what the plugin's files already define: an escalated finding's Answer line (build's step 7),
-  // a draft note in .brain/drafts/ (FORMAT.md's Drafts) and a spec's Abandoned line (under its Key line, by
+  // a draft note in notes/drafts/ and a spec's Abandoned line (under its Key line, by
   // write-spec's IN-FLIGHT.md). Each write re-reads the file from disk first, so it keeps what a running build wrote
   // since the page last read it. Everything else is a command to copy into Claude Code.
   const FINDING_LINE = /^\s*(?:[-*]\s+|#{1,4}\s+)?(?:\*\*)?(?:ST|SP|CN)\d+\b/;
@@ -330,12 +330,9 @@ const App = (function () {
     if (key) return md.slice(0, key.index + key[0].length) + '\n\n' + line + md.slice(key.index + key[0].length);
     const h = /^# .*$/m.exec(md); return h ? md.slice(0, h.index + h[0].length) + '\n\n' + line + md.slice(h.index + h[0].length) : line + '\n\n' + md;
   };
-  // A draft lands in notes/authored/ with its repos line; a legacy brain puts a one-repository note in repos/<slug>/ instead.
-  const draftNote = ({ name, type, layer, description, repos, body }, layout) => {
-    const own = layout === 'legacy' && repos.length === 1;
-    const target = layout === 'notes' ? `notes/authored/${name}.md` : own ? `repos/${repos[0]}/${name}.md` : `shared/${name}.md`;
-    return `---\nname: ${name}\ndescription: ${description}\ntype: ${type}\nlayer: ${layer}\n${own ? '' : `repos: [${repos.join(', ')}]\n`}target: ${target}\naction: record\n---\n\n${body.trim()}\n`;
-  };
+  // A draft lands in notes/authored/ with its repos line.
+  const draftNote = ({ name, type, layer, description, repos, body }) =>
+    `---\nname: ${name}\ndescription: ${description}\ntype: ${type}\nlayer: ${layer}\nrepos: [${repos.join(', ')}]\ntarget: notes/authored/${name}.md\naction: record\n---\n\n${body.trim()}\n`;
   async function save(path, change, done) {
     try { await S.io.edit(path, change); toast(done); } catch (e) { toast('Not saved: ' + (e.message || e)); }
   }
@@ -370,7 +367,7 @@ const App = (function () {
       ${field('Repos', `<input data-repos value="${esc(backRepo || '')}" placeholder="${esc(repos.slice(0, 2).join(', ') || 'billing-api, web-app')}" class="${INPUT}" ${inputStyle}>`)}
       ${field('Description', `<input data-description placeholder="One line that stands alone" class="${INPUT}" ${inputStyle}>`)}
       ${field('Body', `<textarea data-body rows="6" placeholder="The fact first. A decision or how-to adds **Why:** and **How to apply:** lines." class="${INPUT}" ${inputStyle}></textarea>`)}
-      <div class="flex flex-wrap items-center gap-2"><button class="btn btn-accent text-[12px]" data-draft-save="${esc(id)}">Save the draft</button><span class="faint text-[11.5px]">into .brain/drafts/ · /brain sync shares it</span></div>
+      <div class="flex flex-wrap items-center gap-2"><button class="btn btn-accent text-[12px]" data-draft-save="${esc(id)}">Save the draft</button><span class="faint text-[11.5px]">into ${draftsDir()}/ · /brain sync shares it</span></div>
       <div class="faint pt-1 text-[11.5px]">Or let Claude write it: ${ui.copyBtn(`/brain remember ${id}`)}</div></div>`);
   }
   // reads a form's values and writes the file; a missing value stops it with a toast
@@ -399,7 +396,7 @@ const App = (function () {
       const unknown = d.repos.find((r) => !S.D.repos.some((x) => x.slug === r));
       if (unknown) return toast(`${unknown} is not a registered repository`);
       if (d.type === 'contract' && d.repos.length < 2) return toast('A contract names at least two repos: its producer and a consumer');
-      return save(`.brain/drafts/${d.name}.md`, (old) => { if (old != null) throw new Error('a draft of that name already exists'); return draftNote(d, S.D.layout); }, `Drafted ${d.name}: /brain sync shares it`);
+      return save(`${BrainSource.LAYOUT.drafts}/${d.name}.md`, (old) => { if (old != null) throw new Error('a draft of that name already exists'); return draftNote(d); }, `Drafted ${d.name}: /brain sync shares it`);
     }
   }
 
@@ -813,8 +810,9 @@ App.register('overview', {
     if (v.state === 'ungranted') return ask(`Grant read access to this clone once: every spec that touches <b>${esc(slug)}</b> then reads it live.`,
       repo.path ? `<div class="faint mt-0.5 text-[11px]">Pick <span class="mono">${esc(repo.path)}</span>.</div>` : '<div class="faint mt-0.5 text-[11px]">Not linked on this machine: <span class="mono">/brain link</span> records where its clone is.</div>',
       `<button class="btn shrink-0 text-[12px]" data-clone-grant="${esc(slug)}">Grant access</button>`);
+    if (v.state === 'unlinked') return ask(`No clone of <b>${esc(slug)}</b> is linked on this machine.`, '<div class="faint mt-0.5 text-[11px]"><span class="mono">/brain link</span> records where its clone is.</div>', '');
     if (v.state === 'denied') return ask('The browser needs your permission to read this clone again.', '', `<button class="btn shrink-0 text-[12px]" data-clone-reconnect="${esc(slug)}">Reconnect</button>`);
-    if (v.state === 'error') return ask(`Could not read this clone: ${esc(v.err)}`, '', `<button class="btn shrink-0 text-[12px]" data-clone-grant="${esc(slug)}">Pick another folder</button>`);
+    if (v.state === 'error') return ask(`Could not read this clone: ${esc(v.err)}`, '', viaServer ? '' : `<button class="btn shrink-0 text-[12px]" data-clone-grant="${esc(slug)}">Pick another folder</button>`);
     if (v.state !== 'ok') return `${top}<div class="faint px-4 pb-3.5 text-[12px]">Reading its branches…</div>`;
     const list = v.listed.map((b) => `<div class="px-3 py-1" style="border-left:2px solid ${b.spec ? 'var(--accent)' : 'transparent'};${b.spec ? 'background:color-mix(in srgb, var(--accent) 6%, transparent)' : ''}">
         <div class="flex items-center gap-1.5 text-[12px]"><span class="mono min-w-0 truncate ${b.spec || b.head ? '' : 'muted'}" title="${esc(b.name)}">${esc(b.name)}</span><span class="flex shrink-0 items-center gap-1">${branchTags(b, s, slug, ui)}</span><span class="mono faint ml-auto shrink-0 text-[10.5px]">${agoMs(b.time)}</span></div>
@@ -1466,7 +1464,7 @@ App.register('overview', {
     render(el, ctx) {
       const { ui } = ctx, esc = ui.esc;
       const all = ctx.D.timeline.commits.slice().sort((a, b) => (a.date < b.date ? 1 : -1));
-      if (!all.length) { el.innerHTML = '<div class="mx-auto max-w-[1500px] p-5"><div class="text-[22px]">Activity</div><div class="muted mt-2">This brain has no timeline yet: timeline.json comes with /brain sync.</div></div>'; return; }
+      if (!all.length) { el.innerHTML = '<div class="mx-auto max-w-[1500px] p-5"><div class="text-[22px]">Activity</div><div class="muted mt-2">' + (viaServer ? 'No note of this brain has been committed yet: its history shows here once one is.' : 'The folder access has no history to show. Start the server with <span class="mono">/brain view</span> to see the activity.') + '</div></div>'; return; }
       const authors = [...new Set(all.map((c) => c.author))], drafts = ctx.D.notes.filter((n) => n.draft || n.pending);
       const commits = all.filter((c) => (!author || c.author === author) && (!ctx.repo || c.changes.some((ch) => (ch.repos || []).includes(ctx.repo))) && (!ctx.q || (c.title + ' ' + c.changes.map((x) => x.note).join(' ')).toLowerCase().includes(ctx.q)));
       const dayOf = (c) => c.date.slice(0, 10);
@@ -1743,9 +1741,271 @@ const GitRead = (function () {
 </script>
 
 <script>
+// ============================================================ BRAIN SOURCE
+// Where the page reads and writes its brains. A source lists the brains, reads a brain's files and times, reads and
+// writes one file, calls back on a change, and opens a clone's repo object (the calls GitRead.open gives). The folder
+// source is the browser's folder access: its directory handles, GitRead and the page's poll. The server source is the brain
+// server the page was loaded from: fetch for the files and the clones' git reads, server-sent events for changes. forPage picks one when the page loads.
+// skills/brain/scripts/brain-source.test.mjs runs the folder source in Node over a directory-handle shim, and
+// brain-server-source.test.mjs the server source against a real server.
+const BrainSource = (function () {
+  // The paths of a brain in its `.brain/` folder, relative to it: a copy of layout.mjs's pathsOf, which
+  // skills/brain/scripts/layout-copies.test.mjs checks.
+  const LAYOUT = {
+    specs: 'specs', notes: 'notes', authored: 'notes/authored', drafts: 'notes/drafts', exploration: (slug) => `notes/exploration/${slug}`,
+    repos: 'repos', reposJson: 'repos/repos.json', card: (slug) => `repos/${slug}/REPO.md`,
+  };
+  // the key a clone is kept under: its path, or its slug when the brain links no path
+  const cloneKey = (r) => (r.path || 'slug:' + r.slug).toLowerCase();
+
+  // kv: the page's store, get(key) and set(key, value), over IndexedDB; every: the poll's period in ms
+  function folder({ kv, every = 2000 }) {
+    let grants = null;
+    const opened = new Map();
+    const loadGrants = async () => { if (!grants) { try { grants = (await kv.get('clones')) || {}; } catch { grants = {}; } } return grants; };
+    // times, when given, takes each file's last change (ms), which dates a spec for the Recent scope
+    async function walk(dir, prefix, out, times) {
+      for await (const [name, h] of dir.entries()) {
+        if (h.kind === 'directory') await walk(h, prefix + name + '/', out, times);
+        else if (name.endsWith('.md')) { const file = await h.getFile(); out.set(prefix + name, await file.text()); times?.set(prefix + name, file.lastModified); }
+      }
+    }
+    const sub = async (dir, ...names) => { for (const n of names) dir = await dir.getDirectoryHandle(n); return dir; };
+    const text = async (dir, name) => (await (await dir.getFileHandle(name)).getFile()).text();
+    // The folder holding a brain's BRAIN.md: the `.brain/` folder inside the folder picked, or the folder picked itself.
+    const rootOf = async (b) => {
+      try { const dir = await sub(b.handle, '.brain'); await dir.getFileHandle('BRAIN.md'); return dir; } catch {}
+      return b.handle;
+    };
+    const fileAt = async (b, path, create) => {
+      const parts = path.split('/'); let d = await rootOf(b);
+      for (const p of parts.slice(0, -1)) d = await d.getDirectoryHandle(p, { create });
+      return d.getFileHandle(parts.at(-1), { create });
+    };
+
+    // A brain's specs with times, its notes (drafts and exploration among them), every repository's card and
+    // repos.json, keyed relative to the brain. The folder source has no history, so it gives no timeline.
+    async function readFiles(dir) {
+      const files = new Map(), times = new Map();
+      try { await walk(await sub(dir, LAYOUT.specs), LAYOUT.specs + '/', files, times); } catch {}
+      try { await walk(await sub(dir, LAYOUT.notes), LAYOUT.notes + '/', files); } catch {}
+      try {
+        for await (const [slug, h] of (await sub(dir, LAYOUT.repos)).entries()) {
+          if (h.kind === 'directory') { try { files.set(LAYOUT.card(slug), await text(h, 'REPO.md')); } catch {} }
+        }
+      } catch {}
+      try { files.set(LAYOUT.reposJson, await text(await sub(dir, LAYOUT.repos), 'repos.json')); } catch {}
+      return { files, times };
+    }
+
+    return {
+      kind: 'folder',
+      // the brains the user added on this machine: [{ id, name, handle }]
+      async brains() { try { return (await kv.get('brains')) || []; } catch { return []; } },
+
+      // One brain's files and its status: 'ok', 'denied' (read permission not granted) or 'missing' (no BRAIN.md at its
+      // root or in its .brain/). A brain's files are its specs, notes (drafts and exploration among them), cards and
+      // repos.json, keyed relative to the folder holding BRAIN.md. Files and times are Maps by path, and times holds the
+      // specs' files only.
+      async files(b) {
+        const files = new Map(), times = new Map();
+        try {
+          if ((await b.handle.queryPermission({ mode: 'read' })) !== 'granted') return { status: 'denied', files, times };
+          const dir = await rootOf(b);
+          await dir.getFileHandle('BRAIN.md');
+          return { status: 'ok', ...(await readFiles(dir)) };
+        } catch { return { status: 'missing', files: new Map(), times: new Map() }; }
+      },
+
+      // One file's text as it is on disk now, or null when it is missing.
+      async read(b, path) {
+        try { return await (await (await fileAt(b, path, false)).getFile()).text(); } catch { return null; }
+      },
+
+      // Writes one file, creating its folders. The first write asks the browser for write access to the brain's folder
+      // (it must follow a click).
+      async write(b, path, text) {
+        if ((await b.handle.queryPermission({ mode: 'readwrite' })) !== 'granted' && (await b.handle.requestPermission({ mode: 'readwrite' })) !== 'granted') throw new Error('the browser was not allowed to write to this folder');
+        const w = await (await fileAt(b, path, true)).createWritable(); await w.write(text); await w.close();
+      },
+
+      // Reads the file from disk, not from the page's last read, so the change keeps what a build wrote since: change
+      // gets its text (undefined when the file is missing) and returns the text to write.
+      async edit(b, path, change) {
+        const old = await this.read(b, path);
+        await this.write(b, path, change(old ?? undefined));
+      },
+
+      // Calls back every `every` ms, the page's poll: the folder has no way to say what changed. Returns a stop.
+      subscribe(onChange) {
+        const t = setInterval(onChange, every);
+        return () => clearInterval(t);
+      },
+
+      // Keeps a clone's folder the user granted, by its repository's path in repos.json (by its slug when it has none),
+      // so every spec, and every brain that links the same clone, reads it with no second grant.
+      async grant(repo, handle) {
+        (await loadGrants())[cloneKey(repo)] = handle;
+        try { await kv.set('clones', grants); } catch {}
+      },
+
+      // A granted clone's repo object, as GitRead.open gives it: { state: 'ok', repo }, or { state: 'ungranted' } for a
+      // clone never granted and { state: 'denied' } when the browser dropped its read permission. The same repo comes
+      // back while the grant is the same. GitRead.open throws when the folder is no clone.
+      async open(repo) {
+        const key = cloneKey(repo), h = (await loadGrants())[key];
+        if (!h) return { state: 'ungranted' };
+        if ((await h.queryPermission({ mode: 'read' }).catch(() => 'denied')) !== 'granted') return { state: 'denied' };
+        if (opened.get(key)?.handle !== h) opened.set(key, { handle: h, repo: await GitRead.open(h) });
+        return { state: 'ok', repo: opened.get(key).repo };
+      },
+
+      // After a browser restart: asks again for each granted clone of these repositories that lost its permission.
+      async reconnect(repos) {
+        const g = await loadGrants();
+        for (const r of repos) {
+          const h = g[cloneKey(r)];
+          if (h) { try { if ((await h.queryPermission({ mode: 'read' })) !== 'granted') await h.requestPermission({ mode: 'read' }); } catch {} }
+        }
+      },
+    };
+  }
+
+  // The server source: the brain server the page was loaded from, over fetch and server-sent events.
+  // base: the server's origin ('' for the page's own); token: this start's write token, sent as X-Brain-Token.
+  function server({ base = '', token, fetch, EventSource }) {
+    const api = (path) => `${base}/api/brains${path}`;
+    const brainApi = (b, path) => api(`/${encodeURIComponent(b.id)}${path}`);
+    const opened = new Map();
+    // Each brain's history, as the server's history route gives it, by brain id: read with the brain's files, and again on each
+    // change event. A read that fails leaves the last one (none before the first).
+    const histories = new Map();
+    const historyOf = async (id) => {
+      try {
+        const res = await fetch(api(`/${encodeURIComponent(id)}/history`));
+        if (res.ok) histories.set(id, await res.json());
+      } catch {}
+      return histories.get(id);
+    };
+    const writeHeaders = { 'x-brain-token': token, 'content-type': 'application/json' };
+    // Throws the server's reason for a refused call, or what the status says.
+    const fail = async (res) => { throw new Error((await res.json().catch(() => ({}))).error || `the server answered ${res.status}`); };
+
+    // A clone's repo object over the git routes, the calls GitRead.open gives. The server reads git on every call, so reload
+    // has nothing to drop. A git route's 404 says the brain no longer links the clone: the repo is forgotten, so the next
+    // open answers 'unlinked', and the call throws an error marked `unlinked`.
+    function repoOf(b, slug) {
+      const route = (part) => brainApi(b, `/repos/${encodeURIComponent(slug)}/${part}`);
+      const check = async (res) => {
+        if (res.status === 404) { opened.delete(b.id + '|' + slug); throw Object.assign(new Error(`no clone of ${slug} is linked`), { unlinked: true }); }
+        if (!res.ok) await fail(res);
+        return res.json();
+      };
+      const get = async (part) => check(await fetch(route(part)));
+      return {
+        refs: () => get('refs'),
+        async commit(sha) {
+          const res = await fetch(route(`commit?sha=${encodeURIComponent(sha)}`));
+          if (res.status === 404) return null;
+          if (!res.ok) await fail(res);
+          return res.json();
+        },
+        async walk(tips, { max, since, keep } = {}) {
+          return check(await fetch(route('walk'), { method: 'POST', headers: writeHeaders, body: JSON.stringify({ tips, max, since, keep: keep ? [...keep] : undefined }) }));
+        },
+        async mergeBase(x, y) { return (await get(`merge-base?a=${encodeURIComponent(x)}&b=${encodeURIComponent(y)}`)).sha; },
+        async remoteUrl() { return (await get('remote-url')).url; },
+        reload() {},
+      };
+    }
+
+    return {
+      kind: 'server',
+      // the brains the server lists: [{ id, name, path, status }]
+      async brains() { return (await fetch(api(''))).json(); },
+
+      // Adds the brain at a typed absolute path; gives its entry, which a path already listed gives again. Throws the
+      // server's reason when it refuses the path.
+      async add(path) {
+        const res = await fetch(api(''), { method: 'POST', headers: writeHeaders, body: JSON.stringify({ path }) });
+        if (!res.ok) await fail(res);
+        return res.json();
+      },
+
+      // One file's text as it is on disk now, or null when it is missing.
+      async read(b, path) {
+        const res = await fetch(brainApi(b, `/file?path=${encodeURIComponent(path)}`));
+        return res.ok ? res.text() : null;
+      },
+
+      // Writes one file, creating its folders: the token is the permission, so nothing prompts.
+      async write(b, path, text) {
+        const res = await fetch(brainApi(b, `/file?path=${encodeURIComponent(path)}`), { method: 'PUT', headers: { 'x-brain-token': token }, body: text });
+        if (!res.ok) throw new Error(`the server did not write the file: it answered ${res.status}`);
+      },
+
+      // Reads the file from the server, which reads the disk, not from the page's last read, so the change keeps what a
+      // build wrote since: change gets its text (undefined when the file is missing) and returns the text to write.
+      async edit(b, path, change) {
+        const old = await this.read(b, path);
+        await this.write(b, path, change(old ?? undefined));
+      },
+
+      // Calls back with each `change` event the server sends, { brain, changed, times }: `changed` maps each changed path to
+      // its new text, or to null when the file is gone. The server watches the folders, so nothing polls. Returns a stop.
+      subscribe(onChange) {
+        const events = new EventSource(`${base}/api/events`);
+        // the history is read again before the callback, so the page's re-read of the brain finds it
+        events.addEventListener('change', async (e) => { const event = JSON.parse(e.data); await historyOf(event.brain); onChange(event); });
+        return () => events.close();
+      },
+
+      // Takes the brain off the server's list; its folder stays as it is.
+      async remove(b) {
+        const res = await fetch(brainApi(b, ''), { method: 'DELETE', headers: { 'x-brain-token': token } });
+        if (!res.ok) throw new Error(`the server answered ${res.status}`);
+      },
+
+      // A linked clone's repo object, as GitRead.open gives it: { state: 'ok', repo }, or { state: 'unlinked' } when the brain's
+      // repos.json names no folder for the repository. No grant is asked or kept: the server reads the clone. The same repo
+      // comes back while the clone stays linked. Throws the server's reason when the linked folder is no clone.
+      async open(repo, b) {
+        const key = b.id + '|' + repo.slug;
+        if (opened.has(key)) return { state: 'ok', repo: opened.get(key) };
+        const res = await fetch(brainApi(b, `/repos/${encodeURIComponent(repo.slug)}/refs`));
+        if (res.status === 404) return { state: 'unlinked' };
+        if (!res.ok) await fail(res);
+        opened.set(key, repoOf(b, repo.slug));
+        return { state: 'ok', repo: opened.get(key) };
+      },
+
+      // One brain's files and its status, as the folder source gives them: 'ok' or 'missing' (no BRAIN.md at its root, or
+      // not listed). A server brain has no 'denied': the server reads the folder. It adds the brain's `timeline`, the server's
+      // history route.
+      async files(b) {
+        const [res, list, timeline] = await Promise.all([fetch(brainApi(b, '/files')), this.brains(), histories.get(b.id) ?? historyOf(b.id)]);
+        const listed = list.find((x) => x.id === b.id);
+        if (!res.ok || listed?.status !== 'ok') return { status: 'missing', files: new Map(), times: new Map() };
+        const { files, times } = await res.json();
+        return { status: 'ok', files: new Map(Object.entries(files)), times: new Map(Object.entries(times)), timeline };
+      },
+    };
+  }
+
+  // The source the page uses, picked once when it loads: the server over http:, the folder access over file:.
+  function forPage({ protocol, kv, token, fetch, EventSource }) {
+    return protocol === 'http:' ? server({ token, fetch, EventSource }) : folder({ kv });
+  }
+
+  return { folder, server, forPage, cloneKey, LAYOUT };
+})();
+</script>
+
+<script>
 // ============================================================ THE PAGE
-// Lists the brains added on this machine, reads one through the browser's folder access, turns its files into
-// App's data with toData, and re-reads it every few seconds while it is open.
+// Lists the brains added on this machine, reads one through its source (the brain server, or the browser's folder access
+// when the page is opened from a file), turns its files into App's data with toData, and re-reads it on a change (the
+// server's change events) or every few seconds (the folder source's poll) while it is open.
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -1780,41 +2040,34 @@ function idb(mode, fn) {
 
 // Every file:// page shares one origin, so a fixed key gives each copy of this page, at any plugin version, the same brain list.
 const saveBrains = async () => {
+  if (viaServer) return; // the server keeps the list
   try { await idb('readwrite', (s) => s.put(state.brains.map(({ id, name, handle }) => ({ id, name, handle })), 'brains')); } catch {}
 };
 
-// times, when given, takes each file's last change (ms), which dates a spec for the Recent scope
-async function walk(dir, prefix, out, times) {
-  for await (const [name, h] of dir.entries()) {
-    if (h.kind === 'directory') await walk(h, prefix + name + '/', out, times);
-    else if (name.endsWith('.md')) { const file = await h.getFile(); out.set(prefix + name, await file.text()); times?.set(prefix + name, file.lastModified); }
-  }
-}
-const sub = async (dir, ...names) => { for (const n of names) dir = await dir.getDirectoryHandle(n); return dir; };
-const text = async (dir, name) => (await (await dir.getFileHandle(name)).getFile()).text();
+// The page reads and writes its brains through one source, picked once by how it was loaded: the server source over
+// http: (the page the brain server serves, which carries the write token in its head), the folder source over file:.
+const source = BrainSource.forPage({
+  protocol: location.protocol,
+  kv: { get: (k) => idb('readonly', (s) => s.get(k)), set: (k, v) => idb('readwrite', (s) => s.put(v, k)) },
+  token: document.querySelector('meta[name="brain-token"]')?.content,
+  fetch: (...a) => fetch(...a),
+  EventSource,
+});
+const viaServer = source.kind === 'server';
 
 // Re-reads one brain and sets its status: 'ok', 'denied' (read permission not granted) or 'missing' (no BRAIN.md at its
-// root). Its files are the specs under .brain/specs, the notes and cards under notes/ (or the legacy repos/ and shared/), this machine's drafts
-// under .brain/drafts, and timeline.json and .brain/links.json. Returns whether its status or files changed.
+// root). Its files are the source's. Returns whether its status or files changed.
 async function readBrain(b) {
   const before = b.status;
-  const files = new Map(), times = new Map();
-  try {
-    if ((await b.handle.queryPermission({ mode: 'read' })) !== 'granted') b.status = 'denied';
-    else {
-      await b.handle.getFileHandle('BRAIN.md');
-      try { await walk(await sub(b.handle, '.brain', 'specs'), '.brain/specs/', files, times); } catch {}
-      for (const top of ['notes', 'repos', 'shared']) { try { await walk(await sub(b.handle, top), top + '/', files); } catch {} }
-      try { await walk(await sub(b.handle, '.brain', 'drafts'), '.brain/drafts/', files); } catch {}
-      try { files.set('timeline.json', await text(b.handle, 'timeline.json')); } catch {}
-      try { files.set('.brain/links.json', await text(await sub(b.handle, '.brain'), 'links.json')); } catch {}
-      b.status = 'ok';
-    }
-  } catch { b.status = 'missing'; }
+  const { status, files, times, ...read } = await source.files(b);
+  b.status = status;
   if (b.status !== 'ok') return b.status !== before;
-  if (b.files && b.files.size === files.size && [...files].every(([k, v]) => b.files.get(k) === v)) return b.status !== before;
+  // the history, which a commit changes with no file changing, counts as much as a file
+  const history = JSON.stringify(read.timeline ?? null);
+  if (b.files && b.history === history && b.files.size === files.size && [...files].every(([k, v]) => b.files.get(k) === v)) return b.status !== before;
   b.files = files;
-  b.data = toData(b.name, files, times);
+  b.history = history;
+  b.data = toData(b.name, files, times, read);
   return true;
 }
 
@@ -1844,29 +2097,24 @@ const ticketsStatus = (ts) => (!ts.length ? 'draft' : ts.every((t) => t.status =
 const WIKI = /\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]/g;
 
 // Where a path sits, as notes.mjs's placeOf reads it: an authored note, an explored note or a card, with the repository
-// its folder names, in the notes/ layout or the legacy repos/ and shared/ one.
+// its folder names.
 function placeOf(path) {
-  const p = path.split('/');
-  if (p[0] === 'notes') {
-    if (p[1] === 'authored' && p.length === 3) return { kind: 'authored', slug: null, layout: 'notes' };
-    if (p[1] === 'repos' && p.length === 4 && p[3] === 'REPO.md') return { kind: 'card', slug: p[2], layout: 'notes' };
-    if (p[1] === 'repos' && p.length === 5 && p[3] === 'explored') return { kind: 'explored', slug: p[2], layout: 'notes' };
-    return null;
-  }
-  if (p[0] === 'shared' && p.length === 2) return { kind: 'authored', slug: null, layout: 'legacy' };
-  if (p[0] === 'repos' && p.length === 3) return { kind: p[2] === 'REPO.md' ? 'card' : 'authored', slug: p[1], layout: 'legacy' };
-  if (p[0] === 'repos' && p.length === 4 && p[2] === 'explored') return { kind: 'explored', slug: p[1], layout: 'legacy' };
+  const p = path.split('/'), L = BrainSource.LAYOUT, dir = p.slice(0, -1).join('/');
+  if (dir === L.authored) return { kind: 'authored', slug: null };
+  if (p.length === 4 && dir === L.exploration(p[2])) return { kind: 'explored', slug: p[2] };
+  if (p.length === 3 && path === L.card(p[1])) return { kind: 'card', slug: p[1] };
   return null;
 }
 
-function toData(name, files, times = new Map()) {
-  const read = (p) => files.get(p);
-  // a brain that holds notes/ reads only it, as notes.mjs's loadBrain does
-  const layout = [...files.keys()].some((p) => p.startsWith('notes/')) ? 'notes' : 'legacy';
-  const paths = [...files.keys()].filter((p) => { const at = placeOf(p); return !at || at.layout === layout; });
+// A source's read of a brain gives its files keyed relative to the folder holding BRAIN.md and, from the server, the brain's
+// history as `timeline`.
+function toData(name, files, times = new Map(), { timeline: history } = {}) {
+  const read = (p) => files.get(p), L = BrainSource.LAYOUT;
+  const SPECS = L.specs + '/', DRAFTS = L.drafts + '/';
+  const paths = [...files.keys()];
   // repositories: one per card
   let links = {};
-  try { links = JSON.parse(read('.brain/links.json') || '{}'); } catch {}
+  try { links = JSON.parse(read(L.reposJson) || '{}'); } catch {}
   const repos = paths.filter((p) => placeOf(p)?.kind === 'card').sort().map((p) => {
     const slug = placeOf(p).slug, { fm, body } = front(read(p));
     return { slug, remote: fm.remote, explored: fm.explored || null, summary: body.trim(), linked: !!links[slug], path: links[slug] || null };
@@ -1890,7 +2138,7 @@ function toData(name, files, times = new Map()) {
   };
   const notes = new Map();
   for (const p of paths.filter((p) => ['authored', 'explored'].includes(placeOf(p)?.kind))) { const n = noteOf(p, false); if (n && !notes.has(n.id)) notes.set(n.id, n); }
-  for (const p of paths.filter((p) => p.startsWith('.brain/drafts/'))) {
+  for (const p of paths.filter((p) => p.startsWith(DRAFTS))) {
     const d = noteOf(p, true); if (!d) continue;
     const own = notes.get(d.id);
     if (own) { own.pending = d.draft; own.pendingBody = d.body; own.pendingDescription = d.description; }
@@ -1898,28 +2146,30 @@ function toData(name, files, times = new Map()) {
     if (d.draft === 'supersede' && notes.get(d.supersedes)) notes.get(d.supersedes).pending = 'supersede';
   }
   const ghosts = [...new Set([...notes.values()].flatMap((n) => n.links).filter((l) => !notes.has(l)))];
+  // the timeline: the server's history
   let timeline = { commits: [] };
-  try { const t = JSON.parse(read('timeline.json') || '{}'); if (Array.isArray(t.commits)) timeline = { commits: t.commits.map((c) => ({ ...c, changes: Array.isArray(c.changes) ? c.changes : [] })) }; } catch {}
+  const shaped = (t) => ({ commits: t.commits.map((c) => ({ ...c, changes: Array.isArray(c.changes) ? c.changes : [] })) });
+  if (history?.commits?.length) timeline = shaped(history);
 
-  // specs: .brain/specs/<spec>/spec.md, and its milestones in one track per repository (milestones/<slug>/NNN-*/), or,
+  // specs: <specs>/<spec>/spec.md, and its milestones in one track per repository (milestones/<slug>/NNN-*/), or,
   // ticketed before tracks, straight under milestones/ with a Repo line each (the flat layout)
   const byDir = new Map();
-  for (const p of paths.filter((p) => p.startsWith('.brain/specs/'))) {
-    const parts = p.slice('.brain/specs/'.length).split('/');
+  for (const p of paths.filter((p) => p.startsWith(SPECS))) {
+    const parts = p.slice(SPECS.length).split('/');
     if (!numOf(parts[0])) continue;
     if (!byDir.has(parts[0])) byDir.set(parts[0], []);
     byDir.get(parts[0]).push(parts);
   }
   const list = (v) => (v || '').split(/[,;]/).map((s) => s.replace(/[`\s]/g, '')).filter(Boolean);
   const specs = [...byDir.keys()].sort().map((dir) => {
-    const t = read(`.brain/specs/${dir}/spec.md`) || '';
+    const t = read(`${SPECS}${dir}/spec.md`) || '';
     const landed = (field(t, 'Landed') || '').replace(/`/g, '');
     const s = {
-      id: dir, num: numOf(dir), title: (heading(t) || dir).replace(/^Spec:\s*/i, ''), path: `.brain/specs/${dir}/spec.md`, body: t,
+      id: dir, num: numOf(dir), title: (heading(t) || dir).replace(/^Spec:\s*/i, ''), path: `${SPECS}${dir}/spec.md`, body: t,
       repos: list(field(t, 'Repos')), key: field(t, 'Key'), base: field(t, 'Base'),
       deps: list(field(t, 'Depends on')).filter(numOf), landed: /[0-9a-f]{7,40}/i.test(landed) ? landed : null, abandoned: field(t, 'Abandoned'),
       // touched: the newest change to any file in its folder (0 when the page could not tell)
-      touched: Math.max(0, ...[...times].filter(([p]) => p.startsWith(`.brain/specs/${dir}/`)).map(([, ms]) => ms)),
+      touched: Math.max(0, ...[...times].filter(([p]) => p.startsWith(`${SPECS}${dir}/`)).map(([, ms]) => ms)),
       landings: field(t, 'Landings'), summary: section(t, 'Problem Statement').split(/\n\s*\n/)[0], milestones: [],
     };
     const ms = new Map();
@@ -1928,7 +2178,7 @@ function toData(name, files, times = new Map()) {
       const flat = parts.length === 4 && numOf(parts[2]), tracked = parts.length === 5 && !numOf(parts[2]) && numOf(parts[3]);
       if (!flat && !tracked) continue;
       const mdir = flat ? parts[2] : parts[3], file = parts.at(-1), key = flat ? mdir : `${parts[2]}/${mdir}`;
-      if (!ms.has(key)) ms.set(key, { track: flat ? null : parts[2], mdir, base: `.brain/specs/${dir}/milestones/${key}`, tickets: [] });
+      if (!ms.has(key)) ms.set(key, { track: flat ? null : parts[2], mdir, base: `${SPECS}${dir}/milestones/${key}`, tickets: [] });
       if (numOf(file)) ms.get(key).tickets.push(file);
     }
     for (const mm of [...ms.values()].sort((a, b) => (a.track || '').localeCompare(b.track || '') || a.mdir.localeCompare(b.mdir))) {
@@ -2002,7 +2252,7 @@ function toData(name, files, times = new Map()) {
     }
     if (s.status === 'ready' && s.milestones.some((m) => m.status === 'frontier')) s.status = 'frontier';
   }
-  return { name, layout, repos, notes: [...notes.values()], ghosts, timeline, specs };
+  return { name, repos, notes: [...notes.values()], ghosts, timeline, specs };
 }
 
 // ---------- the brain list ----------
@@ -2094,21 +2344,12 @@ function showBrain() {
   App.load(b.id, b.data, ioFor(b));
 }
 
-// Writing: the first write asks the browser for write access to the brain's folder (it must follow a click). An edit
-// reads the file from disk, not from the page's last read, so it keeps what a build wrote since; then the page re-reads.
+// Writing: an edit goes through the source, which reads the file from disk, not from the page's last read, so it keeps
+// what a build wrote since; then the page re-reads.
 function ioFor(b) {
-  const file = async (path, create) => {
-    const parts = path.split('/'); let d = b.handle;
-    for (const p of parts.slice(0, -1)) d = await d.getDirectoryHandle(p, { create });
-    return d.getFileHandle(parts.at(-1), { create });
-  };
   return {
     async edit(path, change) {
-      if ((await b.handle.queryPermission({ mode: 'readwrite' })) !== 'granted' && (await b.handle.requestPermission({ mode: 'readwrite' })) !== 'granted') throw new Error('the browser was not allowed to write to this folder');
-      let old;
-      try { old = await (await (await file(path, false)).getFile()).text(); } catch {}
-      const text = change(old);
-      const w = await (await file(path, true)).createWritable(); await w.write(text); await w.close();
+      await source.edit(b, path, change);
       await refresh();
     },
   };
@@ -2116,16 +2357,15 @@ function ioFor(b) {
 
 // ---------- clones: each repository's own git, for a spec's Branches panel ----------
 
-// A clone the user grants is kept in IndexedDB by its path in links.json (by its slug when it has none), so every spec,
-// and every brain that links the same clone, reads it with no second grant. watch() names the repositories the open
-// spec touches; tick(), on the page's poll, re-reads each one's refs, rebuilds its branches and graph only when a ref
-// moved, and then fires clones-change, on which the spec's page redraws its panel.
+// A clone the user grants is kept by the source, so every spec, and every brain that links the same clone, reads it with
+// no second grant; the server source needs no grant, and opens each clone the open brain links. watch() names the
+// repositories the open spec touches; tick(), on the page's poll, a brain change or the page regaining focus, re-reads each
+// one's refs, rebuilds its branches and graph only when a ref moved, and then fires clones-change, on which the spec's page
+// redraws its panel.
 const Clones = (function () {
-  let grants = null, watched = [], watchKey = '', busy = false;
+  let watched = [], watchKey = '', busy = false;
   const views = new Map();
-  const keyOf = (r) => (r.path || 'slug:' + r.slug).toLowerCase();
-  const loadGrants = async () => { if (!grants) { try { grants = (await idb('readonly', (s) => s.get('clones'))) || {}; } catch { grants = {}; } } return grants; };
-  const saveGrants = async () => { try { await idb('readwrite', (s) => s.put(grants, 'clones')); } catch {} };
+  const keyOf = BrainSource.cloneKey;
   // a remote as host/owner/repo, the same written as SSH or HTTPS, with or without .git
   const norm = (u) => (u || '').trim().toLowerCase().replace(/\/+$/, '').replace(/\.git$/, '').replace(/^[a-z+]+:\/\//, '').replace(/^[^@/]+@/, '').replace(':', '/');
   const hasRemote = (r) => r.remote && !/^local/i.test(r.remote);
@@ -2191,19 +2431,19 @@ const Clones = (function () {
 
   // Returns whether what the panel shows for w changed.
   async function read(w) {
-    const v = viewOf(w.repo), before = v.stamp, h = (await loadGrants())[keyOf(w.repo)];
-    if (!h) v.state = 'ungranted';
-    else if ((await h.queryPermission({ mode: 'read' }).catch(() => 'denied')) !== 'granted') v.state = 'denied';
-    else {
-      try {
-        if (!v.repo || v.handle !== h) Object.assign(v, { repo: await GitRead.open(h), handle: h, sig: null });
+    const v = viewOf(w.repo), before = v.stamp;
+    try {
+      const opened = await source.open(w.repo, state.brain);
+      if (opened.state !== 'ok') v.state = opened.state;
+      else {
+        if (v.repo !== opened.repo) Object.assign(v, { repo: opened.repo, sig: null });
         const refs = await v.repo.refs(), want = `${w.spec}|${w.base || ''}|${w.mode}|${w.days}`;
         if (refs.sig !== v.sig || want !== v.want || v.state !== 'ok') {
           v.repo.reload();
           Object.assign(v, await build(v.repo, refs, w), { state: 'ok', sig: refs.sig, want, err: null });
         }
-      } catch (e) { Object.assign(v, { state: 'error', err: NOTE[e.message] || String(e.message || e), repo: null }); }
-    }
+      }
+    } catch (e) { Object.assign(v, e.unlinked ? { state: 'unlinked', err: null, repo: null, sig: null } : { state: 'error', err: NOTE[e.message] || String(e.message || e), repo: null }); }
     v.stamp = [v.state, v.sig, v.want, v.err, v.note].join('|');
     return v.stamp !== before;
   }
@@ -2225,7 +2465,7 @@ const Clones = (function () {
     view: (repo) => viewOf(repo),
     tick,
     // Asks for a clone's folder and keeps it when its origin names the card's remote (for a local-only repository,
-    // when the folder's name is the slug or its links.json path's last segment).
+    // when the folder's name is the slug or its repos.json path's last segment).
     async grant(repo) {
       let h;
       try { h = await window.showDirectoryPicker({ id: 'clone', mode: 'read' }); } catch { return; }
@@ -2238,17 +2478,12 @@ const Clones = (function () {
         v.note = hasRemote(repo) ? `${h.name}'s origin is ${url || 'not set'}, not ${repo.remote}: pick the clone of ${repo.slug}.` : `Pick the folder named ${tail || repo.slug}.`;
         return fire();
       }
-      (await loadGrants())[keyOf(repo)] = h; v.note = null; v.sig = null;
-      await saveGrants();
+      await source.grant(repo, h); v.note = null; v.sig = null;
       fire(); await tick();
     },
     // after a browser restart: asks again for each granted clone of these repositories that lost its permission
     async reconnect(repos) {
-      const g = await loadGrants();
-      for (const r of repos) {
-        const h = g[keyOf(r)];
-        if (h) { try { if ((await h.queryPermission({ mode: 'read' })) !== 'granted') await h.requestPermission({ mode: 'read' }); } catch {} }
-      }
+      await source.reconnect(repos);
       fire(); await tick();
     },
   };
@@ -2261,12 +2496,17 @@ async function refresh() {
   if (state.brain) { if (await readBrain(state.brain)) showBrain(); return; }
   if ((await Promise.all(state.brains.map(readBrain))).some(Boolean)) showHome();
 }
-let polling = false;
-setInterval(async () => {
-  if (!state.brain || polling || document.hidden) return;
-  polling = true;
-  try { await refresh(); await Clones.tick(); } finally { polling = false; }
-}, 2000);
+// The folder source calls back on every tick, so a hidden page skips it. The server source calls back on a change event
+// { brain, changed, times }, so the open brain re-reads at once, even when a re-read is running: the next one follows it.
+let reading = false, again = false;
+source.subscribe(async (event) => {
+  if (!state.brain || (event ? event.brain !== state.brain.id : document.hidden)) return;
+  if (reading) { if (event) again = true; return; }
+  reading = true;
+  try {
+    do { again = false; await refresh(); await Clones.tick(); } while (again);
+  } finally { reading = false; }
+});
 
 // A brain shows as its folder's name; a clashing name takes the first free number suffix.
 function uniqueName(name) {
@@ -2276,12 +2516,34 @@ function uniqueName(name) {
   return out;
 }
 
+// Over the server, Add brain takes the brain folder's path, typed, and the server lists it.
+async function addBrainByPath() {
+  const path = (window.prompt('The absolute path of the brain folder, the one holding BRAIN.md') || '').trim();
+  if (!path) return;
+  let entry;
+  try { entry = await source.add(path); } catch (e) {
+    state.notice = `Could not add <b>${esc(path)}</b>: ${esc(e.message)}`;
+    return state.brain ? goBrain(null) : showHome();
+  }
+  state.notice = '';
+  let b = state.brains.find((x) => x.id === entry.id);
+  if (!b) { b = entry; state.brains.push(b); }
+  await readBrain(b);
+  goBrain(b.id);
+}
+
 async function addBrain() {
+  if (viaServer) return addBrainByPath();
   let handle;
   try { handle = await window.showDirectoryPicker({ id: 'brain', mode: 'read' }); } catch { return; }
   for (const b of state.brains) if (await b.handle.isSameEntry(handle).catch(() => false)) return goBrain(b.id);
-  try { await handle.getFileHandle('BRAIN.md'); } catch {
-    state.notice = `No <code>BRAIN.md</code> in <b>${esc(handle.name)}</b>. Pick the brain's folder, the one holding <code>BRAIN.md</code>; <code>/brain setup</code> creates one.`;
+  // a brain's folder holds BRAIN.md, or holds a .brain/ folder that does
+  const holdsBrain = async () => {
+    try { await handle.getFileHandle('BRAIN.md'); return true; } catch {}
+    try { await (await handle.getDirectoryHandle('.brain')).getFileHandle('BRAIN.md'); return true; } catch { return false; }
+  };
+  if (!(await holdsBrain())) {
+    state.notice = `No <code>BRAIN.md</code> or <code>.brain/BRAIN.md</code> in <b>${esc(handle.name)}</b>. Pick the brain's folder, the one holding <code>BRAIN.md</code> or a <code>.brain/</code> folder; <code>/brain setup</code> creates one.`;
     return state.brain ? goBrain(null) : showHome();
   }
   state.notice = '';
@@ -2293,6 +2555,7 @@ async function addBrain() {
 }
 
 async function removeBrain(id) {
+  if (viaServer) { try { await source.remove({ id }); } catch { return; } }
   state.brains = state.brains.filter((b) => b.id !== id);
   await saveBrains();
   showHome();
@@ -2315,19 +2578,21 @@ async function applyRoute() {
 }
 
 async function restore() {
-  if (!window.showDirectoryPicker) {
+  if (!viaServer && !window.showDirectoryPicker) {
     $('open').classList.add('hidden');
     return showHome('This page needs Chrome or Edge: it reads your brains through their folder access.');
   }
-  try { state.brains = (await idb('readonly', (s) => s.get('brains'))) || []; } catch {}
+  state.brains = await source.brains();
   await Promise.all(state.brains.map(readBrain));
   applyRoute();
 }
 
 $('open').onclick = addBrain;
-$('reload').onclick = refresh;
+$('reload').onclick = () => refresh().then(Clones.tick);
 window.addEventListener('hashchange', applyRoute);
-window.addEventListener('focus', () => refresh().then(Clones.tick));
+// The folder source has no change events, so the page re-reads when it regains focus. The server pushes the brain's changes,
+// but not a clone's: a clone's refs move with no brain file changing, so the page re-reads those on focus.
+window.addEventListener('focus', () => (viaServer ? Clones.tick() : refresh().then(Clones.tick)));
 restore();
 
 </script>

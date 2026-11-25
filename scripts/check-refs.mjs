@@ -3,7 +3,8 @@
 // "[LAND.md](LAND.md)'s **Land a track**", "FORMAT.md's **Specs**" or
 // "`build`'s **Tracks**": the named file must exist and hold that section, as a
 // Markdown heading, a bold lead (`1. **Land them.**`, `- **Start.**`) or the bold
-// first cell of a table row (`| **Key** |`).
+// first cell of a table row (`| **Key** |`). It also checks that each `server/<name>.mjs` entry
+// named in the brain skill's VIEW.md exists.
 // Run: node scripts/check-refs.mjs   (exits 1 and lists each broken reference)
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
 import { join, dirname, resolve, relative, basename } from 'node:path'
@@ -48,7 +49,7 @@ const skillFile = (name) => {
 const ref =
   /(?:\[`?([A-Z][A-Z0-9-]*\.md)`?\]\(([^)]+)\)|\b([A-Z][A-Z0-9-]*\.md)|`([a-z][a-z-]+)`|\b(build|brain|tdd|commit|write-spec|write-tickets|review-changes|brainstorm|model-domain|design-patterns|open-pr))'s \*\*([^*]+)\*\*/g
 const broken = []
-let checked = 0
+let checked = 0, entries = 0
 for (const path of docs) {
   const lines = readFileSync(path, 'utf8').split('\n')
   lines.forEach((line, i) => {
@@ -69,9 +70,18 @@ for (const path of docs) {
   })
 }
 
+// The server entry `view` runs, named in `references/VIEW.md` as `server/<name>.mjs`, must exist in the plugin root's `server/`.
+const viewPath = join(root, 'skills', 'brain', 'references', 'VIEW.md')
+if (existsSync(viewPath)) {
+  for (const [, entry] of readFileSync(viewPath, 'utf8').matchAll(/\b(server\/[\w.-]+\.mjs)\b/g)) {
+    entries++
+    if (!existsSync(join(root, entry))) broken.push(`${relative(root, viewPath)}  the entry "${entry}" does not exist at the plugin root`)
+  }
+}
+
 if (broken.length) {
   console.log(broken.join('\n'))
-  console.log(`\n${broken.length} broken of ${checked} section references`)
+  console.log(`\n${broken.length} broken of ${checked} section references and ${entries} server entries`)
   process.exit(1)
 }
-console.log(`${checked} section references, all resolve`)
+console.log(`${checked} section references and ${entries} server entries, all resolve`)

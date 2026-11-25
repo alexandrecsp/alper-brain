@@ -1,9 +1,10 @@
 // Reads the brain's notes and drafts by FORMAT.md, so every script agrees on what a note is: recall.mjs ranks them,
-// schema.mjs checks them, timeline.mjs reads their past versions from git. parse and noteOf work on text alone;
-// loadBrain reads the brain's folders. placeOf is the one reader of the brain's layout: `notes/`, or the legacy
-// `repos/` and `shared/` a brain holds until MIGRATE.md's **Notes folder** moves it.
+// schema.mjs checks them. parse and noteOf work on text alone;
+// loadBrain reads the brain's folders by the paths layout.mjs gives. placeOf is the one reader of a path's place in the
+// brain's `.brain/` layout.
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { pathsOf, relativeTo } from './layout.mjs'
 
 export const TYPES = new Set(['feature', 'concept', 'decision', 'how-to', 'contract'])
 export const LAYERS = new Set(['business', 'application'])
@@ -44,27 +45,18 @@ export const listOf = (value) =>
     .map((v) => unquote(String(v).trim()))
     .filter(Boolean)
 
-// Where a path sits in the brain: an authored note, an explored note or a card, with the repository its folder names
-// (null for an authored note in notes/ or shared/, whose repos line names them), and the layout it belongs to.
+// Where a path, relative to the brain, sits in it: an authored note, an explored note or a card, with the repository its
+// folder names (null for an authored note in notes/authored/, whose repos line names them). Null for any other path.
 export function placeOf(path) {
   const p = path.split('/')
-  if (p[0] === 'notes') {
-    if (p[1] === 'authored' && p.length === 3) return { kind: 'authored', slug: null, layout: 'notes' }
-    if (p[1] === 'repos' && p.length === 4 && p[3] === 'REPO.md') return { kind: 'card', slug: p[2], layout: 'notes' }
-    if (p[1] === 'repos' && p.length === 5 && p[3] === 'explored') return { kind: 'explored', slug: p[2], layout: 'notes' }
-    return null
-  }
-  if (p[0] === 'shared' && p.length === 2) return { kind: 'authored', slug: null, layout: 'legacy' }
-  if (p[0] === 'repos' && p.length === 3) return { kind: p[2] === 'REPO.md' ? 'card' : 'authored', slug: p[1], layout: 'legacy' }
-  if (p[0] === 'repos' && p.length === 4 && p[2] === 'explored') return { kind: 'explored', slug: p[1], layout: 'legacy' }
+  if (p[0] === 'notes' && p[1] === 'authored' && p.length === 3) return { kind: 'authored', slug: null }
+  if (p[0] === 'notes' && p[1] === 'exploration' && p.length === 4) return { kind: 'explored', slug: p[2] }
+  if (p[0] === 'repos' && p.length === 3 && p[2] === 'REPO.md') return { kind: 'card', slug: p[1] }
   return null
 }
 
-// The brain's layout: `notes` once it holds a notes/ folder, else `legacy`.
-export const layoutOf = (brain) => (existsSync(join(brain, 'notes')) ? 'notes' : 'legacy')
-
 // A repository's card, relative to the brain.
-export const cardOf = (brain, slug) => (layoutOf(brain) === 'notes' ? `notes/repos/${slug}/REPO.md` : `repos/${slug}/REPO.md`)
+export const cardOf = (brain, slug) => relativeTo(brain, pathsOf(brain).card(slug))
 
 // One note from its text. `path` is where the file is, `target` where the note lands (a draft's target), and
 // `draft` the draft's action, or null for a committed note.
@@ -87,23 +79,24 @@ export function noteOf(path, text, { target = path, draft = null } = {}) {
 
 const list = (dir) => (existsSync(dir) && statSync(dir).isDirectory() ? readdirSync(dir) : [])
 
-// Every registered repository's slug, every committed note and every draft in the brain.
+// A draft from its text: it lands at its `target`, else where it sits, by its `action`, else as a record.
+export function draftOf(path, text) {
+  const { fm } = parse(text)
+  return noteOf(path, text, { target: typeof fm.target === 'string' && fm.target ? fm.target : path, draft: fm.action || 'record' })
+}
+
+// Every registered repository's slug, every committed note and every draft in the brain, each path relative to the
+// brain.
 export function loadBrain(brain) {
-  const mdIn = (rel) => list(join(brain, rel)).filter((f) => f.endsWith('.md')).map((f) => `${rel}/${f}`)
-  const layout = layoutOf(brain)
-  const repos = layout === 'notes' ? 'notes/repos' : 'repos'
-  const slugs = list(join(brain, repos)).filter((d) => existsSync(join(brain, repos, d, 'REPO.md')))
-  const paths = layout === 'notes'
-    ? [...mdIn('notes/authored'), ...slugs.flatMap((s) => mdIn(`notes/repos/${s}/explored`))]
-    : [
-        ...slugs.flatMap((s) => [...mdIn(`repos/${s}`).filter((p) => !p.endsWith('/REPO.md')), ...mdIn(`repos/${s}/explored`)]),
-        ...mdIn('shared'),
-      ]
+  const at = pathsOf(brain)
+  const rel = (path) => relativeTo(brain, path)
+  const mdIn = (dir) => list(dir).filter((f) => f.endsWith('.md')).map((f) => `${rel(dir)}/${f}`)
+  const slugs = list(at.repos).filter((d) => existsSync(at.card(d)))
+  const paths = [
+    ...mdIn(at.authored),
+    ...slugs.flatMap((s) => mdIn(at.exploration(s))),
+  ]
   const notes = paths.map((path) => noteOf(path, readFileSync(join(brain, path), 'utf8')))
-  const drafts = mdIn('.brain/drafts').map((path) => {
-    const text = readFileSync(join(brain, path), 'utf8')
-    const { fm } = parse(text)
-    return noteOf(path, text, { target: typeof fm.target === 'string' && fm.target ? fm.target : path, draft: fm.action || 'record' })
-  })
-  return { layout, slugs, notes, drafts }
+  const drafts = mdIn(at.drafts).map((path) => draftOf(path, readFileSync(join(brain, path), 'utf8')))
+  return { slugs, notes, drafts }
 }

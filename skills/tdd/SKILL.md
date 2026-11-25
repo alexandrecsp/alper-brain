@@ -42,7 +42,7 @@ When a seam is an interface another repository calls or offers (a `contract` not
 
 ## Suites
 
-The **unit**, **e2e** and **full suites** are defined by the `unit` and `e2e` bullets of [FORMAT.md](../brain/references/FORMAT.md)'s card. The working repository's card (your Context block's **Card** line, else `notes/repos/<slug>/REPO.md` in the brain) names each one's command in its `unit` and `e2e` fields. When a field is missing, or no brain is open, take the command from the project's scripts; with a brain open, report that `/brain setup` would record them.
+The **unit**, **e2e** and **full suites** are defined by the `unit` and `e2e` bullets of [FORMAT.md](../brain/references/FORMAT.md)'s card. The working repository's card (your Context block's **Card** line, else `repos/<slug>/REPO.md` in the brain) names each one's command in its `unit` and `e2e` fields. When a field is missing, or no brain is open, take the command from the project's scripts; with a brain open, report that `/brain setup` would record them.
 
 - **Inside the loop**, run the test you are writing, filtered by its name, and the unit suite.
 - **Your e2e tests** are the e2e tests you wrote or changed. Run each one filtered by its name, never its whole file: red, then green. The rest of its file, and an e2e test that imports a helper you changed or drives a screen you changed, waits for the full suite.

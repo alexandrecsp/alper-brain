@@ -1,6 +1,6 @@
 ---
 name: scribe
-description: Writes the explored notes for the area of a repository snapshot its brief gives, or for the area's changed files, into the scratch folder its brief names, then reports them. Dispatched by the brain's explore.
+description: Writes the explored notes for the area of a repository's code its brief gives, or for the area's changed files, into the scratch folder its brief names, then reports them. Dispatched by the brain's explore.
 tools: Read, Grep, Glob, Write
 model: sonnet
 ---

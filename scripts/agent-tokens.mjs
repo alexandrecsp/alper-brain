@@ -60,9 +60,9 @@ const kind = (name, input) => {
   if (name === 'Read') {
     const p = (input.file_path ?? '').replace(/\\/g, '/')
     if (/\/\.brain\/specs\/.*\/\d{3}-[^/]+\.md$/.test(p) && !/milestone\.md|review\.md/.test(p)) return 'read:ticket'
+    if (/\/\.brain\/(notes|repos)\//.test(p)) return 'read:brain-notes'
     if (/\/\.brain\//.test(p)) return 'read:spec/milestone/review'
     if (/\/skills\/|\/plugins\//.test(p)) return 'read:skills'
-    if (/\/(repos|shared)\/[^/]+/.test(p) && /brain/i.test(p)) return 'read:brain-notes'
     if (/STRUCTURE\.md|GLOSSARY|\/adr\/|CLAUDE\.md|AGENTS\.md|README/i.test(p)) return 'read:repo-docs'
     return 'read:repo-code'
   }

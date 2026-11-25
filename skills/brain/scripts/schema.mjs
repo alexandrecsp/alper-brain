@@ -5,9 +5,11 @@
 // Run: node schema.mjs <brain> <file>...   (prints one <path>: <rule> per finding and exits 1, else prints schema: ok;
 //      a <path>: warn: <rule> line flags what FORMAT.md asks of new notes without failing the check)
 //      node schema.mjs <brain>             (checks every note and draft, to list the ones already breaking a rule)
-import { existsSync, readFileSync, statSync } from 'node:fs'
-import { isAbsolute, join, relative, resolve } from 'node:path'
-import { TYPES, LAYERS, cardOf, loadBrain, noteOf, parse, placeOf } from './notes.mjs'
+import { execFileSync } from 'node:child_process'
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+import { KINDS, kindOf, pathsOf, relativeTo } from './layout.mjs'
+import { TYPES, LAYERS, cardOf, draftOf, loadBrain, noteOf, placeOf } from './notes.mjs'
 
 const ACTIONS = new Set(['record', 'update', 'supersede', 'delete'])
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
@@ -23,21 +25,22 @@ if (!brainArg) fail('name the brain folder')
 const brain = resolve(brainArg)
 if (!existsSync(join(brain, 'BRAIN.md'))) fail(`${brain} holds no BRAIN.md`)
 
-const { layout, slugs, notes, drafts } = loadBrain(brain)
-const rel = (p) => relative(brain, isAbsolute(p) ? p : resolve(p)).replace(/\\/g, '/')
+const { slugs, notes, drafts } = loadBrain(brain)
+const draftsDir = relativeTo(brain, pathsOf(brain).drafts)
+const rel = (p) => relativeTo(brain, resolve(p))
 
-// The files to check: those named, read as a note or a draft by where they sit, else every note and draft.
+// The files to check: those named, read as BRAIN.md, a note or a draft by where they sit, else BRAIN.md and every note and draft.
+const BRAIN_MD = { path: 'BRAIN.md', brainMd: true }
 let checked
 if (fileArgs.length) {
   checked = fileArgs.map((arg) => {
     const path = rel(arg)
     if (path.startsWith('..') || !existsSync(join(brain, path)) || !statSync(join(brain, path)).isFile()) fail(`${arg}: not a file in the brain`)
+    if (path === 'BRAIN.md') return BRAIN_MD
     const text = readFileSync(join(brain, path), 'utf8')
-    if (!path.startsWith('.brain/drafts/')) return noteOf(path, text)
-    const { fm } = parse(text)
-    return noteOf(path, text, { target: typeof fm.target === 'string' && fm.target ? fm.target : path, draft: fm.action || 'record' })
+    return path.startsWith(`${draftsDir}/`) ? draftOf(path, text) : noteOf(path, text)
   })
-} else checked = [...notes, ...drafts]
+} else checked = [BRAIN_MD, ...notes, ...drafts]
 
 // Names are unique across the committed notes; a draft may share its own target's name.
 const owners = new Map()
@@ -45,21 +48,42 @@ for (const n of notes) owners.set(n.name, [...(owners.get(n.name) ?? []), n.path
 
 // What FORMAT.md asks of a new note, which a note written before the rule may lack: a warning, never a finding.
 function warned(n) {
-  if (n.draft === 'delete' || n.explored || n.repos.length !== 1 || typeof n.fm.name !== 'string') return []
+  if (n.brainMd || n.draft === 'delete' || n.explored || n.repos.length !== 1 || typeof n.fm.name !== 'string') return []
   const slug = n.repos[0]
   return n.fm.name.startsWith(`${slug}-`) ? [] : [`name ${n.fm.name} does not start with ${slug}-, the repository its repos names`]
 }
 
+// The folder git says holds the brain, or null when the brain is in no repository.
+function gitTop() {
+  try {
+    const top = execFileSync('git', ['-C', brain, 'rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).trim()
+    return realpathSync.native(top)
+  } catch {
+    return null
+  }
+}
+
+// Each rule BRAIN.md breaks: its `kind` line names a kind, and the git test agrees with it. A local brain is a git
+// repository of its own, so git's top level is its folder; a standalone or an embedded brain sits in its host's repository.
+function brokenKind() {
+  const kind = kindOf(brain)
+  if (!kind) return [`kind is missing; it is one of ${[...KINDS].join(', ')}`]
+  const top = gitTop()
+  if (!top) return []
+  const own = top === realpathSync.native(brain)
+  if (kind === 'local' && !own) return ['kind is local, but the brain is not a git repository of its own']
+  if (kind !== 'local' && own) return [`kind is ${kind}, but the brain is a git repository of its own, which only a local brain is`]
+  return []
+}
+
 // Each rule a note breaks, as one line. The note is read where it lands: its target for a draft.
 function broken(n) {
+  if (n.brainMd) return brokenKind()
   const out = []
   const fm = n.fm
   const at = n.target.split('/')
-  // A note sits where its brain's layout puts it: in the legacy layout, an authored note in shared/ spans repositories.
   const place = placeOf(n.target)
-  const where = !place || place.kind === 'card' || place.layout !== layout ? null
-    : place.kind === 'authored' && layout === 'legacy' && !place.slug ? 'shared'
-    : place.kind
+  const where = !place || place.kind === 'card' ? null : place.kind
 
   if (n.draft) {
     if (typeof fm.target !== 'string' || !fm.target) out.push('a draft needs target: the path the note lands at')
@@ -67,9 +91,8 @@ function broken(n) {
     if (fm.action === 'supersede' && !(typeof fm.supersedes === 'string' && fm.supersedes)) out.push('a supersede draft needs supersedes: the decision it replaces')
     if (fm.action === 'delete') return out
   }
-  const paths = layout === 'notes'
-    ? 'notes/authored/<name>.md or notes/repos/<slug>/explored/<name>.md'
-    : 'repos/<slug>/<name>.md, repos/<slug>/explored/<name>.md or shared/<name>.md'
+  const exploredDir = 'notes/exploration/<slug>/'
+  const paths = `notes/authored/<name>.md or ${exploredDir}<name>.md`
   if (!where) out.push(`${n.draft ? 'target' : 'path'} ${n.target} is not ${paths}`)
   if (where && place.slug && !slugs.includes(place.slug)) out.push(`repository ${place.slug} is not registered: it has no ${cardOf(brain, place.slug)}`)
 
@@ -84,27 +107,25 @@ function broken(n) {
   if (typeof fm.description !== 'string' || !fm.description.trim()) out.push('description is missing')
   if (!TYPES.has(fm.type)) out.push(`type is ${fm.type ? `"${fm.type}"` : 'missing'}; it is one of ${[...TYPES].join(', ')}`)
   if (!LAYERS.has(fm.layer)) out.push(`layer is ${fm.layer ? `"${fm.layer}"` : 'missing'}; it is business or application`)
-  if (fm.type === 'contract' && layout === 'legacy' && where && where !== 'shared') out.push('a contract lives in shared/')
   if (fm.type === 'contract' && where === 'explored') out.push('a contract is an authored note, in notes/authored/')
   if (fm.type === 'contract' && LAYERS.has(fm.layer) && fm.layer !== 'application') out.push('a contract is always application')
-  if (fm.type === 'feature' && where && where !== 'explored') out.push(`a feature is an explored note only, in ${layout === 'notes' ? 'notes/' : ''}repos/<slug>/explored/`)
+  if (fm.type === 'feature' && where && where !== 'explored') out.push(`a feature is an explored note only, in ${exploredDir}`)
   if (fm.type === 'feature' && LAYERS.has(fm.layer) && fm.layer !== 'business') out.push('a feature is always business')
   if (where === 'explored' && LAYERS.has(fm.layer) && fm.layer !== 'business') out.push('an explored note is always business')
 
   const isList = (v) => Array.isArray(v) || (typeof v === 'string' && /^\[.*\]$/.test(v))
-  // repos is required where the folder names no repository: every authored note in notes/, and shared/ in the legacy layout.
-  const needsRepos = where === 'shared' || (where === 'authored' && layout === 'notes')
-  if (needsRepos) {
-    if (fm.repos === undefined || !n.repos.length) out.push(`${where === 'shared' ? 'a shared note' : 'an authored note'} needs repos: the slugs it bears on, as [a, b]`)
+  // repos is required where the folder names no repository: every authored note.
+  if (where === 'authored') {
+    if (fm.repos === undefined || !n.repos.length) out.push('an authored note needs repos: the slugs it bears on, as [a, b]')
     else if (!isList(fm.repos)) out.push('repos is a list, as [a, b]')
     else {
       for (const r of n.repos) if (!slugs.includes(r)) out.push(`repos names ${r}, which is not registered`)
       if (fm.type === 'contract' && n.repos.length < 2) out.push('a contract names at least two repos: its producer and a consumer')
     }
-  } else if (fm.repos !== undefined) out.push(layout === 'notes' ? 'repos belongs on an authored note only: an explored note takes its repository from its folder' : 'repos belongs on a shared/ note only')
+  } else if (fm.repos !== undefined) out.push('repos belongs on an authored note only: an explored note takes its repository from its folder')
 
   if (where === 'explored' && !fm.explored) out.push('an explored note needs explored: the short SHA it was read at')
-  if (fm.explored !== undefined && where !== 'explored') out.push(`explored: belongs on a note in ${layout === 'notes' ? 'notes/' : ''}repos/<slug>/explored/ only`)
+  if (fm.explored !== undefined && where !== 'explored') out.push(`explored: belongs on a note in ${exploredDir} only`)
 
   if (fm.status !== undefined && fm.status !== 'superseded') out.push(`status is "${fm.status}"; the only status is superseded`)
   if (fm.status === 'superseded') {

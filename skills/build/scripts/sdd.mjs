@@ -5,7 +5,7 @@
 //   node sdd.mjs state <spec-id|spec-folder> [--brain <brain>] [--no-git]
 //     Prints the spec as JSON: its lines, its dependencies, the cap, and per track its milestones with each one's
 //     state (open, unlanded, landed), the step it resumes at, whether it is ready or landable, the frontier a call
-//     builds, and, read from git through .brain/links.json, whether its branch exists and the repository is clean,
+//     builds, and, read from git through the brain's repos.json, whether its branch exists and the repository is clean,
 //     and, while its base is still to be defined, the release branches RELEASE.md's **Offer** gives.
 //   node sdd.mjs brief <ticket-file> [--no-git]
 //     Prints, as Markdown, what the ticket's builder needs from around it: its milestone's lines, the Notes and
@@ -41,7 +41,7 @@
 //     LAND.md's **Land a track**: rebase, follow each squash, full suite, fast-forward the base, record the landing.
 //     Exits 1 with `stopped: <why>` when it cannot; --fold first folds a fixer's commits into the track's last squash.
 //   node sdd.mjs lock <spec-id|spec-folder> [--brain <brain>] [--take]
-//     Build's **Locks**: claims each repository the spec still changes in .brain/locks/<slug>.json. Exits 1 with a
+//     Build's **Locks**: claims each repository the spec still changes in the brain's locks/<slug>.json. Exits 1 with a
 //     `held:` line per repository another spec's build holds, unless --take. `unlock` releases this spec's claims.
 //   node sdd.mjs merged <spec-id|spec-folder> --track <slug> [--brain <brain>] [--commit <sha>] [--realign]
 //     open-pr's **Follow the merge**: once origin/<base> (as last fetched) holds the track's last landing, or the
@@ -53,6 +53,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { brainOfSpec, findBrain, pathsOf } from '../../brain/scripts/layout.mjs'
 
 export const DEFAULT_CAP = 5
 /** This plugin's root: sdd.mjs sits in skills/build/scripts/. */
@@ -72,6 +73,8 @@ export const field = (md, name) => {
 
 const isNone = (v) => v === null || v === '' || /^none$/i.test(v)
 const orNull = (v) => (isNone(v) ? null : v)
+/** A ticket's **Commit** SHA, without the `(squashed into M<NNN>)` mark a squash adds; null when none. */
+const commitOf = (md) => orNull(field(md, 'Commit'))?.split(/\s+/)[0] ?? null
 const heading = (md) => (/^#\s+(.*)$/m.exec(md)?.[1] ?? '').trim()
 
 /** `a@x, b@y` → { a: 'x', b: 'y' }. */
@@ -148,14 +151,21 @@ const read = (p) => readFileSync(p, 'utf8')
 const dirs = (p) => (existsSync(p) ? readdirSync(p).filter((n) => statSync(join(p, n)).isDirectory()).sort() : [])
 const numbered = (n) => /^\d{3}/.test(n)
 
-/** The spec folder a spec id names under <brain>/.brain/specs, by SPEC-ID.md. */
+/** The brain root a folder names: the `.brain/` it holds or is, else the folder itself. */
+const rootOf = (folder) => resolve(findBrain(folder) ?? folder)
+/** The brain root above a spec folder: two levels up. */
+const brainOf = (specDir) => resolve(brainOfSpec(specDir))
+/** Every path of a brain, by layout.mjs: the folder given is the brain's root or the folder holding it. */
+const pathsFor = (brain) => pathsOf(rootOf(brain))
+
+/** The spec folder a spec id names under the brain's specs/, by SPEC-ID.md. */
 export const resolveSpec = (arg, brain) => {
   const asPath = resolve(arg)
   if (existsSync(join(asPath, 'spec.md'))) return asPath
   const m = /^s?(\d+)/i.exec(basename(arg.replace(/[\\/]+$/, '')))
   if (!m) throw new Error(`Not a spec id or spec folder: ${arg}`)
   const nnn = m[1].padStart(3, '0')
-  const root = join(brain, '.brain', 'specs')
+  const root = pathsFor(brain).specs
   const found = dirs(root).filter((n) => n.startsWith(nnn))
   if (found.length !== 1) throw new Error(`${found.length ? 'Several spec folders' : 'No spec folder'} for ${arg} under ${root}${found.length ? `: ${found.join(', ')}` : ''}`)
   return join(root, found[0])
@@ -176,7 +186,7 @@ const readMilestone = (dir, track) => {
         title: heading(t).replace(/^Ticket\s+\d+:\s*/, ''),
         status: field(t, 'Status') ?? 'todo',
         dependsOn: ids(field(t, 'Depends on')),
-        commit: orNull(field(t, 'Commit')),
+        commit: commitOf(t),
       }
     })
   return {
@@ -231,7 +241,7 @@ const readSpecLines = (specDir) => {
 
 /** The `parallelAgents` setting by FORMAT.md's **Settings**: { cap, problem }. */
 export const readCap = (brain) => {
-  const path = join(brain, '.brain', 'config.json')
+  const path = pathsFor(brain).config
   if (!existsSync(path)) return { cap: DEFAULT_CAP }
   let cfg
   try { cfg = JSON.parse(read(path)) } catch { return { cap: DEFAULT_CAP, problem: `${path} does not parse as JSON` } }
@@ -241,8 +251,9 @@ export const readCap = (brain) => {
   return Number.isInteger(v) && v > 0 ? { cap: v } : { cap: DEFAULT_CAP, problem: `parallelAgents ${JSON.stringify(v)} is not a positive whole number` }
 }
 
-const readLinks = (brain) => {
-  const path = join(brain, '.brain', 'links.json')
+// The clones the brain registers, by slug: its repos/repos.json.
+const readRepos = (brain) => {
+  const path = pathsFor(brain).reposJson
   if (!existsSync(path)) return {}
   try { return JSON.parse(read(path)) } catch { return {} }
 }
@@ -471,14 +482,15 @@ export const derive = ({ tracks, layout, repos, repo = () => ({ git: false }) })
 }
 
 /** The whole state of one spec, as `state` prints it. */
-export const specState = (specDir, { brain = resolve(specDir, '..', '..', '..'), useGit = true } = {}) => {
+export const specState = (specDir, { brain: given = brainOf(specDir), useGit = true } = {}) => {
+  const brain = rootOf(given)
   const spec = readSpecLines(specDir)
   const { layout, tracks } = readTracks(specDir)
   const specFolder = basename(specDir)
   for (const t of tracks) t.specFolder = specFolder
-  const links = readLinks(brain)
+  const clones = readRepos(brain)
   const slugs = [...new Set([...spec.repos, ...tracks.map((t) => t.slug)])]
-  const repos = new Map(slugs.map((s) => [s, useGit ? repoState(links[s], specFolder, spec.base[s]) : { root: links[s] ?? null, git: false }]))
+  const repos = new Map(slugs.map((s) => [s, useGit ? repoState(clones[s], specFolder, spec.base[s]) : { root: clones[s] ?? null, git: false }]))
 
   const dependencies = spec.dependsOn.map((id) => {
     let dir
@@ -489,7 +501,7 @@ export const specState = (specDir, { brain = resolve(specDir, '..', '..', '..'),
       // A repository with a remote counts the dependency once its PR merged, by its Merged entry; a local-only one
       // once it landed.
       d.onBase = Object.fromEntries(Object.entries(dep.landed).map(([slug, landedSha]) => {
-        const root = links[slug]
+        const root = clones[slug]
         const base = dep.base[slug]
         const sha = localOnly(brain, slug) ? landedSha : dep.merged?.[slug]
         return [slug, !root ? 'unlinked' : !base ? 'no base' : !sha ? 'not merged' : isAncestor(root, sha, base)]
@@ -509,7 +521,7 @@ export const specState = (specDir, { brain = resolve(specDir, '..', '..', '..'),
     ...spec,
     cap,
     ...(problem ? { capProblem: problem } : {}),
-    unlinked: slugs.filter((s) => !links[s]),
+    unlinked: slugs.filter((s) => !clones[s]),
     dependencies,
     ...derived,
   }
@@ -542,9 +554,9 @@ export const ticketDigest = (ticketPath, { useGit = true } = {}) => {
   const msDir = resolve(path, '..')
   const specDir = [resolve(msDir, '..', '..'), resolve(msDir, '..', '..', '..')].find((d) => existsSync(join(d, 'spec.md')))
   if (!specDir) throw new Error(`No spec.md above ${ticketPath}`)
-  const brain = resolve(specDir, '..', '..', '..')
+  const brain = brainOf(specDir)
   const { layout, tracks } = readTracks(specDir)
-  const links = readLinks(brain)
+  const clones = readRepos(brain)
   const all = tracks.flatMap((t) => t.milestones.flatMap((m) => m.tickets.map((k) => ({ ...k, track: t.slug, milestone: m }))))
   const self = all.find((k) => resolve(k.milestone.dir, k.file) === path)
   if (!self) throw new Error(`${ticketPath} is not a ticket of ${basename(specDir)}`)
@@ -574,7 +586,7 @@ export const ticketDigest = (ticketPath, { useGit = true } = {}) => {
   if (!picked.size) out.push('None: it is the first ticket of its milestone and depends on none.')
   for (const k of [...picked.values()].sort((a, b) => (a.track + a.n).localeCompare(b.track + b.n))) {
     const text = read(join(k.milestone.dir, k.file))
-    const root = links[k.track]
+    const root = clones[k.track]
     out.push(`### ${k.track}/${k.n}: ${k.title}`, '', `**Status:** ${k.status} · **Commit:** ${k.commit ?? 'none'}${root ? ` · **Root:** ${root}` : ''}`, '')
     out.push('Notes:', '', notesOf(text) || 'none', '')
     if (useGit && k.commit && root) out.push(changed('commit', k.commit, root), '')
@@ -586,7 +598,7 @@ export const ticketDigest = (ticketPath, { useGit = true } = {}) => {
   for (const id of after) {
     const dep = tracks.find((t) => t.slug === id.track)?.milestones.find((x) => x.n === id.n)
     if (!dep) { out.push(`### ${id.track}/${id.n}`, '', 'Names no milestone of this spec.', ''); continue }
-    const root = links[id.track]
+    const root = clones[id.track]
     out.push(`### ${id.track}/${dep.n}: ${dep.title}`, '', `**Delivers:** ${field(read(join(dep.dir, 'milestone.md')), 'Delivers') ?? 'none'}`, `**Squash:** ${dep.squash ?? 'none'}${root ? ` · **Root:** ${root}` : ''}`, '')
     if (useGit && dep.squash && root) out.push(changed('squash', dep.squash, root), '')
     for (const k of dep.tickets) {
@@ -716,12 +728,12 @@ const locate = (path) => {
   const msDir = /\.md$/i.test(p) ? resolve(p, '..') : p
   const specDir = [resolve(msDir, '..', '..'), resolve(msDir, '..', '..', '..')].find((d) => existsSync(join(d, 'spec.md')))
   if (!specDir) throw new Error(`No spec.md above ${path}`)
-  const brain = resolve(specDir, '..', '..', '..')
+  const brain = brainOf(specDir)
   const t = readTracks(specDir).tracks.find((x) => x.milestones.some((m) => resolve(m.dir) === msDir))
   if (!t) throw new Error(`${path} is not in a milestone of ${basename(specDir)}`)
   const m = t.milestones.find((x) => resolve(x.dir) === msDir)
-  const root = readLinks(brain)[t.slug]
-  if (!root) throw new Error(`${t.slug} is not in ${join(brain, '.brain', 'links.json')}`)
+  const root = readRepos(brain)[t.slug]
+  if (!root) throw new Error(`${t.slug} is not in ${pathsFor(brain).reposJson}`)
   const specFolder = basename(specDir)
   return { specDir, specFolder, brain, track: t.slug, m, root, branch: `sdd/${specFolder}/M${m.n}` }
 }
@@ -750,17 +762,41 @@ const run = (root, args, input) => {
 }
 
 /**
+ * After a squash is recorded: marks each ticket's **Commit** line `(squashed into M<NNN>)`, since its commit leaves every
+ * branch, then deletes the milestone's branch. Safe to run again. Returns what it could not do, as warnings.
+ */
+const retire = (m, root, branch) => {
+  const warnings = []
+  for (const k of m.tickets) {
+    const p = join(m.dir, k.file)
+    const t = read(p)
+    const v = orNull(field(t, 'Commit'))
+    if (!v || /\(squashed into /.test(v)) continue
+    try { writeFileSync(p, setLine(t, 'Commit', `${v} (squashed into M${m.n})`)) }
+    catch (e) { warnings.push(`not written: ${p} (${e.code ?? e.message}): write **Commit:** ${v} (squashed into M${m.n}) into it`) }
+  }
+  if (spawnSync('git', ['-C', root, 'rev-parse', '--verify', '--quiet', `refs/heads/${branch}`]).status === 0) {
+    if (git(root, ['rev-parse', '--abbrev-ref', 'HEAD']) === branch) warnings.push(`${branch} is checked out in ${root}, so it was kept: delete it once another branch is`)
+    else {
+      const r = spawnSync('git', ['-C', root, 'branch', '-D', branch], { encoding: 'utf8' })
+      if (r.status !== 0) warnings.push(`${branch} was kept: ${(r.stderr || r.stdout).trim()}`)
+    }
+  }
+  return warnings
+}
+
+/**
  * Build's step 10 in one call: squashes the milestone's branch into the spec's branch as one keyed commit with its
- * Sdd-Milestone trailer, then writes `squash` into its **Phase** and the commit into **Squash**. Returns the SHA.
+ * Sdd-Milestone trailer, writes `squash` into its **Phase** and the commit into **Squash**, then retires the
+ * milestone's branch and marks its tickets' commits. Returns the SHA and the warnings.
  */
 export const squash = (path, { title, details = [], key: given }) => {
   const { specDir, specFolder, brain, track, m, root, branch } = locate(path)
   const msPath = join(m.dir, 'milestone.md')
-  if (m.squash) return { sha: m.squash, already: true }
+  if (m.squash) return { sha: m.squash, already: true, warnings: retire(m, root, branch) }
   if (!title) throw new Error('No --title for the squash commit')
   const spec = readSpecLines(specDir)
-  // A brain keeps its cards in notes/repos/ once MIGRATE.md's **Notes folder** has run, in repos/ before.
-  const cardPath = join(brain, ...(existsSync(join(brain, 'notes')) ? ['notes', 'repos'] : ['repos']), track, 'REPO.md')
+  const cardPath = pathsFor(brain).card(track)
   const key = commitKey(given ?? spec.key, track, existsSync(cardPath) ? read(cardPath) : null)
   const subject = key ? `${key}: ${title}` : title
   if (subject.length > 72) throw new Error(`The subject is ${subject.length} characters; the commit skill allows 72: ${subject}`)
@@ -781,20 +817,20 @@ export const squash = (path, { title, details = [], key: given }) => {
   } catch (e) {
     throw new Error(`squashed: ${sha}, but ${msPath} could not be written (${e.code ?? e.message}): write **Phase:** squash and **Squash:** ${sha} into it`)
   }
-  return { sha, already: false }
+  return { sha, already: false, warnings: retire(m, root, branch) }
 }
 
 /**
  * BRIEF.md's **After a sub-agent that changes a repository reports**, in one call, for the milestone a ticket or
  * milestone path names: the repository is on its branch and clean, each commit (and a ticket's **Commit**) is on
- * that branch, and the brain has no change outside `.brain/` and, given one, is still at `brainHead`.
+ * that branch, and the brain has no change and, given one, is still at `brainHead`.
  */
 export const verify = (path, { commits = [], brainHead, branch: onBranch } = {}) => {
   const { root, branch: msBranch, brain } = locate(path)
   const branch = onBranch ?? msBranch
   const problems = []
   const ticket = /\d{3}-[^/\\]+\.md$/.test(path) && !/milestone\.md$/.test(path) ? read(resolve(path)) : null
-  const shas = [...commits, ...(ticket && orNull(field(ticket, 'Commit')) ? [field(ticket, 'Commit')] : [])]
+  const shas = [...commits, ...(ticket && commitOf(ticket) ? [commitOf(ticket)] : [])]
   const head = git(root, ['rev-parse', '--abbrev-ref', 'HEAD'])
   if (head !== branch) problems.push(`${root} is on ${head}, not ${branch}`)
   for (const sha of new Set(shas)) {
@@ -804,13 +840,14 @@ export const verify = (path, { commits = [], brainHead, branch: onBranch } = {})
   const dirty = git(root, ['status', '--porcelain'])
   if (dirty) problems.push(`${root} has uncommitted changes: ${dirty.split('\n').slice(0, 5).join(', ')}`)
   if (git(brain, ['rev-parse', '--git-dir']) !== null) {
-    const changed = git(brain, ['status', '--porcelain', '--', '.', ':!.brain'])
-    if (changed) problems.push(`the brain has changes outside .brain/: ${changed.split('\n').slice(0, 5).join(', ')}`)
+    // The brain ignores every pipeline file, so any change git shows in its folder is a shared file's.
+    const changed = git(brain, ['status', '--porcelain', '--', '.'])
+    if (changed) problems.push(`the brain has changes: ${changed.split('\n').slice(0, 5).join(', ')}`)
     const bh = git(brain, ['rev-parse', 'HEAD'])
     if (brainHead && bh !== brainHead) problems.push(`the brain moved from ${brainHead} to ${bh}`)
   }
   const status = ticket ? field(ticket, 'Status') : null
-  const commit = ticket ? orNull(field(ticket, 'Commit')) : null
+  const commit = ticket ? commitOf(ticket) : null
   if (ticket && (status !== 'done' || !commit)) problems.push(`the ticket is ${status ?? 'without a Status'} with Commit ${commit ?? 'none'}, not done with its commit`)
   return { problems, status, commit }
 }
@@ -833,7 +870,7 @@ const contractNotes = (brain, slug) => {
       }
     }
   }
-  walk(join(brain, 'notes'))
+  walk(pathsFor(brain).notes)
   return out.sort((a, b) => a.path.localeCompare(b.path))
 }
 
@@ -855,15 +892,15 @@ export const contextBlock = (path, agent, { writes = [], branch: onBranch } = {}
   const ticketPath = /\d{3}-[^/\\]+\.md$/.test(path) && !/milestone\.md$/i.test(path) ? slash(resolve(path)) : null
   const changes = agent === 'builder' || agent === 'fixer'
   if (agent === 'builder' && !ticketPath) throw new Error('A builder works on a ticket: give its path')
-  const links = readLinks(brain)
+  const clones = readRepos(brain)
   const spec = readSpecLines(specDir)
-  const at = (s) => `${s} at ${slash(links[s] ?? '(not linked)')} (linked)`
+  const at = (s) => `${s} at ${slash(clones[s] ?? '(not linked)')} (linked)`
 
   const contracts = agent === 'arbiter' || agent === 'reviewer' ? contractNotes(brain, track) : []
   const also = new Set(changes
     ? [...m.buildsAfter, ...m.landsAfter].filter((id) => !id.bad && id.track && id.track !== track).map((id) => id.track)
     : agent === 'arbiter' ? contracts.flatMap((c) => c.repos).filter((s) => s !== track) : [])
-  const card = [join(brain, 'notes', 'repos', track, 'REPO.md'), join(brain, 'repos', track, 'REPO.md')].find(existsSync) ?? join(brain, 'notes', 'repos', track, 'REPO.md')
+  const card = pathsFor(brain).card(track)
   const docs = [
     ...['docs/STRUCTURE.md', 'GLOSSARY-MAP.md', 'GLOSSARY.md', 'docs/adr/', ...(agent === 'reviewer' ? ['CLAUDE.md', 'AGENTS.md'] : [])].map((f) => join(root, f)).filter((p) => existsSync(p)),
     ...(changes ? ['skills/project-structure/SKILL.md', 'skills/codebase-design/SKILL.md'].map((f) => join(PLUGIN, f)) : []),
@@ -949,8 +986,8 @@ export const next = (ticketPath, { commits = [], brainHead } = {}) => {
 
 /** A field of a repository's card frontmatter, or null. */
 const cardField = (brain, slug, key) => {
-  const card = [join(brain, 'notes', 'repos', slug, 'REPO.md'), join(brain, 'repos', slug, 'REPO.md')].find(existsSync)
-  const fm = card ? (/^---\r?\n([\s\S]*?)\r?\n---/.exec(read(card))?.[1] ?? '') : ''
+  const card = pathsFor(brain).card(slug)
+  const fm = existsSync(card) ? (/^---\r?\n([\s\S]*?)\r?\n---/.exec(read(card))?.[1] ?? '') : ''
   return new RegExp(`^${key}:\\s*(.*)$`, 'm').exec(fm)?.[1].trim() ?? null
 }
 
@@ -982,7 +1019,7 @@ const runSuite = (root, commands) => {
  * suite's failing command and output.
  */
 export const land = (specDir, slug, { fold = false } = {}) => {
-  const brain = resolve(specDir, '..', '..', '..')
+  const brain = brainOf(specDir)
   const specFolder = basename(specDir)
   const specBranch = `sdd/${specFolder}/spec`
   const st = specState(specDir, { brain })
@@ -1060,7 +1097,7 @@ export const land = (specDir, slug, { fold = false } = {}) => {
   return finish()
 }
 
-const lockFile = (brain, slug) => join(brain, '.brain', 'locks', `${slug}.json`)
+const lockFile = (brain, slug) => join(pathsFor(brain).locks, `${slug}.json`)
 const readLock = (brain, slug) => {
   try { return JSON.parse(read(lockFile(brain, slug))) } catch { return null }
 }
@@ -1071,7 +1108,7 @@ const readLock = (brain, slug) => {
  * claimed, the claims of other specs as { slug, spec, since }, and the slugs a read-only sandbox kept it from writing.
  */
 export const lock = (specDir, { take = false } = {}) => {
-  const brain = resolve(specDir, '..', '..', '..')
+  const brain = brainOf(specDir)
   const spec = basename(specDir)
   const slugs = readTracks(specDir).tracks.filter((t) => t.milestones.some((m) => !m.landed)).map((t) => t.slug)
   const held = slugs.map((slug) => ({ slug, ...readLock(brain, slug) })).filter((l) => l.spec && l.spec !== spec)
@@ -1086,9 +1123,9 @@ export const lock = (specDir, { take = false } = {}) => {
 
 /** Releases the claims this spec holds; returns their slugs. */
 export const unlock = (specDir) => {
-  const brain = resolve(specDir, '..', '..', '..')
+  const brain = brainOf(specDir)
   const spec = basename(specDir)
-  const dir = join(brain, '.brain', 'locks')
+  const dir = pathsFor(brain).locks
   const mine = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)).filter((slug) => readLock(brain, slug)?.spec === spec) : []
   return mine.filter((slug) => {
     try { rmSync(lockFile(brain, slug), { force: true }); return true } catch { return false }
@@ -1241,8 +1278,9 @@ const main = (argv) => {
     return
   }
   if (cmd === 'squash' && pos.length === 1) {
-    const { sha, already } = squash(pos[0], { title: opts.title, details: many.detail, key: opts.key })
+    const { sha, already, warnings } = squash(pos[0], { title: opts.title, details: many.detail, key: opts.key })
     console.log(already ? `already squashed: ${sha}` : `squashed: ${sha}`)
+    for (const w of warnings) console.log(w.startsWith('not written:') ? w : `warning: ${w}`)
     return
   }
   if (cmd === 'verify' && pos.length === 1) {

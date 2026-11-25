@@ -14,27 +14,40 @@ The skills then show up as `/alper-brain:<name>`. Below they are written by thei
 ## How it works
 
 ```
-~/brains/acme/                   ← the brain: launch Claude here
-├── BRAIN.md                       what it is, how to join, the repositories it covers
-├── notes/authored/                team notes, each naming the repositories it bears on
-├── notes/repos/billing-api/       a repository's REPO.md card, and what its code does in explored/
-└── .brain/                          this machine's pipeline work, ignored by git
-    ├── links.json                 where each repository is cloned here
-    ├── config.json                this machine's limits, such as how many tracks build at once
-    └── specs/                     specs, milestones, tickets and reviews, across repositories
+~/brains/acme/                       ← the brain's repository: launch Claude here
+├── CLAUDE.md                          the agent file, pointing at the brain
+└── .brain/                            the brain: every kind of brain lives in a `.brain/` folder
+    ├── BRAIN.md                       what it is, how to join, the repositories it covers, its kind
+    ├── .gitignore                     keeps this machine's files below out of git
+    ├── config.json                    ignored: this machine's limits, such as how many tracks build at once
+    ├── notes/
+    │   ├── authored/                  team notes, each naming the repositories it bears on
+    │   ├── exploration/<slug>/        what a repository's code does, from `/brain explore`
+    │   └── drafts/                    ignored: notes waiting for `/brain sync`
+    ├── repos/
+    │   ├── repos.json                 ignored: where each repository is cloned here
+    │   └── billing-api/
+    │       ├── REPO.md                the repository's card
+    │       ├── tours/  refactors/     onboarding tours and refactor reports
+    │       └── snapshots/             ignored: its default branch, checked out while a skill reads it
+    ├── prototypes/                    logic prototypes, one home even across repositories
+    ├── research/                      cited findings from `research`
+    ├── specs/                         ignored: specs, milestones, tickets and reviews, across repositories
+    └── explore/  locks/  handoff/     ignored: scratch, claims and handoffs of this machine
 ```
 
-- **Knowledge is shared, work stays local.** Everything outside `.brain/` is committed and shared by pull and push. Specs and tickets stay on your machine; what they teach reaches the team as notes.
-- **You work from the brain.** Claude is launched in the brain's folder, so it always knows where the brain is. The repositories the work needs are opened beside it.
+- **Knowledge is shared, work stays local.** The `.brain/.gitignore` keeps this machine's files out of git; everything else is committed and shared by pull and push: the notes, the cards, research, tours, refactor reports and prototypes. Specs and tickets stay on your machine; what they teach reaches the team as notes.
+- **You work from the brain.** Claude is launched in the folder holding the brain's `.brain/`, so it always knows where the brain is. The repositories the work needs are opened beside it.
 - **Each repository moves through three states.** **Registered**: the brain holds its `REPO.md` card (its remote, commit key pattern and test commands), so its notes and specs work. **Linked**: the brain knows where it is cloned on this machine, so skills can read its code. **Open**: it is open in the session, so skills can change it. Skills ask you to open a repository (`/add-dir <path>`) when they need to change it.
-- **Or embed it in a single repository.** A project that is one repository can keep its brain in that repository's `brain/` folder instead: you launch Claude in the repository, and the notes are committed on your current branch and ship with the code. `/brain export` later moves the brain, history included, into a repository of its own, so it can cover more.
-- **One brain per knowledge base.** A company, a client, your side projects: each gets its own brain, with its own notes, remote and `.brain/`. Nothing crosses between them.
+- **Or embed it in a single repository.** A project that is one repository can keep its brain in that repository's `.brain/` folder instead: you launch Claude in the repository, and the notes are committed on your current branch and ship with the code. `/brain export` later moves the brain, history included, into a repository of its own, so it can cover more.
+- **Or keep it local, just for you.** A local brain sits in the repository's `.brain/` folder too, which the repository's git ignores through `.git/info/exclude`. It is a git repository of its own that is never pushed, so every skill works and nothing reaches the repository's history. A skill that finds no brain offers to create one. `/brain export` moves it out when you want to share it.
+- **One brain per knowledge base.** A company, a client, your side projects: each gets its own brain, with its own notes and remote. Nothing crosses between them.
 
 `skills/brain/references/FORMAT.md` defines all of it.
 
 ## Getting started
 
-1. **Create or clone a brain.** Run `/brain setup` anywhere. It clones your team's brain or creates one, and tells you to launch Claude in it from then on. Run inside a repository, it can embed the brain there instead, and registers that repository in the same run.
+1. **Create or clone a brain.** Run `/brain setup` anywhere. It clones your team's brain or creates one, and tells you to launch Claude in it from then on. Run inside a repository, it can embed the brain there or keep a local one there instead, and registers that repository in the same run.
 2. **Register each repository.** In the brain, with a repository open (`/add-dir <path>`), run `/brain setup` again. It writes the repository's card (commit key, unit and e2e commands), settles its layout in `docs/STRUCTURE.md`, points its `CLAUDE.md` or `AGENTS.md` at the layout and the glossary, and moves its old `.sdd/` into the brain if it has one.
 3. **Link the rest.** `/brain link` finds this machine's clones of every registered repository.
 4. **Explore them.** `/brain explore` writes what each linked repository does into the brain, so teammates who never clone the code can ask about it. `/brain sync` shares the notes.
@@ -193,7 +206,7 @@ Everything about the brain runs through `/brain`, and its first argument picks w
 | `/brain view` | Opens the brain page: every brain you add, each live on four screens. **Overview** shows what is in flight, a heatmap of every ticket, the specs in dependency waves and what needs you; a spec opens on its own page, its milestones a pipeline with a lane per repository. **Board** is a kanban of specs or milestones, **Notes graph** draws every note and `[[link]]` in a force layout with tunable forces, and **Activity** lists the brain's commits. The document you select, reviews and diagrams included, reads in a panel over the screen. Needs Chrome or Edge. |
 | `/brain recall` | Reads the notes bearing on the current work. Skills do this on their own. |
 | `/brain remember <fact>` | Drafts a note for the next `/brain sync` to propose and commit. |
-| `/brain sync` | Pulls with rebase, consolidates the notes drafted on this machine (you confirm each) and commits them, asking once per repository for a commit key, updates the timeline, then pushes. Nothing is pushed until you run it. |
+| `/brain sync` | Pulls with rebase, consolidates the notes drafted on this machine (you confirm each) and commits them, asking once per repository for a commit key, then pushes. Nothing is pushed until you run it. |
 
 Each note holds one fact: frontmatter with `name`, a one-line `description`, a `type` (`feature`, `concept`, `decision`, `how-to`, `contract`) and a `layer` (`business` for what the product does and why, `application` for how the system is built), then the fact, linked to related notes with `[[name]]`. A note is **authored**, holding what the code cannot tell you (a reason, a trap, a contract), or **explored**, holding what the code does, for teammates who never open it. Explored notes carry the commit they were read at, so `/brain ask` and `/brain status` can say when they fall behind. Teammates who don't code need to clone only the brain. Recall runs `skills/brain/scripts/recall.mjs`, which filters the notes by repository and layer and ranks them against the work, so a skill reads a short list instead of every note. Obsidian can open the brain as a vault.
 
@@ -216,8 +229,8 @@ The pipeline uses the brain throughout. Every skill that reads the glossary and 
 | `brain` | The hub, behind one command: `setup`, `link`, `explore`, `status`, `ask`, `view`, `recall`, `remember` and `sync`. On its own, it reads a repository's notes before work and drafts a note when it learns something the repository doesn't record, for `sync` to consolidate. It syncs only when you ask. |
 | `research` | Researches a question against primary sources in a background sub-agent. Saves the cited findings to the brain's `.brain/research/<slug>.md`. |
 | `prototype` | Builds a throwaway prototype that answers one design question: a shareable HTML demo for logic, or switchable variants for UI, each drafted in parallel by its own designer sub-agent. Keeps a UI prototype on a `prototype/<slug>` branch and a logic one in the brain's `.brain/prototypes/`, and records the verdict in the spec and as a brain decision. |
-| `refactor` | Scans hot spots for deepening and smell refactors, shows them as an HTML report saved to the brain's `.brain/refactors/<slug>/`, and brainstorms the one you pick. A contained refactor goes straight to `/write-tickets` and `/build`; a larger one starts at `/write-spec`. |
-| `onboard` | Tours one repository for a newcomer who will code in it, one scout per area in parallel, starting from the brain's notes on it, then traces the two or three journeys that cross the most areas, following them into linked neighbours. Writes the tour to the brain's `.brain/tours/<slug>/`: a context map with the neighbouring repositories, the journeys, a card per area, where things live, the vocabulary and the commands. Then offers to record the terms, decisions and contracts it found undocumented. |
+| `refactor` | Scans hot spots for deepening and smell refactors, shows them as an HTML report saved to the brain's `.brain/repos/<slug>/refactors/`, and brainstorms the one you pick. A contained refactor goes straight to `/write-tickets` and `/build`; a larger one starts at `/write-spec`. |
+| `onboard` | Tours one repository for a newcomer who will code in it, one scout per area in parallel, starting from the brain's notes on it, then traces the two or three journeys that cross the most areas, following them into linked neighbours. Writes the tour to the brain's `.brain/repos/<slug>/tours/`: a context map with the neighbouring repositories, the journeys, a card per area, where things live, the vocabulary and the commands. Then offers to record the terms, decisions and contracts it found undocumented. |
 
 The pipeline skills (`write-spec`, `write-tickets`, `build`), `refactor`, `onboard` and `open-pr` only run when you type their command. The other actions can also be invoked by the agent when it needs them. The skills other skills run as a step (`tdd`, `review-changes`, `model-domain`) and the reference skills (`codebase-design`, `design-patterns`, `project-structure`, `agent-writing`) stay out of the slash menu: the agent and other skills load them, and you ask for one in words ("review this branch", "build this test-first").
 

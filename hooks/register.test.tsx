@@ -103,27 +103,32 @@ const B = 'C:/work/acme-brain'
 const BRAIN = filesOf({
   [`${B}/BRAIN.md`]: '# acme',
   [`${B}/notes/authored/retry-keys.md`]: 'x',
-  [`${B}/notes/repos/api/REPO.md`]: 'x',
-  [`${B}/notes/repos/api/explored/billing.md`]: 'x',
-  [`${B}/notes/repos/web/REPO.md`]: 'x',
-  [`${B}/.brain/drafts/idea.md`]: 'x',
-  [`${B}/.brain/specs/001-old/spec.md`]: '# Old\n\n**Landed:** api@abc1234\n',
-  [`${B}/.brain/specs/002-gone/spec.md`]: '# Gone\n\n**Abandoned:** not needed\n',
-  [`${B}/.brain/specs/003-v2/spec.md`]: '# Billing v2\n\n**Repos:** api, web\n',
-  [`${B}/.brain/specs/003-v2/milestones/api/001-expand/milestone.md`]: MS('none', 'abc', 'def1234'),
-  [`${B}/.brain/specs/003-v2/milestones/api/001-expand/001-add.md`]: TICKET('done'),
-  [`${B}/.brain/specs/003-v2/milestones/api/002-contract/milestone.md`]: MS('review'),
-  [`${B}/.brain/specs/003-v2/milestones/api/002-contract/002-drop.md`]: TICKET('done'),
-  [`${B}/.brain/specs/003-v2/milestones/web/001-migrate/milestone.md`]: MS('ask'),
-  [`${B}/.brain/specs/003-v2/milestones/web/001-migrate/001-use.md`]: TICKET('done'),
-  [`${B}/.brain/specs/003-v2/milestones/web/001-migrate/002-ui.md`]: TICKET('doing'),
+  [`${B}/repos/api/REPO.md`]: 'x',
+  [`${B}/repos/web/REPO.md`]: 'x',
+  [`${B}/notes/exploration/api/billing.md`]: 'x',
+  [`${B}/notes/drafts/idea.md`]: 'x',
+  [`${B}/specs/001-old/spec.md`]: '# Old\n\n**Landed:** api@abc1234\n',
+  [`${B}/specs/002-gone/spec.md`]: '# Gone\n\n**Abandoned:** not needed\n',
+  [`${B}/specs/003-v2/spec.md`]: '# Billing v2\n\n**Repos:** api, web\n',
+  [`${B}/specs/003-v2/milestones/api/001-expand/milestone.md`]: MS('none', 'abc', 'def1234'),
+  [`${B}/specs/003-v2/milestones/api/001-expand/001-add.md`]: TICKET('done'),
+  [`${B}/specs/003-v2/milestones/api/002-contract/milestone.md`]: MS('review'),
+  [`${B}/specs/003-v2/milestones/api/002-contract/002-drop.md`]: TICKET('done'),
+  [`${B}/specs/003-v2/milestones/web/001-migrate/milestone.md`]: MS('ask'),
+  [`${B}/specs/003-v2/milestones/web/001-migrate/001-use.md`]: TICKET('done'),
+  [`${B}/specs/003-v2/milestones/web/001-migrate/002-ui.md`]: TICKET('doing'),
 })
 
-test('the brain is found from a folder inside it, or from a path into its .brain', async () => {
-  expect(await findBrain(BRAIN, `${B}/notes/repos`)).toBe(B)
+test('the brain is found from a folder inside it, or from the path of its BRAIN.md', async () => {
+  expect(await findBrain(BRAIN, `${B}/notes/authored`)).toBe(B)
   expect(await findBrain(BRAIN, 'C:/elsewhere')).toBe(undefined)
-  expect(brainOfPath('C:\\work\\acme-brain\\.brain\\specs\\003-v2\\spec.md')).toBe(B)
-  expect(brainOfPath('C:/work/api/src/main.ts')).toBe(undefined)
+  expect(await brainOfPath(BRAIN, 'C:\\work\\acme-brain\\BRAIN.md')).toBe(B)
+  expect(await brainOfPath(BRAIN, 'C:/work/api/src/main.ts')).toBe(undefined)
+})
+
+test('a brain folder of an old layout is not found', async () => {
+  const OLD = filesOf({ 'C:/work/api/brain/BRAIN.md': '# api', 'C:/work/api/src/main.ts': 'x' })
+  expect(await findBrain(OLD, 'C:/work/api/src')).toBe(undefined)
 })
 
 test('the brain counts its notes and specs, and reads each track of a spec in flight', async () => {
@@ -135,4 +140,63 @@ test('the brain counts its notes and specs, and reads each track of a spec in fl
   expect(trackState(api!)).toMatchObject({ word: 'review', hot: false })
   expect(web!.milestones[0]).toMatchObject({ done: 1, total: 2 })
   expect(trackState(web!)).toMatchObject({ word: 'waits on you', hot: true })
+})
+
+const H = 'C:/work/acme'
+const NEW = filesOf({
+  [`${H}/.brain/BRAIN.md`]: '# acme',
+  [`${H}/.brain/notes/authored/retry-keys.md`]: 'x',
+  [`${H}/.brain/notes/authored/idempotency.md`]: 'x',
+  [`${H}/.brain/notes/exploration/api/billing.md`]: 'x',
+  [`${H}/.brain/notes/exploration/web/.gitkeep`]: '',
+  [`${H}/.brain/notes/drafts/idea.md`]: 'x',
+  [`${H}/.brain/repos/api/REPO.md`]: 'x',
+  [`${H}/.brain/repos/web/REPO.md`]: 'x',
+  [`${H}/.brain/repos/repos.json`]: '{}',
+  [`${H}/.brain/specs/001-old/spec.md`]: '# Old\n\n**Landed:** api@abc1234\n',
+  [`${H}/.brain/specs/002-v2/spec.md`]: '# Billing v2\n\n**Repos:** api\n',
+  [`${H}/.brain/specs/002-v2/milestones/api/001-expand/milestone.md`]: MS('review'),
+  [`${H}/.brain/specs/002-v2/milestones/api/001-expand/001-add.md`]: TICKET('done'),
+  [`${H}/src/main.ts`]: 'x',
+})
+
+test('a new-layout brain is found from a folder in its host', async () => {
+  expect(await findBrain(NEW, `${H}/src`)).toBe(`${H}/.brain`)
+  expect(await findBrain(NEW, 'C:/elsewhere')).toBe(undefined)
+})
+
+test('a new-layout brain is named for its host', async () => {
+  expect((await readBrain(NEW, `${H}/.brain`)).name).toBe('acme')
+})
+
+test('a path inside .brain maps to the .brain folder', async () => {
+  expect(await brainOfPath(NEW, 'C:\\work\\acme\\.brain\\specs\\002-v2\\spec.md')).toBe(`${H}/.brain`)
+  expect(await brainOfPath(NEW, `${H}/src/main.ts`)).toBe(undefined)
+})
+
+test("a new-layout brain's notes, drafts and specs are counted", async () => {
+  const b = await readBrain(NEW, `${H}/.brain`)
+  expect([b.notes, b.repos, b.drafts, b.inFlight, b.landed]).toEqual([3, 2, 1, 1, 1])
+  expect(b.specs.map(s => [s.id, s.title, s.tracks.map(t => t.slug)])).toEqual([['002', 'Billing v2', ['api']]])
+})
+
+test("a session starts the brain page's server, with the session's brain", async ($, on) => {
+  const runs: (readonly string[])[] = []
+  on('clock.every', () => ({ value: undefined }))
+  on('store.get', () => ({ value: undefined }))
+  on('command.register', () => ({ value: { command: 'watcher' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('fs.exists', (_, e) => ({ value: e.path.replace(/\\/g, '/') === 'C:/work/acme/.brain/BRAIN.md' }))
+  on('process.run', (_, e) => {
+    runs.push(e.argv)
+    return { value: { exitCode: 0, stdout: 'http://127.0.0.1:9999/\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+  })
+
+  await $.session.start({ cwd: 'C:/work/acme/src', surface: 'vscode', isInteractive: true })
+
+  expect(runs).toHaveLength(1)
+  expect(runs[0]?.[0]).toBe('node')
+  expect(String(runs[0]?.[1]).replace(/\\/g, '/')).toMatch(/\/server\/main\.mjs$/)
+  expect(runs[0]?.slice(2)).toEqual(['--brain', 'C:/work/acme/.brain'])
 })

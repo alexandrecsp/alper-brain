@@ -13,7 +13,7 @@ Fill every line; write `none` where one does not apply.
 - **Brain:** <brain's absolute path>
 - **Works in:** <slug> at <root> (<open | linked | snapshot>), <changes it | reads it>
 - **Also reads:** <slug> at <root> (<linked | open>), one entry per other repository the task reads, or none
-- **Card:** <brain>/notes/repos/<slug>/REPO.md
+- **Card:** <brain>/repos/<slug>/REPO.md
 - **Docs:** <absolute paths: docs/STRUCTURE.md, the glossary or GLOSSARY-MAP.md, docs/adr/, and the plugin reference files the task needs>
 - **Notes:** <absolute paths of the brain notes bearing on the task>, or none
 - **Spec:** <absolute path of the spec.md, milestone.md or ticket the task serves>, or none
@@ -39,4 +39,4 @@ A **fan-out** dispatches one sub-agent per area, repository or group. Run at mos
 
 ## After a sub-agent that changes a repository reports
 
-Before acting on its report, check where it wrote: `git -C <root> rev-parse --abbrev-ref HEAD` is the brief's **Branch**, each commit it names is on that branch (`git -C <root> cat-file -e <sha>^{commit}` and `git -C <root> merge-base --is-ancestor <sha> HEAD`), `git -C <root> status --porcelain` is empty, and the brain's `HEAD`, recorded with `git -C <brain> rev-parse HEAD` before the dispatch, and `git -C <brain> status --porcelain -- . ':!.brain'` are as they were. When a check fails, treat the agent as blocked, with what the check found. `build` runs these checks in one call, as `sdd verify`.
+Before acting on its report, check where it wrote: `git -C <root> rev-parse --abbrev-ref HEAD` is the brief's **Branch**, each commit it names is on that branch (`git -C <root> cat-file -e <sha>^{commit}` and `git -C <root> merge-base --is-ancestor <sha> HEAD`), `git -C <root> status --porcelain` is empty, and the brain's `HEAD`, recorded with `git -C <brain> rev-parse HEAD` before the dispatch, and `git -C <brain> status --porcelain -- .` are as they were. When a check fails, treat the agent as blocked, with what the check found. `build` runs these checks in one call, as `sdd verify`.

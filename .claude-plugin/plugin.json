@@ -1,6 +1,6 @@
 {
   "name": "alper-brain",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Alper's spec-driven skills, worked from a second brain: the team's notes across every repository, specs that build across several of them test-first, and Agent Watcher, a live pane of the session's tokens, areas and agents.",
   "author": {
     "name": "Alexandre",

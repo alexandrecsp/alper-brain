@@ -19,7 +19,7 @@ When the question is unclear, ask the user; when they are away, follow the code 
 
 ## Where it lives
 
-- **A logic prototype** lives in the active brain, at `.brain/prototypes/<slug>.html` ([FORMAT.md](../brain/references/FORMAT.md)), with `<slug>` the question in kebab-case. It changes no repository, so it needs none open, and it can model a contract between several. Read the code it models by each repository's root; linked is enough.
+- **A logic prototype** lives in the active brain, at `prototypes/<slug>.html` ([FORMAT.md](../brain/references/FORMAT.md)), with `<slug>` the question in kebab-case: the one home of every logic prototype, a prototype across two repositories included. It changes no repository, so it needs none open, and it can model a contract between several. Read the code it models by each repository's root; linked is enough.
 - **A UI prototype** lives in the **working repository** that serves the page, by FORMAT.md's rules; inside a spec, the **Repos** entry that owns the page. It must be open. Check its tree is clean (`git -C <root> status --porcelain` prints nothing; otherwise ask the user to commit or stash, and stop), then create and check out `prototype/<slug>` from its base: the spec's **Base** entry for that slug, else the branch checked out. Write every prototype file on that branch, by absolute path under the root.
 
 Done when you hold the prototype's path, and for a UI prototype its branch is checked out on a clean tree.
@@ -33,9 +33,9 @@ Done when you hold the prototype's path, and for a UI prototype its branch is ch
 
 The prototype is done when its question has a **verdict**: the answer, the question it settled, and what the prototype showed that decided it. Then:
 
-1. **Keep the prototype.** A UI prototype: commit every variant, the switcher and the bar on `prototype/<slug>` (`git -C <root>`), then check its base back out. A logic prototype stays at its `.brain/prototypes/` path.
+1. **Keep the prototype.** A UI prototype: commit every variant, the switcher and the bar on `prototype/<slug>` (`git -C <root>`), then check its base back out. A logic prototype stays at its `prototypes/` path.
 2. **Hand over the verdict**, by where the work lives:
-   - **Inside a spec**, when an in-flight spec under the brain's `.brain/specs/` covers the work: write the verdict under its Implementation Decisions, with the prototype's branch or path, and delete the open question it settles from Further Notes. When the spec already has milestones, also add the verdict to the Notes of every ticket not yet `done` that builds on it.
+   - **Inside a spec**, when an in-flight spec under the brain's `specs/` covers the work: write the verdict under its Implementation Decisions, with the prototype's branch or path, and delete the open question it settles from Further Notes. When the spec already has milestones, also add the verdict to the Notes of every ticket not yet `done` that builds on it.
    - **Standalone**: give the user the verdict and the prototype's branch or path, and offer to apply it. On a yes, rebuild the decision in the working repository, with `tdd` where that code has tests.
 3. **Record the decision.** When the repositories it bears on are registered, invoke the `brain` skill to record the verdict as a `decision`, its `repos` naming the repositories it bears on, linked to the contract's note when it settles a contract. Its **Why** is what the prototype showed, written so a teammate who never ran the prototype can follow it.
 

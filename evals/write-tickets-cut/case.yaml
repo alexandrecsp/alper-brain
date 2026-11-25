@@ -1,0 +1,12 @@
+schema_version: "1.1"
+name: write-tickets-cut
+description: /write-tickets cuts a spec of five small stories in one repository into few milestones, keeping a tracer-bullet ticket per story.
+tags: [write-tickets, cut]
+runs: 2
+expected_outcome: spec 002's demo track holds one or two milestones, each with at most 8 tickets, and every story has a ticket of its own.
+context:
+  scaffold_script: fixture.sh
+execution:
+  max_turns: 60
+  timeout_seconds: 1200
+  allowed_tools: [Read, Glob, Grep, Skill, Bash, Edit, Write, Agent]

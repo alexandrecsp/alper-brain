@@ -1,9 +1,9 @@
-# Seeds the workspace as a brain holding one registered, linked and open repository,
-# `demo`, and spec 001-greeting with one milestone whose one ticket is built.
+# Seeds the workspace as a repository holding a standalone brain in its `.brain/`, with one registered, linked and
+# open repository, `demo`, and spec 001-greeting with one milestone whose one ticket is built.
 # Source it from a case's fixture.sh after setting:
 #   PHASE   the milestone's Phase line (squash, decide, ...)
 #   REVIEW  the body of the milestone's review.md findings (after its Head line)
-# The clone sits inside the brain at clones/demo, so the session holds it open.
+# The clone sits in the workspace at clones/demo, so the session holds it open.
 set -euo pipefail
 
 git config --global user.name "Eval"
@@ -11,15 +11,17 @@ git config --global user.email "eval@example.com"
 git config --global init.defaultBranch main
 git config --global core.autocrlf false
 
-brain="$(pwd -W 2>/dev/null || pwd)"
+workspace="$(pwd -W 2>/dev/null || pwd)"
 spec=".brain/specs/001-greeting"
 ms="$spec/milestones/demo/001-greeting"
 
-# The brain.
-printf '# Second brain\n\nEval brain.\n\n## Repositories\n\n- demo: prints a greeting\n' > BRAIN.md
-printf '.brain/\nclones/\n' > .gitignore
-mkdir -p notes/repos/demo notes/authored
-cat > notes/repos/demo/REPO.md <<'EOF'
+# The brain: the workspace's `.brain/`, its `.gitignore` keeping this machine's files out of git.
+mkdir -p .brain/repos/demo .brain/notes/authored
+printf -- '---\nkind: standalone\n---\n\n# Second brain\n\nEval brain.\n\n## Repositories\n\n- demo: prints a greeting\n' > .brain/BRAIN.md
+printf 'config.json\nnotes/drafts/\nrepos/repos.json\nrepos/*/snapshots/\nspecs/\nexplore/\nlocks/\nhandoff/\n' > .brain/.gitignore
+printf 'clones/\n' > .gitignore
+: > .brain/notes/authored/.gitkeep
+cat > .brain/repos/demo/REPO.md <<'EOF'
 ---
 slug: demo
 remote: local only
@@ -50,7 +52,7 @@ cd ../..
 
 # This machine's pipeline work.
 mkdir -p "$ms"
-printf '{ "demo": "%s/clones/demo" }\n' "$brain" > .brain/links.json
+printf '{ "demo": "%s/clones/demo" }\n' "$workspace" > .brain/repos/repos.json
 cat > "$spec/spec.md" <<'EOF'
 # Greeting
 

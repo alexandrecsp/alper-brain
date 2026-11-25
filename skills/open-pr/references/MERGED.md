@@ -21,4 +21,4 @@ Find `sdd`, the spec, its landings and each landing's head branch as [SKILL.md](
 
    Done when each repository picked is merged, or you have reported what it waits on.
 
-4. **Report**, one line per repository: merged with its SHA (and that its base moved to origin, when the line says so), local only, not fully landed, or what it waits on. When every repository is merged or local only, name the in-flight specs whose **Depends on** line, in `.brain/specs/*/spec.md`, names this spec: this one no longer holds them. Done when the user has the report.
+4. **Report**, one line per repository: merged with its SHA (and that its base moved to origin, when the line says so), local only, not fully landed, or what it waits on. When every repository is merged or local only, name the in-flight specs whose **Depends on** line, in `specs/*/spec.md`, names this spec: this one no longer holds them. Done when the user has the report.

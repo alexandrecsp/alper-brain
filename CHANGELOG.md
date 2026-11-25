@@ -2,14 +2,21 @@
 
 Each release lists what changed for a user of the plugin. **Migrates by itself** means the next command on an old brain or spec moves it to the new form; you do nothing.
 
-## Unreleased
+## 2.2.0
 
 ### New
 
+- **Local brain.** A brain for one repository that stays on your machine: `/brain setup`, run inside the repository, offers it beside embedding. It lives in the repository's `.brain/` folder, ignored through `.git/info/exclude` so the repository's tracked files never change, and commits in its own git, never pushed. Every skill works in it. A skill that finds no brain now offers to create one there instead of only stopping. `/brain export` moves it into a repository of its own to share it.
 - **Branches on a spec's page.** The brain page shows, for each repository a spec touches, its branches and a commit graph, updated live as you commit, check out or create a branch, two repositories to a page. **Simple** shows the spec's branches and its base since the spec forked, and flags any other branch running beside it; **Explore** shows every branch's history over the last 7, 15, 30 or 60 days. Grant each clone once with **Grant access**; every spec that touches it reuses the grant.
 
 ### Changed
 
+- **The brain page's server is always up.** Agent Watcher starts it with every Claude Code session, adding the session's brain to its list, and it no longer stops after 30 idle minutes. Open the page any time at `http://127.0.0.1:9999/`; `/brain view` still opens it for you. To use another port, set it in `~/.alper-brain/config.json` as `{ "port": 51000 }`; the file is yours alone, outside every repository. The next start moves the server there and stops the one on the old port. A newer plugin version replaces a running older server.
+- **Every brain lives in one `.brain/` folder**, marked by its `.brain/BRAIN.md`, whose `kind` line says standalone, embedded or local. The notes sit in `notes/`, each repository's card, tours and refactor reports in `repos/<slug>/`, prototypes in `prototypes/` and research in `research/`, all committed and shared. Drafts, clone paths (`repos/repos.json`), snapshots, specs, locks and settings stay on your machine, kept out of git by `.brain/.gitignore`. The move comes through `/brain sync`, and any skill that finds an old layout offers it once and stops until you agree and the move has run.
+- **`timeline.json` is gone.** The brain page's Activity shows each note's history from git, through the brain server, so a sync makes no timeline commit and no conflict. From a file, without the server, Activity says to start it.
+- **A squash deletes its milestone's branch.** When `/build` squashes a milestone into the spec's branch, it deletes `sdd/<spec>/M<NNN>` in the same step, so a running build leaves only the spec's branch and the one milestone in progress. Each ticket's **Commit** line is marked `(squashed into M<NNN>)`, since its commit is on no branch any more. A blocked or failed milestone keeps its branch.
+- **Fewer milestones.** `/write-tickets` groups a track's work into as few milestones as its waits allow. It draws a boundary only at a **Builds after** or **Lands after** wait, past 8 tickets, or where a milestone's later work waits on another track's milestone that is not that track's first. Tickets stay the same size, so each milestone still leaves the code working. There are fewer reviews and squashes per spec.
+- **Explore and ask read your clone in place.** When the repository is open, its tree is clean and the branch to read is the one checked out, `/brain explore` and `/brain ask` read the clone itself instead of checking out a snapshot. They claim it while they read, so a build waits, and they check afterwards that the branch did not move. A snapshot is still taken for a clone that is not open, or for a branch you do not have checked out.
 - **Agent Watcher replaces the workshop.** The pane now shows the session's tokens: how full the context window is, the share per area, tokens per minute, and what each agent is doing. Open it with `/watcher`; `/watcher <theme>` picks one of six looks. With a brain open it adds a strip of the brain's counts and a **Building** card, a row per track of each spec in flight, red where a track waits on you. The build's status line is gone.
 
 ## 2.1.0

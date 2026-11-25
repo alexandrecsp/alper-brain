@@ -240,6 +240,13 @@ async function refreshBrain($: EngineInterface): Promise<void> {
   }
 }
 
+/**
+ * Starts the brain page's server, or keeps the one running when it is this version or newer, so the page is up with no
+ * `/brain view`. The server stays up until it is stopped; the session's brain, when it has one, joins its list.
+ */
+export const startBrainServer = ($: EngineInterface, root: string | undefined) =>
+  $.process.run(['node', `${$.plugin.root}/server/main.mjs`, ...(root === undefined ? [] : ['--brain', root])], { timeoutMs: 20_000 })
+
 // The last drawing sent, and when: a new one waits out REDRAW_MS.
 let shown = { source: '', at: 0, height: 0 }
 let repaintDue = false
@@ -256,6 +263,7 @@ export const register: Register = on => {
     await quiet(patch($, MAIN, a => a))
     $.clock.every(30_000, () => void update($, paint, n => n + 1))
     brainRoot = (await findBrain(filesOf($), e.cwd).catch(() => undefined)) ?? (await read($, brain))?.root
+    void quiet(startBrainServer($, brainRoot))
     await quiet(refreshBrain($))
     $.clock.every(BRAIN_MS, () => void quiet(refreshBrain($)))
     void $.ui.open({ id: PANE, title: TITLE })
@@ -300,7 +308,7 @@ export const register: Register = on => {
     await quiet(patch($, e.agentId ?? MAIN, a => ({ ...a, doing: doingOf(e.tool, args), area: areaOf(e.tool, args, a.kind) })))
     if (brainRoot === undefined) {
       const path = String(args.file_path ?? args.path ?? args.notebook_path ?? '')
-      brainRoot = brainOfPath(path)
+      brainRoot = await brainOfPath(filesOf($), path).catch(() => undefined)
       if (brainRoot !== undefined) void quiet(refreshBrain($))
     }
 

@@ -7,7 +7,7 @@ claude plugin eval . --scaffold --allow-tools Bash Edit Write Agent
 claude plugin eval . --scaffold --allow-tools Bash Edit Write Agent --tag build
 ```
 
-`_fixtures/brain.sh` seeds a brain holding one repository, `demo`, cloned inside it at `clones/demo` so the session holds it open, and spec `001-greeting` with one built milestone. A case sets its `PHASE` and `REVIEW`, sources it, then moves the state to what it tests.
+`_fixtures/brain.sh` seeds the workspace as a git repository holding a standalone brain in its `.brain/`: `BRAIN.md` with its `kind` line, the `.gitignore` of FORMAT.md's **Layout**, the card `repos/demo/REPO.md` and `repos/repos.json` linking `demo`, whose clone sits in the workspace at `clones/demo` so the session holds it open. The spec `001-greeting`, with one built milestone, sits in `.brain/specs/`, which the brain's `.gitignore` keeps out of git. A case sets its `PHASE` and `REVIEW`, sources it, then moves the state to what it tests.
 
 The build cases run many turns: run them before changing `build`, `LAND.md`, `commit` or the Context block, and again after.
 
