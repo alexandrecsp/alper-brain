@@ -1,6 +1,6 @@
 # Report theme
 
-The look shared by every HTML report a skill writes into `.brain/`, the brain page's ([brain.html](../brain.html)): neutral grey surfaces, dark only, **sharp edges** (no rounded corners), **light headers** (weight 300), mono uppercase eyebrows, and colour that means something (a status, a strength, a leak), never decoration. This file holds the reports' components; when it and the brain page disagree, the page wins.
+The look shared by every HTML report a skill writes into `.brain/` (tours, refactor reports): neutral grey surfaces, dark only, **sharp edges** (no rounded corners), **light headers** (weight 300), mono uppercase eyebrows, and colour that means something (a status, a strength, a leak), never decoration. This file is its one source. The brain page keeps its own look, with Agent Watcher's six themes.
 
 A report is one self-contained file. Tailwind, the fonts and Mermaid come from CDNs; everything else is inline and static. The report's own reference fills each `{{slot}}` below, and names colours by the tokens in the scaffold's `:root`.
 
@@ -72,7 +72,7 @@ A hero panel, `panel p-6 sm:p-8`. Inside, in order:
 
 ## Card
 
-One `<article>` per item, built like the brain page's brain card: `panel edge p-6`, its top edge in the colour the report names (`style="--c:var(--green)"`). Its parts:
+One `<article>` per item, built as a report card: `panel edge p-6`, its top edge in the colour the report names (`style="--c:var(--green)"`). Its parts:
 
 - **Meta row**: `.chip`s, and a `.pill` pushed right (`ml-auto`, `style="--c:var(--amber)"`).
 - **Title**: `h text-xl`, a leading handle in `mono faint`.

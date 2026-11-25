@@ -16,6 +16,6 @@
 
    Done when every user story of the amended spec is delivered as the amended spec states it, by frozen work or by an open ticket; every frozen piece the amended spec contradicts has an open ticket that changes it; and every line naming another milestone or ticket names one that exists.
 
-4. **Quiz the user** by SKILL.md's step 4, on the changes only: each ticket and milestone added, changed or dropped, with its track, and each frozen piece the change departs from, with the open ticket that changes it. Iterate until the user approves. Done when the user approves the changes.
+4. **Quiz the user** by SKILL.md's step 4, on the changes only: each ticket and milestone added, changed or dropped, with its track, and each frozen piece the change departs from, with the open ticket that changes it. Done when the user approves the changes, and every open milestone and ticket meets SKILL.md's step 2 and step 3 Done when, apart from the user stories frozen work delivers.
 
 5. **Write the files** by SKILL.md's step 5, touching only open files and the lines the frozen definition leaves open: write the added and changed ones, and delete the dropped ones. Done when PROSE.md's **Check** prints `prose: ok` on `spec.md` and the `milestones/` folder, every file you wrote or deleted was open, every milestone folder still has its `milestone.md` and at least one ticket, `node <this skill's folder>/../build/scripts/sdd.mjs state <spec-folder> --no-git` prints no `problems`, and the user has the next step, `/build <spec-id>`.

@@ -13,4 +13,4 @@ For each finding, read its hunk in the repository the Context block names, the r
 
 Report one line per finding: `<ID>: fix it as proposed — <reason>`, `<ID>: fix it another way: <how> — <reason>` or `<ID>: skip it — <reason>`.
 
-Done when every finding named has exactly one Answer line in your report, and every Answer that builds something other than the spec names the tickets it departs from.
+Done when every finding named has exactly one `<ID>:` line in your report, and every one whose answer builds something other than the spec names the tickets it departs from.

@@ -2,6 +2,19 @@
 
 Each release lists what changed for a user of the plugin. **Migrates by itself** means the next command on an old brain or spec moves it to the new form; you do nothing.
 
+## Unreleased
+
+### Changed
+
+- **One explorer agent.** `scout` is merged into `explorer`: every fact-finding, tour and refactor dispatch now goes to `alper-brain:explorer`, on Sonnet.
+- **`reviewer` is now `standards-reviewer`**, beside `spec-reviewer`.
+- **Design it twice reaches you.** `brainstorm`'s How phase, `refactor` and `codebase-design` now run DESIGN-IT-TWICE (the `architect` agents) when an interface's shape is unsettled or it is a contract other repositories consume.
+- **Sub-agents respect the parallel cap** (`parallelAgents`) everywhere, in waves.
+- **Your questions reach you.** A sub-agent's **Needs the user** items are kept in the tickets' Notes during a build and listed in every hand-over.
+- **`build`** writes each closing step's **Phase** before it acts, verifies every fixer's commits, and releases its claims on every way out.
+- **`commit`**: the key and title together fit in 72 characters, as `sdd squash` checks; an embedded brain's commit leaves the host's staged work alone.
+- **The brain's Record and Sync** moved to their own reference files, so other skills load only what they use.
+
 ## 2.2.0
 
 ### New

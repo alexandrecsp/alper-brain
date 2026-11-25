@@ -131,5 +131,4 @@ The shape the facts describe, when a reader would otherwise rebuild it from the 
 The brain page runs Mermaid 11. A block that fails to parse shows as code with the error under it, so write it to parse first time:
 
 - Give each node a short camelCase id (`exporter`, `invoiceRepo`) and put the name in a quoted label: `exporter["InvoiceExporter.toCsv()"]`. Quoting keeps parentheses, slashes and commas from breaking the parse; the bare word `end` breaks it as an id, so name that node `done`.
-- Break a long label with `<br>`; label an edge with `-- "text" -->`.
 - One statement per line, and the `classDef` lines last.

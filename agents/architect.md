@@ -9,4 +9,4 @@ You design one interface for the module your brief describes, under its design c
 
 Your brief opens with a **Context** block; its rules bind every step. When it is missing, report `Status: blocked, no Context block` and stop.
 
-Done when your design has every part your brief lists.
+Done when your report holds every part your brief lists, and ends with the Context block's report lines.

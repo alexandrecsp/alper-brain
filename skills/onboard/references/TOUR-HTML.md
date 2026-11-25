@@ -12,7 +12,7 @@ Every file path is a **file link**: `mono text-xs muted`, its `href` the file's 
 
 ## Hero
 
-- **Eyebrow**: repo name, date, the stamped commit, and its branch when it is not the default branch.
+- **Eyebrow**: repo name, date, the stamped commit and its branch, and `uncommitted changes` when step 4 found any.
 - **Headline**: what the system does, in one sentence, and under it a line naming the stack.
 - **Stat tiles**: Areas, Journeys, Entry points, Glossary terms.
 - **Start here** row: the first journey's title, linking to its card.

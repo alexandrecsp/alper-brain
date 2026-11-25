@@ -54,7 +54,7 @@ An **embedded brain** lives in the `.brain/` folder of the one repository it cov
 
 - **Open with its host.** The user launches Claude in the host, so the brain is open whenever the host is.
 - **One repository.** The brain registers its host and no other repository, so the host is always the working repository: linked by `repos/repos.json` like any repository, and always open. To cover a second repository, move the brain into a repository of its own first, by [EXPORT.md](EXPORT.md).
-- **One git.** The brain's commits are the host's, made on whatever branch the host has checked out, so its notes reach the team with the code, through the host's pull requests. Each commit names its paths (`git -C <host> commit -m <message> -- <path>...`), so the host's staged work stays staged, and takes a key by the `commit` skill's **Find the key**, as any commit in the host does. **Sync** in [SKILL.md](../SKILL.md) neither pulls nor pushes.
+- **One git.** The brain's commits are the host's, made on whatever branch the host has checked out, so its notes reach the team with the code, through the host's pull requests. Each commit names its paths (`git -C <host> commit -m <message> -- <path>...`), so the host's staged work stays staged, and takes the key [SYNC.md](SYNC.md)'s **Find the keys** settles. [SYNC.md](SYNC.md) neither pulls nor pushes.
 - **The agent file.** A session started in the host loads the host's agent file, so that file points at the brain, by [SETUP.md](SETUP.md)'s step 9, and the brain holds no `CLAUDE.md` of its own.
 
 ## Local brain
@@ -62,7 +62,7 @@ An **embedded brain** lives in the `.brain/` folder of the one repository it cov
 A **local brain** lives in the `.brain/` folder of the one repository it covers, its **host**, and never leaves this machine: one person's brain for one repository, with every skill working and nothing in the host's history. Its `BRAIN.md` says `kind: local`. It is a git repository of its own inside the host's working tree, so `git -C <brain> rev-parse --show-toplevel` prints the `.brain/` folder itself and it is not embedded: that git test tells it from an embedded brain, whose `.brain/` the host's git owns. The host's git ignores the whole `.brain/` through the exclude file `git -C <host> rev-parse --git-path info/exclude` prints, so no tracked file in the host names it. Its layout is the one above, under `<host>/.brain/`, its own `.gitignore` inside it. The rest of this reference holds for it, except:
 
 - **Open with its host**, and **One repository**, as for an embedded brain.
-- **Its own git, local only.** The brain commits in its own repository and has no remote, so **Sync** in [SKILL.md](../SKILL.md) neither pulls nor pushes. To share it, move it into a repository of its own by [EXPORT.md](EXPORT.md)'s **Local brain**.
+- **Its own git, local only.** The brain commits in its own repository and has no remote, so [SYNC.md](SYNC.md) neither pulls nor pushes. To share it, move it into a repository of its own by [EXPORT.md](EXPORT.md)'s **Local brain**.
 - **No agent file.** The active-brain rule finds the brain, so neither the host's agent file nor the brain names it, and the brain holds no `CLAUDE.md`.
 - **Lost with its folder.** No remote holds a copy, and `git clean -x` in the host deletes ignored folders with the rest.
 
@@ -135,7 +135,7 @@ Otherwise ask the user, listing the registered repositories. Its root comes from
 
 One fact per file. Teammates adding notes at the same time never conflict, and the graph shows one node per fact. A note is one of two kinds:
 
-- **Authored**: what a repository cannot tell by looking, such as the reason behind a choice, a trap, or a contract between two repositories. It lives in `notes/authored/`, and its `repos` line names the repositories it bears on. **Record** in [SKILL.md](../SKILL.md) writes it as a draft, and **Consolidate** there commits it once the user confirms it.
+- **Authored**: what a repository cannot tell by looking, such as the reason behind a choice, a trap, or a contract between two repositories. It lives in `notes/authored/`, and its `repos` line names the repositories it bears on. [RECORD.md](RECORD.md) writes it as a draft, and [SYNC.md](SYNC.md)'s **Consolidate** there commits it once the user confirms it.
 - **Explored**: what the code does, written for an outsider who never opens it. It lives in `notes/exploration/<slug>/`, its repository's folder. Only `/brain explore` writes it, by [EXPLORE.md](EXPLORE.md), and its next run rewrites it. Its `explored` line marks it.
 
 ```markdown
@@ -196,7 +196,7 @@ The note's type decides, so the brain keeps a past only where the past is knowle
 
 ### Drafts
 
-A **draft** is a note this machine learned that the team has not yet seen: one file in `notes/drafts/`, named `<name>.md` after the note it proposes. **Record** writes it, and **Consolidate** in [SKILL.md](../SKILL.md) turns it into a commit, discards it or keeps it. It holds the note's full text as it would land, by the format above, with two more frontmatter lines, and a third on a `supersede`:
+A **draft** is a note this machine learned that the team has not yet seen: one file in `notes/drafts/`, named `<name>.md` after the note it proposes. [RECORD.md](RECORD.md) writes it, and [SYNC.md](SYNC.md)'s **Consolidate** turns it into a commit, discards it or keeps it. It holds the note's full text as it would land, by the format above, with two more frontmatter lines, and a third on a `supersede`:
 
 - `target`: the path the note lands at, such as `notes/authored/billing-retry-idempotency.md`.
 - `action`: `record` for a new note, `update` for a new version of the note at `target`, `supersede` for a new decision replacing another, or `delete` for removing the note at `target`, whose body then holds only the reason.
@@ -239,7 +239,7 @@ An explored note is **current** while the repository's default branch still poin
 
 ## Specs
 
-Specs live in `specs/`, numbered `NNN` in one sequence across every repository: [SPEC-ID.md](../../write-spec/references/SPEC-ID.md) resolves the short forms users type. A spec can change several repositories.
+Specs live in `specs/`, each in a folder `NNN-<slug>/`: `NNN` one past the highest folder number already there (starting at `001`), in one sequence across every repository, and `<slug>` the spec's title in kebab-case. [SPEC-ID.md](../../write-spec/references/SPEC-ID.md) resolves the short forms users type. A spec can change several repositories.
 
 A spec's milestones sit in one **track** per repository it changes: the folder `milestones/<slug>/`, whose name is the repository every milestone in it builds in. A track numbers its milestones `001` upwards, and its tickets `001` upwards across those milestones, and builds and lands them in number order. A number names a milestone or ticket inside its own track; from anywhere else, write `<slug>/NNN`. Tracks wait on each other only at milestones: a ticket's **Depends on** of `003, 004` names tickets of its own track, and a milestone's **Builds after** of `web-app/002` names `web-app`'s milestone `002`. A spec ticketed before **Builds after** may hold `<slug>/NNN` in a ticket's **Depends on**; `build` moves it onto the milestone, by [MIGRATE.md](MIGRATE.md)'s **Builds after**.
 

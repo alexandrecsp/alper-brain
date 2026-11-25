@@ -55,9 +55,9 @@ The spec's Design Patterns rows this ticket implements, copied as they are, or "
 | Clause | Seam | Test | Assertion |
 |---|---|---|---|
 
-Left empty; the agent that builds this ticket fills it, one row per clause of each acceptance criterion.
+Left empty; the agent that builds this ticket fills it, one row per clause of each acceptance criterion, apart from the paid-run row SKILL.md's step 3 writes.
 
 ## Notes
 
-Left empty; the agent that builds this ticket fills it.
+Left empty; the agent that builds this ticket fills it, apart from the paid-run line SKILL.md's step 3 writes.
 ```

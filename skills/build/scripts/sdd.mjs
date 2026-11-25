@@ -30,7 +30,7 @@
 //   node sdd.mjs verify <ticket|milestone.md> [--commit <sha>]... [--brain-head <sha>] [--branch <b>]
 //     BRIEF.md's check after a sub-agent that changes a repository, and for a ticket that it is done with its commit:
 //     prints the ticket's Status and Commit, then `ok`, or each problem and exits 1.
-//   node sdd.mjs context <ticket|milestone.md> --agent <builder|fixer|arbiter|reviewer|spec-reviewer> [--writes <f>]...
+//   node sdd.mjs context <ticket|milestone.md> --agent <builder|fixer|arbiter|standards-reviewer|spec-reviewer> [--writes <f>]...
 //     Prints the agent's Context block by BRIEF.md, every line filled from the spec, the brain and the repository.
 //   node sdd.mjs dispatch <ticket|milestone.md> --agent <…> [--writes <f>]... [--branch <b>]
 //     Writes that block to the milestone's .context/ folder, sets a builder's ticket to doing, and prints the brief's
@@ -854,7 +854,7 @@ export const verify = (path, { commits = [], brainHead, branch: onBranch } = {})
 
 // --- briefing a sub-agent ---------------------------------------------------------------------------------------
 
-export const AGENTS = ['builder', 'fixer', 'arbiter', 'reviewer', 'spec-reviewer']
+export const AGENTS = ['builder', 'fixer', 'arbiter', 'standards-reviewer', 'spec-reviewer']
 
 /** The brain's authored `contract` notes whose `repos` line names the slug: [{ path, repos }]. */
 const contractNotes = (brain, slug) => {
@@ -896,16 +896,16 @@ export const contextBlock = (path, agent, { writes = [], branch: onBranch } = {}
   const spec = readSpecLines(specDir)
   const at = (s) => `${s} at ${slash(clones[s] ?? '(not linked)')} (linked)`
 
-  const contracts = agent === 'arbiter' || agent === 'reviewer' ? contractNotes(brain, track) : []
+  const contracts = agent === 'arbiter' || agent === 'standards-reviewer' ? contractNotes(brain, track) : []
   const also = new Set(changes
     ? [...m.buildsAfter, ...m.landsAfter].filter((id) => !id.bad && id.track && id.track !== track).map((id) => id.track)
     : agent === 'arbiter' ? contracts.flatMap((c) => c.repos).filter((s) => s !== track) : [])
   const card = pathsFor(brain).card(track)
   const docs = [
-    ...['docs/STRUCTURE.md', 'GLOSSARY-MAP.md', 'GLOSSARY.md', 'docs/adr/', ...(agent === 'reviewer' ? ['CLAUDE.md', 'AGENTS.md'] : [])].map((f) => join(root, f)).filter((p) => existsSync(p)),
+    ...['docs/STRUCTURE.md', 'GLOSSARY-MAP.md', 'GLOSSARY.md', 'docs/adr/', ...(agent === 'standards-reviewer' ? ['CLAUDE.md', 'AGENTS.md'] : [])].map((f) => join(root, f)).filter((p) => existsSync(p)),
     ...(changes ? ['skills/project-structure/SKILL.md', 'skills/codebase-design/SKILL.md'].map((f) => join(PLUGIN, f)) : []),
     ...(agent === 'fixer' ? [join(PLUGIN, 'agents', 'builder.md')] : []),
-    ...(agent === 'reviewer' ? [join(PLUGIN, 'skills', 'review-changes', 'references', 'SMELLS.md')] : []),
+    ...(agent === 'standards-reviewer' ? [join(PLUGIN, 'skills', 'review-changes', 'references', 'SMELLS.md')] : []),
     ...(changes ? [join(PLUGIN, 'skills', 'build', 'scripts', 'sdd.mjs')] : []),
   ].map(slash)
   const brainNotes = isNone(spec.brainNotes) ? [] : spec.brainNotes.split(',').map((s) => s.trim()).filter(Boolean)

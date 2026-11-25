@@ -1,6 +1,6 @@
 # Tracks: one line of milestones per repository
 
-**Status:** proposed, 2026-11-05, with its open decisions settled the same day; rollout steps 1 to 3 built. Revised 2026-11-11: the build tie moved from a ticket's cross-track **Depends on** to a milestone's **Builds after**, since the build already held the whole milestone, and a ticket-level link drew a precision the build never had. Builds on [DESIGN.md](DESIGN.md)'s **Cross-repo specs**. Where it and the skills disagree, the skills win.
+**Status:** proposed, 2026-11-05, with its open decisions settled the same day; rollout steps 1 to 3 built. Revised 2026-11-11: the build tie moved from a ticket's cross-track **Depends on** to a milestone's **Builds after**, since the build already held the whole milestone, and a ticket-level link drew a precision the build never had. Where it and the skills disagree, the skills win.
 
 A spec that changes several repositories becomes one **track** per repository. Each track is the repository's own numbered milestones and tickets, built in order. The tracks run side by side, and each lands on its own base as it goes. The tracks are tied together in only two ways: a ticket that builds on another track's code, and a milestone that must land after another track's milestone. Today both ties are inferred from one global milestone number. Under this proposal, each one is written down where it applies.
 

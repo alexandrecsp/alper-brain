@@ -8,7 +8,7 @@ The `status` branch of [`brain`](../SKILL.md): report the active brain's whole e
 
    | State | Holds when |
    |---|---|
-   | `blocked` | a ticket's **Status** is `blocked`, a milestone's **Phase** is `failed`, or it is `ask` with an escalated finding in its `review.md` that has no **Answer** line |
+   | `blocked` | a ticket's **Status** is `blocked`, a milestone's **Phase** is `failed`, or a milestone's **Phase** is `ask` with an escalated finding in its `review.md` that has no **Answer** line |
    | `waiting` | a spec its **Depends on** names is not landed |
    | `landing` | every milestone has a **Squash**, and some milestone's **Landed** names no commit |
    | `building` | some ticket has left `todo` |
@@ -17,7 +17,7 @@ The `status` branch of [`brain`](../SKILL.md): report the active brain's whole e
 
    A `building` spec also names each track's first open milestone, with its **Phase**. For each spec not yet `landing`, take every track holding an open milestone. Also take each landed spec that is not **merged**, by FORMAT.md, with the repositories its **Merged** line lacks. Done when every in-flight spec has its state and repositories, and every landed spec not merged has its missing repositories.
 
-3. **Find the risks.** As soon as step 2 lists the in-flight specs, dispatch one `alper-brain:scout` agent in the background, its brief opening with the Context block by [BRIEF.md](BRIEF.md) (**Works in** the brain, read only, **Writes** nothing), with the paths of every `contract` note and of every in-flight `spec.md`, and this brief: "For each contract note, list each spec whose Implementation Decisions or Design Patterns rows change the interface it records, and for each, the slugs in the note's `repos` missing from that spec's **Repos** line. Report every contract, writing 'untouched' for one no spec changes." Map the repositories while it runs. Done when the report marks every contract untouched, covered or uncovered, with the specs that change it.
+3. **Find the risks.** As soon as step 2 lists the in-flight specs, dispatch one `alper-brain:explorer` agent in the background, its brief opening with the Context block by [BRIEF.md](BRIEF.md) (**Works in** the brain, read only, **Writes** nothing), with the paths of every `contract` note and of every in-flight `spec.md`, and this brief: "For each contract note, list each spec whose Implementation Decisions or Design Patterns rows change the interface it records. Mark the contract `untouched` when no spec changes it, `covered` when every slug in the note's `repos` is in each changing spec's **Repos** line, else `uncovered`, naming the missing slugs. Report every contract." Map the repositories while it runs. Done when the report marks every contract untouched, covered or uncovered, with the specs that change it.
 
 4. **Map the repositories.** Read each `repos/<slug>/REPO.md` and the brain's `repos/repos.json`, and mark each repository linked when its path exists, and open when that path is open. For each linked repository, run `git -C <path>` with `status --porcelain`, `branch --list 'sdd/*'`, and `log --oneline @{u}..` on its current branch when it has an upstream. For each repository whose card has an `explored` line, mark it current, behind or unknown by FORMAT.md. Mark the repository of each track from step 2 unregistered, unlinked, linked or open. Done when every registered repository is marked unlinked, linked or open, and explored (current, behind or unknown) or never explored, and each linked one has its tree state and its `sdd/*` branches.
 

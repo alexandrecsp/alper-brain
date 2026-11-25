@@ -44,4 +44,3 @@ docs/                           ← design notes on the plugin itself
 
 - **No hexagon in scripts.** Each script is a few hundred lines with one job (rank notes, check prose, find a brain's paths). Layers would add files without adding a seam a test needs. A script that grows several driven technologies, such as a server reading files and running git, splits into a module by `project-structure`'s default backend layout. The brain page's server is one, at the plugin root since the pane starts it as well as `/brain view`.
 - **`brain.html` is one file.** The page opens straight from the plugin's folder by `file:///`, with no build step, so its script, styles and markup stay inline. Its sections are separated by `// ----------` banners.
-- **`skills/brain/prototype/`** holds throwaway designs from `prototype`, kept as references for the page. Nothing loads them.

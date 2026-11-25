@@ -31,7 +31,7 @@ Rules:
    - **Changed:** each file changed and commit made, with its repository, or nothing
 ```
 
-`build` hands the block over as a file, filled by `sdd dispatch`: its briefs open with `## Context`, the **Works in** line, and a line naming the file that holds the whole block, which the agent reads first; the agents it dispatches take either form. A sub-agent's **Needs the user** items reach the user through the dispatching skill's hand-over, beside its own decisions.
+`build` hands the block over as a file, filled by `sdd dispatch`: its briefs open with `## Context`, the **Works in** line, and a line naming the file that holds the whole block, which the agent reads first; the agents it dispatches take either form. Every dispatching step ends on its reports: each carries the task's own fields and the three closing lines, a report missing one is re-dispatched with the brief sharpened, a **blocked** or **partial** **Status** is reported to the user with what stopped it, and each **Needs the user** item reaches the user in the skill's hand-over beside its own decisions.
 
 ## Fanning out
 

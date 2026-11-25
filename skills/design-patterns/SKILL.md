@@ -6,15 +6,15 @@ metadata:
   type: reference
 ---
 
-Each pattern name below is used exactly as written: the name alone carries its structure, so this catalogue says only when to choose each one.
+Each pattern name below is used exactly as written: the name alone carries its structure, so an entry adds only when to choose it, and a pattern named "by its textbook intent" adds nothing.
 
 ## Choosing
 
 - **Weigh every module the design builds or changes, and every contract between repositories it changes** (the module map's nodes and the arrows crossing its subgraphs). Each ends with a pattern and its Why, or with none needed.
 - **Choose a pattern only for a problem the code has.** Name that problem as the pattern's "Why". Code that has no such problem gets no pattern; an unneeded pattern is Speculative Generality.
-- **The layout's patterns come with it.** The repository's `docs/STRUCTURE.md`, or `project-structure` when it has none, already places Ports and Adapters, a Repository per aggregate, Dependency Injection at the composition root, and an adapter per driven port. Give them a row only where the design departs from the layout.
-- **Prefer what is already in play.** For each problem, find the pattern its repository already uses for the same problem in the area touched, read by the repository's root ([FORMAT.md](../brain/references/FORMAT.md)), and in the brain's `decision` notes on it; choose the same one. Across repositories, what is in play is what the contract's `contract` note and its producer already use. Done when each problem names the pattern in play, or that none is.
-- **A pattern from outside this catalogue** may be chosen when a well-known source names it. Give it the same "Why".
+- **The layout's patterns come with it.** The repository's `docs/STRUCTURE.md`, or `project-structure` when it has none, already places them. Give a row only where the design departs from the layout.
+- **Prefer what is already in play.** For each problem, find the pattern its repository already uses for the same problem in the area touched, read at the repository's root, by [FORMAT.md](../brain/references/FORMAT.md)'s **The working repository**, and in the brain's `decision` notes on it; choose the same one. Across repositories, what is in play is what the contract's `contract` note and its producer already use. Done when each problem names the pattern in play, or that none is.
+- **A pattern from outside this catalogue** may be chosen when a well-known source names it.
 
 ## Recording
 
@@ -24,7 +24,11 @@ Wherever a pattern choice is written down, record it as Pattern, Where and Why, 
 |---|---|---|
 | Strategy | `billing-api` · pricing rules in the Order intake module | Three pricing schemes vary per Customer |
 
-A spec's rows stay on this machine. A choice the next change must repeat outlives it as a brain note, recorded through the `brain` skill: in the `contract` note when it is about one contract (how it is versioned, delivered or deduplicated), as a `decision` note whose `repos` names each repository when it spans repositories otherwise, and in the repository's ADR, linked from a `decision` note, when it stays inside one repository that keeps ADRs.
+A spec's rows stay on this machine. A choice the next change must repeat outlives it as a brain note, drafted by the brain's [RECORD.md](../brain/references/RECORD.md):
+
+- about one contract (how it is versioned, delivered or deduplicated): the `contract` note;
+- spanning repositories, not one contract: a `decision` note whose `repos` names each repository;
+- inside one repository: a `decision` note naming it, linking the repository's ADR when it keeps ADRs.
 
 ## Catalogue
 

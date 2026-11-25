@@ -1,15 +1,15 @@
 # Agent mechanics
 
-The sub-agent branch of [`agent-writing`](../SKILL.md): what changes when the document is an agent definition (`agents/*.md`) or a **brief**, the text a step hands a sub-agent. Both are read across a **context boundary**: the child sees its definition's body, the brief, and the files it opens, and nothing of the parent's conversation, skills or loaded reference. What the child needs and the brief leaves out is missing, so every gap at the boundary is a variance bug.
+The sub-agent branch of [`agent-writing`](../SKILL.md): what changes when the document is an agent definition (`agents/*.md`) or a **brief**, the text a step hands a sub-agent. Both are read across a **context boundary**: the child sees its definition's body, the brief, and the files it opens, plus whatever `CLAUDE.md` and memory the session loads for it, which varies by user, and nothing of the parent's conversation, skills or loaded reference. What the child needs and the brief leaves out is missing, so every gap at the boundary is a variance bug.
 
 ## Agent definitions
 
-A definition is the half of the child's context that every dispatch shares; the brief is the half that varies. Put each fact on its side, once.
+A definition is the half of the child's context that every dispatch shares; the brief is the half that varies. Put each fact on its side, once: what every dispatch needs lives in the definition or the shared block, the brief carries only what this dispatch varies, and the parent's skill keeps only what the parent does.
 
-- **`description`** is the agent's dispatch pointer, loaded in every session where the plugin is installed: context load on every turn, pruned as hard as a model-invoked skill's description. Front-load the job's verb, and give agents that could be confused distinct leading words (_Standards review_, _Requirements trace_). Name what its brief must carry ("the facts its brief asks for", "under the constraint its brief names"), so a parent writing a dispatch knows what to hand over. End with who dispatches it when that fence is stable; a list of every caller is a cache of a grep, so prefer "Dispatched by build." for a single caller and a general fence for many.
+- **`description`** is the agent's dispatch pointer, loaded in every session where the plugin is installed: context load on every turn, pruned as hard as a model-invoked skill's description. Front-load the job's verb (_Fixes_, _Builds_); where two agents could be confused, front-load a distinct noun phrase instead (_Standards review_, _Requirements trace_). Name what its brief must carry ("the facts its brief asks for", "under the constraint its brief names"), so a parent writing a dispatch knows what to hand over. End with who dispatches it when that fence is stable; a list of every caller is a cache of a grep, so prefer "Dispatched by build." for a single caller and a general fence for many.
 - **`tools`** is a guardrail the environment enforces, so it beats any sentence. List the fewest tools the job needs, for every agent: a definition without `tools` inherits every tool in the session, connectors and publishing included. **`skills`** preloads each skill's full text, with its base directory, and needs no `Skill` tool. `Skill` adds the listing of every installed skill to every turn, so give it only to an agent that must invoke a skill neither `skills` nor a path in its brief covers.
 - **`model`** pins how much judgement the role gets: the more completely the brief specifies the work, the smaller the model; `opus` for decisions made in the user's place; `inherit` when the role should follow the session. A role that differs from another only in its model gets its own definition, pinned in frontmatter, rather than an override every dispatching step must remember.
-- **The body** holds the role in one sentence, with the description's verb, then its `Done when`: the bar every dispatch of the role shares ("every finding named has exactly one Answer"), with the brief supplying what to apply it to. Environment facts every agent shares (where it starts, how it reaches files, what Bash is for, what to do with no user) live once, in a block every brief opens with; the body points at that block and says what to do when it is missing.
+- **The body** holds the role in one sentence, with the description's leading word, then its `Done when`: the bar every dispatch of the role shares ("every finding named has exactly one Answer"), with the brief supplying what to apply it to. Environment facts every agent shares (where it starts, how it reaches files, what Bash is for, what to do with no user) live once, in a block every brief opens with; the body points at that block and says what to do when it is missing.
 
 ## Briefs
 
@@ -28,7 +28,7 @@ Dispatch in the foreground when the next step consumes the report; in the backgr
 
 ## Fan-out
 
-Parallel children go out in one message, each with one **partition** of the work.
+Parallel children go out in one message, up to the cap the shared block sets, then in waves, each with one **partition** of the work.
 
 - **Partitions cover the whole without overlap**: every file in exactly one area, every variant with a constraint no other shares. Make that the completion criterion of the step before the fan-out, so a gap or an overlap fails there, not inside the reports.
 - **Give each child the partition list**, so it knows its edge: it reports what crosses into a neighbour ("what this one sends or expects, and where") and leaves the neighbour to its own child.

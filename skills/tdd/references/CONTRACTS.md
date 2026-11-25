@@ -1,4 +1,4 @@
-A **contract** is an interface one repository offers another (an API, an event, a queue, a shared schema), with a **producer** and **consumers**; the brain's `contract` notes name both. Each side tests its own half in its own suite, so each repository's suite runs without the other one running.
+A **contract**'s producer and consumers are named by the brain's `contract` note. Each side tests its own half in its own suite, so each repository's suite runs without the other one running.
 
 ## In the producer
 

@@ -5,13 +5,13 @@ Built on the [report theme](../../brain/references/THEME.md): its scaffold, hero
 ## Scaffold
 
 - **Report name**: "Refactor review".
-- **Nav**: one anchor per candidate: `#1`, `#2`, …
+- **Nav**: one link per candidate, labelled `#1`, `#2`, … and pointing at `#c1`, `#c2`, …
 - **Sections**: `<section id="candidates" class="space-y-8">`.
 - **Own classes**: `.seam { stroke-dasharray: 4 4; }` and `.leak { stroke: var(--red); }`.
 
 ## Hero
 
-- **Eyebrow**: the repo slug, the date, the branch and the short SHA scanned.
+- **Eyebrow**: the repo slug, the date, the branch, the short SHA scanned, and "uncommitted changes" when step 4 adds it.
 - **Headline**: the count ("7 refactor candidates"), and under it one line naming the scanned areas.
 - **Stat tiles**: Candidates, Strong, Worth exploring, Speculative.
 - **Start here** row: the candidate to tackle first by number and title, one sentence on why, linking to its card's anchor.
@@ -44,7 +44,7 @@ In order:
 
 Match the pattern to the candidate, and vary them across the report.
 
-- **Mermaid flowchart or sequence**: for graph-shaped structure, "X calls Y calls Z, look at the mess", or "before: 6 round-trips; after: 1". Colour leaks red and the deep module dark with `classDef`.
+- **Mermaid flowchart or sequence**: for graph-shaped structure, "X calls Y calls Z, look at the mess", or "before: 6 round-trips; after: 1". Colour leaks red, and fill the deep module `var(--text)` with `var(--bg)` text, with `classDef`.
 - **Hand-built boxes and arrows**: `<div>` modules with inline SVG arrows over a relative container, for an after-diagram that shows one thick-bordered deep module with its internals greyed out.
 - **Cross-section**: stacked horizontal bands (`h-12 border-l-4`) for the layers a call passes through. Before: six thin pass-through layers; after: one thick band named for its responsibility.
 - **Mass diagram**: two rectangles per module, interface beside implementation. Shallow: the interface nearly as tall as the implementation; deep: a short interface over a tall implementation.

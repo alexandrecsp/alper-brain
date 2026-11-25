@@ -52,7 +52,9 @@ sequenceDiagram
     participant UI
     participant Daemon
     User->>UI: choose command
+    rect rgba(16, 185, 129, 0.15)
     UI->>Daemon: send expanded prompt
+    end
     Daemon-->>UI: stream result
 ```
 

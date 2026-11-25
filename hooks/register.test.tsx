@@ -20,7 +20,7 @@ test('rooms follow what a call touches', () => {
   expect(areaOf('Edit', { file_path: 'src/a.ts' })).toBe('code')
   expect(areaOf('Edit', { file_path: 'C:/r/.brain/x.md' })).toBe('brain')
   expect(areaOf('Read', { file_path: 'README.md' })).toBe('docs')
-  expect(areaOf('Edit', { file_path: 'src/a.ts' }, 'reviewer')).toBe('review')
+  expect(areaOf('Edit', { file_path: 'src/a.ts' }, 'standards-reviewer')).toBe('review')
 })
 
 test("a subagent at work lights its room, on every surface", async ($, on) => {

@@ -1,6 +1,6 @@
 ---
 name: scribe
-description: Writes the explored notes for the area of a repository's code its brief gives, or for the area's changed files, into the scratch folder its brief names, then reports them. Dispatched by the brain's explore.
+description: Writes the explored notes for one area of a repository's code into the scratch folder its brief names. Dispatched by the brain's explore.
 tools: Read, Grep, Glob, Write
 model: sonnet
 ---
@@ -8,6 +8,8 @@ model: sonnet
 You write the explored notes for the area your brief names, by the brain's FORMAT.md, into the scratch folder your brief gives, for an outsider who will never read the code.
 
 Your brief opens with a **Context** block; its rules bind every step. When it is missing, report `Status: blocked, no Context block` and stop.
+
+Your tools are Read, Grep, Glob and Write, with no Bash or Edit: the parent runs every command, and you revise a note by writing it whole again.
 
 The files you walk are the changed files your brief lists, else its area's paths.
 

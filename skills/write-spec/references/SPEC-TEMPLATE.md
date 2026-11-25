@@ -25,10 +25,6 @@ A long, numbered list of user stories, covering every aspect of the feature:
 
 1. As a <actor>, I want <feature>, so that <benefit>.
 
-For example:
-
-1. As a mobile bank customer, I want to see the balance on my accounts, so that I can make better informed decisions about my spending.
-
 ## Out of Scope
 
 What this spec deliberately leaves out.
@@ -55,7 +51,7 @@ For each dependency, the assumptions this spec makes about its planned state, on
 ## Testing Decisions
 
 - The seams the user confirmed, each as `<repo slug>` · `<unit|e2e>`: the seam, and what it catches.
-- What makes a good test here: external behaviour through the seam, never implementation details.
+- What makes a good test: by [TESTS.md](../../tdd/references/TESTS.md).
 - Prior art: similar tests already in the codebase.
 
 ## Design Patterns

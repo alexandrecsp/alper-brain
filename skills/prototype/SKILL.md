@@ -6,23 +6,23 @@ metadata:
   type: process
 ---
 
-A prototype is **throwaway** code that answers one question. The question decides its shape, and the **verdict** (the answer, with the question it settled) is the only part that ships.
+A prototype is **throwaway** code that answers one question. The question decides its shape, and the **verdict** (defined under **Capture**) is the only part that reaches the real build.
 
 ## Pick the branch
 
-Name the question from the user's prompt and the code around it, then its branch:
+Name the question from the argument, else the user's prompt and the code around it, then its branch. `<slug>` is the question in kebab-case, for both branches.
 
-- **"Does this logic or state model feel right?"** → [LOGIC.md](references/LOGIC.md): one shareable HTML file with free-play buttons and guided walkthroughs that push a pure state module through the cases that are hard to reason about on paper.
-- **"What should this look like?"** → [UI.md](references/UI.md): several structurally different variants on one route, switched by a `?variant=` search param and a floating bar.
+- **"Does this logic or state model feel right?"** → [LOGIC.md](references/LOGIC.md)'s **Process**, after **Where it lives**: a shareable HTML demo.
+- **"What should this look like?"** → [UI.md](references/UI.md)'s **Process**, after **Where it lives**: switchable variants on one route.
 
-When the question is unclear, ask the user; when they are away, follow the code around it (a backend module or a contract → logic, a page or component → UI) and state that assumption at the top of the prototype. Done when you hold the question in one sentence, and its branch.
+When the question is unclear, ask the user; when they are away, follow the code around it (a backend module or a contract → logic, a page or component → UI) and state that assumption at the top of the prototype. Done when the question stands written in one sentence and its branch is named.
 
 ## Where it lives
 
-- **A logic prototype** lives in the active brain, at `prototypes/<slug>.html` ([FORMAT.md](../brain/references/FORMAT.md)), with `<slug>` the question in kebab-case: the one home of every logic prototype, a prototype across two repositories included. It changes no repository, so it needs none open, and it can model a contract between several. Read the code it models by each repository's root; linked is enough.
-- **A UI prototype** lives in the **working repository** that serves the page, by FORMAT.md's rules; inside a spec, the **Repos** entry that owns the page. It must be open. Check its tree is clean (`git -C <root> status --porcelain` prints nothing; otherwise ask the user to commit or stash, and stop), then create and check out `prototype/<slug>` from its base: the spec's **Base** entry for that slug, else the branch checked out. Write every prototype file on that branch, by absolute path under the root.
+- **A logic prototype** lives in the active brain, at `prototypes/<slug>.html` ([FORMAT.md](../brain/references/FORMAT.md)): the one home of every logic prototype, a prototype across two repositories included. It changes no repository, so it needs none open, and it can model a contract between several. Read the code it models by each repository's root; linked is enough.
+- **A UI prototype** lives in the **working repository** that serves the page, by FORMAT.md's **The working repository**; inside a spec, the **Repos** entry that owns the page. It must be open. Check its tree is clean (`git -C <root> status --porcelain` prints nothing; otherwise ask the user to commit or stash, and stop), then create and check out `prototype/<slug>` from its base: the spec's **Base** entry for that repository, else the branch checked out. Write every prototype file on that branch, by absolute path under the root.
 
-Done when you hold the prototype's path, and for a UI prototype its branch is checked out on a clean tree.
+Done when the prototype's absolute path is written down and, for a UI prototype, `git -C <root> rev-parse --abbrev-ref HEAD` prints `prototype/<slug>` on a clean tree.
 
 ## Rules for both branches
 
@@ -37,6 +37,6 @@ The prototype is done when its question has a **verdict**: the answer, the quest
 2. **Hand over the verdict**, by where the work lives:
    - **Inside a spec**, when an in-flight spec under the brain's `specs/` covers the work: write the verdict under its Implementation Decisions, with the prototype's branch or path, and delete the open question it settles from Further Notes. When the spec already has milestones, also add the verdict to the Notes of every ticket not yet `done` that builds on it.
    - **Standalone**: give the user the verdict and the prototype's branch or path, and offer to apply it. On a yes, rebuild the decision in the working repository, with `tdd` where that code has tests.
-3. **Record the decision.** When the repositories it bears on are registered, invoke the `brain` skill to record the verdict as a `decision`, its `repos` naming the repositories it bears on, linked to the contract's note when it settles a contract. Its **Why** is what the prototype showed, written so a teammate who never ran the prototype can follow it.
+3. **Record the decision.** When the repositories it bears on are registered, invoke the `brain` skill's `remember` to record the verdict as a `decision`, its `repos` naming the repositories it bears on, linked to the contract's note when it settles a contract. Its **Why** is what the prototype showed, written so a teammate who never ran the prototype can follow it.
 
 Done when the prototype is kept, the verdict is in the spec or with the user, and the decision sits in a draft, or its repositories are not registered.

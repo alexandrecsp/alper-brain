@@ -460,7 +460,7 @@ test('fills each agent its Context block, dispatches a builder, and moves on to 
   assert.match(arbiter, /- \*\*Notes:\*\* .*invoice-event-contract\.md\n/)
   assert.doesNotMatch(arbiter, /api-retry/)
   assert.match(arbiter, /- \*\*Writes:\*\* nothing\n/)
-  assert.match(contextBlock(join(a1, 'milestone.md'), 'reviewer', { writes: [join(a1, 'review.standards.md')] }), /SMELLS\.md[\s\S]*- \*\*Writes:\*\* the file at .*review\.standards\.md\n/)
+  assert.match(contextBlock(join(a1, 'milestone.md'), 'standards-reviewer', { writes: [join(a1, 'review.standards.md')] }), /SMELLS\.md[\s\S]*- \*\*Writes:\*\* the file at .*review\.standards\.md\n/)
   assert.throws(() => contextBlock(join(a1, 'milestone.md'), 'builder'), /a ticket/)
 
   const brief = dispatch(t1, 'builder')

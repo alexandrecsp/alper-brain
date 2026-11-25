@@ -50,19 +50,19 @@ Run the loop and watch it go red. Confirm the red is the user's failure, not a n
 
 Then shrink the repro: cut inputs, callers, config, data and steps **one at a time**, re-running the loop after each cut. A minimal repro leaves fewer suspects for step 3 and becomes the regression test in step 5.
 
-Done when the loop is red on the user's symptom and every remaining element is **load-bearing**: removing any one turns the loop green.
+Done when the loop is red on the user's symptom across repeated runs, the exact symptom is captured, and every remaining element is **load-bearing**: removing any one turns the loop green.
 
 ### 3. Hypothesise
 
-Read the [domain docs](../model-domain/references/DOMAIN-DOCS.md) of each repository on the failing path, which recall the brain's notes on it, when it joins the path. A `how-to` whose trap matches the symptom becomes a hypothesis. A `contract` note names the producer and consumers of a boundary the path crosses, and is what the boundary is checked against.
+As each repository joins the failing path, read its [domain docs](../model-domain/references/DOMAIN-DOCS.md), the brain's notes on it included. A `how-to` whose trap matches the symptom becomes a hypothesis.
 
 Rank 3–5 hypotheses before testing any, each naming the repository its cause sits in; a single hypothesis anchors on the first plausible idea. Each is **falsifiable**, stated as a prediction: "If X is the cause, then changing Y turns the loop green (or changing Z makes it worse)." A hypothesis whose prediction you cannot state gets sharpened or dropped.
 
-When the failing path enters a repository that is linked but not open, dispatch one `alper-brain:scout` per such repository, in waves by BRIEF.md's **Fanning out**, each brief opening with the Context block by [BRIEF.md](../brain/references/BRIEF.md) (**Notes** the `contract` note or none, **Branch** the branch the symptom runs on, else the remote's default, **Writes** nothing), with the call site at the boundary (`path:line` in the repository it is called from), the captured symptom or payload by its absolute path with its secrets replaced by `<REDACTED>`, the last known-good commit or date when there is one, the slugs of the other repositories on the path, and this brief: "Trace the path from this boundary through this repository to where it produces or consumes the shape the call site and the capture show. Report three fields, each fact with its `path:line`, writing 'none' for an empty one: **Hops**, each hop of the path, and where it leaves this repository for another, that call site, stopping there; **Commits**, the commits that touch those files since the last known-good (`git -C <root> log --oneline <commit>..<branch> -- <files>`, or `--since=<date>` for a date, or the last 20 commits when there is neither); **Disagreements**, every place the code disagrees with the contract note, or, when Notes is none, the shape this repository produces or consumes there. Done when every field has an answer." Read the other side inline instead when it is one file you can already name. A repository registered but not linked is known by its notes alone: ask the user to run `/brain link` for it.
+When the failing path enters a repository that is linked but not open, dispatch one `alper-brain:explorer` per such repository, in waves by BRIEF.md's **Fanning out**, each brief opening with the Context block by [BRIEF.md](../brain/references/BRIEF.md) (**Notes** the `contract` note or none, **Branch** the branch the symptom runs on, else the remote's default, **Writes** nothing), with the call site at the boundary (`path:line` in the repository it is called from), the captured symptom or payload by its absolute path with its secrets replaced by `<REDACTED>`, the last known-good commit or date when there is one, the slugs of the other repositories on the path, and this brief: "Trace the path from this boundary through this repository to where it produces or consumes the shape the call site and the capture show. Report three fields, each fact with its `path:line`, writing 'none' for an empty one: **Hops**, each hop of the path, and where it leaves this repository for another, that call site, stopping there; **Commits**, the commits that touch those files since the last known-good (`git -C <root> log --oneline <commit>..<branch> -- <files>`, or `--since=<date>` for a date, or the last 20 commits when there is neither); **Disagreements**, every place the code disagrees with the contract note, or, when Notes is none, the shape this repository produces or consumes there. Done when every field has an answer." Read the other side inline instead when it is one file you can already name. A repository registered but not linked is known by its notes alone: ask the user to run `/brain link` for it.
 
-Show the ranked list to the user; they often re-rank it at once ("we just deployed a change to #3") or have ruled some out already. Continue with your own ranking when the user is away.
+Show the ranked list to the user, who may re-rank it ("we just deployed a change to #3") or rule some out, and probe in your own order until a re-rank arrives.
 
-Done when the domain docs of every repository on the failing path are read, every scout's report has all three fields (re-dispatching a scout whose report misses one), and 3–5 ranked hypotheses, each with its prediction and its repository, are shown to the user.
+Done when the domain docs of every repository on the failing path are read, every explorer's report has all three fields (re-dispatching an explorer whose report misses one), and 3–5 ranked hypotheses, each with its prediction and its repository, are shown to the user.
 
 ### 4. Instrument
 
@@ -79,9 +79,9 @@ Done when one hypothesis has survived its prediction and the others are falsifie
 The fix goes in the repository the root cause sits in. Before changing it, check it is **open** by FORMAT.md; when it is only linked, ask the user to run `/add-dir <root>`, and go to step 6 without a fix. When the cause is two repositories disagreeing across a contract:
 
 - **One side breaks the contract its `contract` note records:** fix that side.
-- **The contract is wrong, unrecorded, or the fix changes a shape another repository calls:** this is a contract change, which lands expand–contract across the repositories ([CONTRACT-CHANGE.md](../write-tickets/references/CONTRACT-CHANGE.md)). Go to step 6 without a fix: its first, fourth and fifth items run, and the report names the root cause, the producer and every consumer, and, with a brain open, offers `/write-spec` to plan it.
+- **The contract is wrong, unrecorded, or the fix changes a shape another repository calls:** this is a contract change, which lands expand–contract across the repositories ([CONTRACT-CHANGE.md](../write-tickets/references/CONTRACT-CHANGE.md)). Go to step 6 without a fix: the report names the root cause, the producer and every consumer, and, with a brain open, offers `/write-spec` to plan it.
 
-The regression test goes at a **correct seam**: one where the test exercises the bug pattern as it really occurs at the call site, with every caller and step of the chain the minimised repro proved load-bearing. A correct seam for a bug across a contract is the side of the boundary that broke it, tested by [CONTRACTS.md](../tdd/references/CONTRACTS.md) in that repository's own suite, the consumer's fixture being the recorded boundary payload. A shallower seam (a single-caller test for a multi-caller bug, a unit test that skips the triggering chain) gives false confidence, so a missing correct seam is itself a finding: note it for the report in step 6, and skip the test.
+The regression test goes at a **correct seam**: one where the test exercises the bug pattern as it really occurs at the call site, with every caller and step of the chain the minimised repro proved load-bearing. A correct seam for a bug across a contract is the side of the boundary that broke it, tested by [CONTRACTS.md](../tdd/references/CONTRACTS.md) in that repository's own suite, the consumer's fixture being the recorded boundary payload. A shallower seam (a single-caller test for a multi-caller bug, a unit test that skips the triggering chain) gives false confidence, so a missing correct seam is itself a finding: note it for the report in step 6, and skip the test. Without a correct seam, apply the fix and re-run the step 1 loop on the original scenario.
 
 With a correct seam, write the test by the `tdd` skill, this seam counting as confirmed:
 
@@ -89,14 +89,16 @@ With a correct seam, write the test by the `tdd` skill, this seam counting as co
 2. Apply the fix, and watch the test go green.
 3. Re-run the step 1 loop on the original, un-minimised scenario.
 
-Done when the step 1 loop is green, and the regression test is green or the missing seam is recorded.
+Done when the step 1 loop is green and the regression test is green or the missing seam is recorded, or step 6 is entered without a fix.
 
 ### 6. Clean up and report
+
+Without a fix, run items 1, 4 and 5 only.
 
 1. Remove every tagged log, and delete throwaway harnesses: grepping for the prefix in the root of every repository you instrumented finds none.
 2. Run the full suite of each repository the fix changed, from its root.
 3. Commit in each repository the fix changed, one commit each, with the `commit` skill naming that repository, its details naming the hypothesis that proved right, so the next debugger learns from it.
 4. Report to the user: the root cause and the repository it sits in, the fix, the regression test or the missing seam, and the commit SHAs. When the seam was missing, offer `/refactor` to deepen the module so the bug can be locked down.
-5. Invoke the `brain` skill to record the root cause as a `how-to` by FORMAT.md, its trap and what to do about it, its `repos` naming the repository the cause sits in, or both slugs when the trap is how two repositories meet. When a `contract` note on the path was wrong or silent about the trap, propose its fix in the same list. Skip this when no brain is open, or none of those repositories is registered in it.
+5. Invoke the `brain` skill's `remember` to record the root cause as a `how-to` by FORMAT.md, its trap and what to do about it, its `repos` naming the repository the cause sits in, or both slugs when the trap is how two repositories meet. When a `contract` note on the path was wrong or silent about the trap, propose its fix in the same list. Skip this when no brain is open, or none of the repositories its `repos` names is registered in it.
 
-Done when the tag grep is empty in every instrumented root, each changed repository's suite passes and holds its commit, the user has the report, and the user has confirmed or declined the `how-to`, or no brain is open, or no repository on the path is registered in it.
+Done when the tag grep is empty in every instrumented root, each changed repository's suite passes and holds its commit, the user has the report, and the user has confirmed or declined the `how-to`, or no brain is open, or none of the repositories its `repos` names is registered in it.

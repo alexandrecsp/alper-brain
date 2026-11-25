@@ -22,7 +22,7 @@ Move a repository's old `.sdd/`, from before the brain held the pipeline's work,
 
 ## The layout move
 
-Move a brain in an old layout into `.brain/`, by [FORMAT.md](FORMAT.md)'s **Layout**, with `migrate-layout.mjs`. It handles every old layout: a standalone brain whose `BRAIN.md` sits at its repository's root, an embedded brain in its host's `brain/` folder, a local brain in its host's `.brain-local/` folder, and a brain without `notes/`, each with this machine's work in an ignored `.brain/` or an older `.sdd/` folder beside it. **Sync** in [SKILL.md](../SKILL.md) offers it. It is one commit of its own: a run that stopped before the commit picks up at step 3, since the script finds nothing left to move.
+Move a brain in an old layout into `.brain/`, by [FORMAT.md](FORMAT.md)'s **Layout**, with `migrate-layout.mjs`. It handles every old layout: a standalone brain whose `BRAIN.md` sits at its repository's root, an embedded brain in its host's `brain/` folder, a local brain in its host's `.brain-local/` folder, and a brain without `notes/`, each with this machine's work in an ignored `.brain/` or an older `.sdd/` folder beside it. [SYNC.md](SYNC.md) offers it. It is one commit of its own: a run that stopped before the commit picks up at step 3, since the script finds nothing left to move.
 
 1. **Find the folder.** It is the folder holding the old brain's files for a standalone brain, and the host for an embedded or local one. Commit or discard what `git -C <the old brain's git root> status --porcelain` lists for the brain's own files, and when its `locks/` folder holds a claim, ask whether that build still runs, and stop while it does. Done when you hold the folder and the old brain has nothing uncommitted.
 
@@ -65,7 +65,7 @@ For each entry, write its `buildsAfter` ids into the milestone's **Builds after*
 
 ## Note types
 
-Bring each note RECALL.md's script lists with `--legacy` to FORMAT.md's types and **Layers**. **Sync** in [SKILL.md](../SKILL.md) runs this before it consolidates, as drafts, so the user confirms the migration with the other drafts. A listed note that already has its draft in `notes/drafts/` keeps it.
+Bring each note RECALL.md's script lists with `--legacy` to FORMAT.md's types and **Layers**. [SYNC.md](SYNC.md) runs this before it consolidates, as drafts, so the user confirms the migration with the other drafts. A listed note that already has its draft in `notes/drafts/` keeps it.
 
 1. **Draft each note's change.** Write one draft per listed note, by FORMAT.md's **Drafts**:
    - A `gotcha` becomes a `how-to`: an `update` that changes its `type` and keeps its text.
