@@ -52,7 +52,7 @@ Match the pattern to the candidate, and vary them across the report.
 
 Beside the theme's module and arrow:
 
-- **Deep module**: `border-2 px-3 py-2` in `var(--text)`, filled `var(--text)` with `color:var(--bg)`, the brain page's primary-button pair.
+- **Deep module**: `border-2 px-3 py-2` in `var(--text)`, filled `var(--text)` with `color:var(--bg)`.
 - **Seam**: a `.seam` dashed line in `var(--muted)`.
 - **Leak**: a `.leak` arrow in red, and red only there.
 - **Faded internals**: `opacity-40`.

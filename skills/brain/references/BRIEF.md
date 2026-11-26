@@ -31,7 +31,7 @@ Rules:
    - **Changed:** each file changed and commit made, with its repository, or nothing
 ```
 
-`build` hands the block over as a file, filled by `sdd dispatch`: its briefs open with `## Context`, the **Works in** line, and a line naming the file that holds the whole block, which the agent reads first; the agents it dispatches take either form. Every dispatching step ends on its reports: each carries the task's own fields and the three closing lines, a report missing one is re-dispatched with the brief sharpened, a **blocked** or **partial** **Status** is reported to the user with what stopped it, and each **Needs the user** item reaches the user in the skill's hand-over beside its own decisions.
+The block can also arrive as a file, as `sdd dispatch` writes it: the brief opens with `## Context`, the **Works in** line, and a line naming the file that holds the whole block, which the agent reads first. Every agent takes either form. Every dispatching step ends on its reports: each carries the task's own fields and the three closing lines, a report missing one is re-dispatched with the brief sharpened, a **blocked** or **partial** **Status** is reported to the user with what stopped it, and each **Needs the user** item reaches the user in the skill's hand-over beside its own decisions.
 
 ## Fanning out
 
@@ -39,4 +39,4 @@ A **fan-out** dispatches one sub-agent per area, repository or group. Run at mos
 
 ## After a sub-agent that changes a repository reports
 
-Before acting on its report, check where it wrote: `git -C <root> rev-parse --abbrev-ref HEAD` is the brief's **Branch**, each commit it names is on that branch (`git -C <root> cat-file -e <sha>^{commit}` and `git -C <root> merge-base --is-ancestor <sha> HEAD`), `git -C <root> status --porcelain` is empty, and the brain's `HEAD`, recorded with `git -C <brain> rev-parse HEAD` before the dispatch, and `git -C <brain> status --porcelain -- .` are as they were. When a check fails, treat the agent as blocked, with what the check found. `build` runs these checks in one call, as `sdd verify`.
+Before acting on its report, check where it wrote: `git -C <root> rev-parse --abbrev-ref HEAD` is the brief's **Branch**, each commit it names is on that branch (`git -C <root> cat-file -e <sha>^{commit}` and `git -C <root> merge-base --is-ancestor <sha> HEAD`), `git -C <root> status --porcelain` is empty, and the brain's `HEAD`, recorded with `git -C <brain> rev-parse HEAD` before the dispatch, and `git -C <brain> status --porcelain -- .` are as they were. When a check fails, treat the agent as blocked, with what the check found.

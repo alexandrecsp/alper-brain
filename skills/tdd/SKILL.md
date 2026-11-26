@@ -25,7 +25,7 @@ A good test verifies behaviour through a public interface and reads like a speci
 
 A **seam** is where a module's interface lives, as the `codebase-design` skill defines it: tests cross it and observe behaviour without reaching inside. Tests live at **confirmed seams** only, which puts the testing effort on the critical paths and complex logic rather than on every edge case.
 
-- When a spec or ticket names the seams (its Testing Decisions or acceptance criteria), or the skill that called you declares one confirmed (`diagnose` does), they are already confirmed: test there.
+- When a spec or ticket names the seams (its Testing Decisions or acceptance criteria), or the skill that called you declares one confirmed, they are already confirmed: test there.
 - A failing test or check your brief hands you is already red at a confirmed seam: start the loop at **Then green**.
 - For a review finding, test at a seam the spec or its tickets name, or the one an existing test of that hunk crosses.
 - Otherwise, before writing any test, propose the seams, each with a one-line note on what it catches and what it misses, and wait for the user to confirm them. As a sub-agent with no user to ask, write no code: report `Status: blocked`, with the seams you would propose, each with its one-line note, under **Needs the user**; whoever dispatched you confirms them.

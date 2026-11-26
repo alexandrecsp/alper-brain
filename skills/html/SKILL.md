@@ -6,7 +6,7 @@ metadata:
   type: process
 ---
 
-Turn what the user asked for (findings, an audit, a comparison, a plan) into one **page**: a self-contained HTML file in the active brain, built on the [report theme](../brain/references/THEME.md), so it reads like the brain's tours and refactor reports. A tour, refactor candidates and a logic prototype have pages of their own, written by `/brain tour`, `/refactor` and `/prototype`: when the ask is one of those, tell the user to run it, and stop. This skill gives a page to every other output.
+Turn what the user asked for (findings, an audit, a comparison, a plan) into one **page**: a self-contained HTML file in the active brain, built on the [report theme](../brain/references/THEME.md). A tour, refactor candidates and a logic prototype have pages of their own, written by `/brain tour`, `/refactor` and `/prototype`: when the ask is one of those, tell the user to run it, and stop. This skill gives a page to every other output.
 
 The page lives in the brain, by [FORMAT.md](../brain/references/FORMAT.md); when no brain is open, follow FORMAT.md's **The open session**. It is also published elsewhere, such as a hosted page or a shared doc, only when the user asks to share it; the brain's copy stays.
 
