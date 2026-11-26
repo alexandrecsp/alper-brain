@@ -6,6 +6,7 @@ Each release lists what changed for a user of the plugin. **Migrates by itself**
 
 ### Changed
 
+- **`/onboard` is now `/brain tour`.** The tour picks the repository's default branch like `/brain explore`, offers an explore first when the notes are behind, and starts from the explored notes, so its explorers spend their reads on how the code is built. Tours stay in `.brain/repos/<slug>/tours/`.
 - **One explorer agent.** `scout` is merged into `explorer`: every fact-finding, tour and refactor dispatch now goes to `alper-brain:explorer`, on Sonnet.
 - **`reviewer` is now `standards-reviewer`**, beside `spec-reviewer`.
 - **Design it twice reaches you.** `brainstorm`'s How phase, `refactor` and `codebase-design` now run DESIGN-IT-TWICE (the `architect` agents) when an interface's shape is unsettled or it is a contract other repositories consume.

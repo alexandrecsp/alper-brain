@@ -17,7 +17,7 @@ The shape of the second brain: the team's notes on every repository, shared, and
 │   ├── repos.json                        ← ignored: each linked slug's clone path on this machine, by **Repositories**
 │   └── <slug>/
 │       ├── REPO.md                       ← the repository's card
-│       ├── tours/  refactors/  pages/    ← onboarding tours from `onboard`, reports from `refactor`, and pages from `html` on this repository
+│       ├── tours/  refactors/  pages/    ← onboarding tours from `brain tour`, reports from `refactor`, and pages from `html` on this repository
 │       └── snapshots/                    ← ignored: the repository's default branch, checked out while a skill reads it
 ├── pages/<YYYY-MM-DD-HHmm>-<topic>.html  ← pages from `html` on no single repository
 ├── prototypes/<slug>.html                ← logic prototypes from `prototype`, one home even for a prototype across repositories
@@ -87,7 +87,7 @@ A **snapshot** reads a linked repository's default branch, or its clone's curren
 
 A skill reads a repository's committed code from its **source**: the clone itself, read **in place**, or a snapshot. Read in place when the clone is open, the branch to read is the one it has checked out, `git -C <root> status --porcelain` lists nothing, and no `locks/<slug>.json` exists; otherwise take a snapshot. Reading in place copies nothing, so it suits an embedded or local brain best, whose host is always open. Its rules:
 
-- **Claim it first.** Write `locks/<slug>.json` as `{"spec": "<skill>", "since": "<now, in ISO 8601>"}`, `<skill>` being the reading skill (`explore` or `ask`), so a build reaching the repository stops at its `held:` line by build's **Locks** instead of checking out a branch under the reads. Tell the user to leave the clone's branch and files as they are until the skill says it is done.
+- **Claim it first.** Write `locks/<slug>.json` as `{"spec": "<skill>", "since": "<now, in ISO 8601>"}`, `<skill>` being the reading branch (`explore`, `ask` or `tour`), so a build reaching the repository stops at its `held:` line by build's **Locks** instead of checking out a branch under the reads. Tell the user to leave the clone's branch and files as they are until the skill says it is done.
 - **Check it after.** Once the reads are done, `git -C <root> rev-parse HEAD` must still print the commit they started at, and the tree must still be clean. When either fails, the reads may mix two states: say so, and offer to run the skill again.
 - **Release it.** Delete the lock file once the check is done, and on every stop before it.
 

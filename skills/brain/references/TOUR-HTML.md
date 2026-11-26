@@ -1,8 +1,8 @@
 # Tour HTML
 
-Built on the [report theme](../../brain/references/THEME.md): its scaffold, hero, card and diagram canvas, filled as below. The tour reads top to bottom as its stops, each a `<section>` headed by its name in `h text-2xl`. Diagrams carry the big picture and the journeys; the cards and tables carry the detail.
+Built on the [report theme](THEME.md): its scaffold, hero, card and diagram canvas, filled as below. The tour reads top to bottom as its stops, each a `<section>` headed by its name in `h text-2xl`. Diagrams carry the big picture and the journeys; the cards and tables carry the detail.
 
-Every file path is the theme's **File link**, under the repository's root.
+Every file path is the theme's **File link**, under the clone's root, never under a snapshot, which [TOUR.md](TOUR.md) removes before the page is written.
 
 ## Scaffold
 
@@ -12,7 +12,7 @@ Every file path is the theme's **File link**, under the repository's root.
 
 ## Hero
 
-- **Eyebrow**: the theme's, stamped.
+- **Eyebrow**: the theme's, its stamp taken from TOUR.md's source: the branch read and the target's short SHA.
 - **Headline**: what the system does, in one sentence, and under it a line naming the stack.
 - **Stat tiles**: Areas, Journeys, Entry points, Glossary terms.
 - **Start here** row: the first journey's title, linking to its card.
