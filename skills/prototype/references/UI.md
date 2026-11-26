@@ -11,15 +11,16 @@ A variant is judged best **in situ**: against the app's real header, sidebar, da
 
 ## Process
 
-1. **State the question and the plan.** Default to 3 variants, at most 5: past that they stop being structurally different. Give each variant a **structural constraint** the others don't share: a layout, information hierarchy or primary affordance ("sidebar-led", "one scrolling column", "table first, no cards"). Write the plan in one line as a top-of-file comment, such as "Three variants of the settings page (sidebar-led, one column, table first), switched by `?variant=`, on the existing `/settings` route." Give each variant a key (A, B, C), a short name for the floating bar (`Sidebar layout`), an export name (`VariantA`) and a file path beside the host page, with `prototype` in the file name (`settings.prototype-a.tsx`). Done when the plan names the host page and, for each variant, its constraint, key, name, export and path.
+1. **State the question and the plan.** First ask the user for **inspirations**: links or screenshots of designs they like (Pinterest, Dribbble, Behance, a product they admire), each with what they like in it, since a link alone says nothing about which part to take. Keep each as that one line plus the screenshot's absolute path when there is one; one may seed a variant's constraint. When the user is away or has none, go on without. Default to 3 variants, at most 5: past that they stop being structurally different. Give each variant a **structural constraint** the others don't share: a layout, information hierarchy or primary affordance ("sidebar-led", "one scrolling column", "table first, no cards"). Write the plan in one line as a top-of-file comment, such as "Three variants of the settings page (sidebar-led, one column, table first), switched by `?variant=`, on the existing `/settings` route." Give each variant a key (A, B, C), a short name for the floating bar (`Sidebar layout`), an export name (`VariantA`) and a file path beside the host page, with `prototype` in the file name (`settings.prototype-a.tsx`). Done when the user has given inspirations or said they have none (or is away), and the plan names the host page and, for each variant, its constraint, key, name, export and path.
 
-2. **Draft the variants.** Dispatch one `alper-brain:designer` agent per variant, in the background and in waves by [BRIEF.md](../../brain/references/BRIEF.md)'s **Fanning out**. Each brief carries:
+2. **Wireframe the variants.** Every variant is first a **wireframe**: its real file, rendered on the route, at the low fidelity [designer.md](../../../agents/designer.md) defines for **Stage** `wireframe`. Dispatch one `alper-brain:designer` agent per variant, in the background and in waves by [BRIEF.md](../../brain/references/BRIEF.md)'s **Fanning out**. Each brief carries:
 
    - the Context block by BRIEF.md, with **Writes** the variant's file and **Branch** `prototype/<slug>`, every path below given as an absolute path under the root
    - the question, and the host page: its route, its data and props, and the files around it
-   - the project's component library and styling, by file path
    - the variant's file path, and its exported name (`VariantA`, `VariantB`)
    - the variant's structural constraint from step 1, and each other variant's constraint, so this one stays clear of them
+   - the inspirations from step 1, each line with its screenshot's path, when there are any
+   - **Stage**: `wireframe`; at step 6, `full`, with the project's component library and styling, by file path
 
    Each designer reports one line on its structure. While they draft, write step 3's switcher and step 4's bar from step 1's keys, names and exports, and run their checks once this step is done. Done when every report has its structure line, every variant file exists at its path and exports its name, `git -C <root> status --porcelain` lists only the prototype's files, the brain is unchanged, and, reading each one's top-level layout, no two match; redispatch one with a sharper constraint ("no card grid") when two come out alike.
 
@@ -49,6 +50,10 @@ A variant is judged best **in situ**: against the app's real header, sidebar, da
 
    Done when the arrows and keys cycle every variant and the URL follows, checked with the project's browser tooling, else by reading the bar's key handler; say which in the hand-over.
 
-5. **Hand it over.** Give the user the URL and the `?variant=` keys. The best feedback is usually "the header from B with the sidebar from C": that combination is the design they want. Done when a variant, or a combination, has won. When the user is away, end with the hand-over and report the verdict as open; **Capture** waits for it.
+5. **Review the wireframes.** Give the user the URL and the `?variant=` keys, and let them cut, merge or redirect a variant. Fold each change into step 1's plan and redispatch that variant's wireframe. Done when the user approves the set; when the user is away, go on, and say in step 7's hand-over that the wireframes went unreviewed.
 
-6. **Capture.** Follow [SKILL.md](../SKILL.md)'s **Capture**: the verdict names the winner and why.
+6. **Build the variants.** Dispatch one `alper-brain:designer` per approved variant again, with step 2's brief at **Stage** `full`: it turns the wireframe at its path into the full variant. Done when step 2's checks pass again and each variant's top-level layout keeps its wireframe's regions; redispatch one that strays.
+
+7. **Hand it over.** Give the user the URL and the `?variant=` keys. The best feedback is usually "the header from B with the sidebar from C": that combination is the design they want. Done when a variant, or a combination, has won. When the user is away, end with the hand-over and report the verdict as open; **Capture** waits for it.
+
+8. **Capture.** Follow [SKILL.md](../SKILL.md)'s **Capture**: the verdict names the winner and why.
