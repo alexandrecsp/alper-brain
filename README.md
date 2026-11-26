@@ -29,7 +29,9 @@ The skills then show up as `/alper-brain:<name>`. Below they are written by thei
     │   └── billing-api/
     │       ├── REPO.md                the repository's card
     │       ├── tours/  refactors/     onboarding tours and refactor reports
+    │       ├── pages/                 HTML pages from `html` on this repository
     │       └── snapshots/             ignored: its default branch, checked out while a skill reads it
+    ├── pages/                         HTML pages from `html` on no single repository
     ├── prototypes/                    logic prototypes, one home even across repositories
     ├── research/                      cited findings from `research`
     ├── specs/                         ignored: specs, milestones, tickets and reviews, across repositories
@@ -230,6 +232,7 @@ The pipeline uses the brain throughout. Every skill that reads the glossary and 
 | `research` | Researches a question against primary sources in a background sub-agent. Saves the cited findings to the brain's `.brain/research/<slug>.md`. |
 | `prototype` | Builds a throwaway prototype that answers one design question: a shareable HTML demo for logic, or switchable variants for UI, each drafted in parallel by its own designer sub-agent. Keeps a UI prototype on a `prototype/<slug>` branch and a logic one in the brain's `.brain/prototypes/`, and records the verdict in the spec and as a brain decision. |
 | `refactor` | Scans hot spots for deepening and smell refactors, shows them as an HTML report saved to the brain's `.brain/repos/<slug>/refactors/`, and brainstorms the one you pick. A contained refactor goes straight to `/write-tickets` and `/build`; a larger one starts at `/write-spec`. |
+| `html` | Shows any output as a self-contained HTML page in the report theme of the tours and refactor reports: "audit the auth flow, as HTML". Saves it to the brain's `.brain/repos/<slug>/pages/`, or `.brain/pages/` when it covers no single repository, and opens it. |
 | `onboard` | Tours one repository for a newcomer who will code in it, one explorer per area in parallel, starting from the brain's notes on it, then traces the two or three journeys that cross the most areas, following them into linked neighbours. Writes the tour to the brain's `.brain/repos/<slug>/tours/`: a context map with the neighbouring repositories, the journeys, a card per area, where things live, the vocabulary and the commands. Then offers to record the terms, decisions and contracts it found undocumented. |
 
 The pipeline skills (`write-spec`, `write-tickets`, `build`), `refactor`, `onboard` and `open-pr` only run when you type their command. The other actions can also be invoked by the agent when it needs them. The skills other skills run as a step (`tdd`, `review-changes`, `model-domain`) and the reference skills (`codebase-design`, `design-patterns`, `project-structure`, `agent-writing`) stay out of the slash menu: the agent and other skills load them, and you ask for one in words ("review this branch", "build this test-first").

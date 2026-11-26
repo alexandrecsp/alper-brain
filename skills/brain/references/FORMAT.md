@@ -17,8 +17,9 @@ The shape of the second brain: the team's notes on every repository, shared, and
 │   ├── repos.json                        ← ignored: each linked slug's clone path on this machine, by **Repositories**
 │   └── <slug>/
 │       ├── REPO.md                       ← the repository's card
-│       ├── tours/  refactors/            ← onboarding tours from `onboard`, and reports from `refactor`
+│       ├── tours/  refactors/  pages/    ← onboarding tours from `onboard`, reports from `refactor`, and pages from `html` on this repository
 │       └── snapshots/                    ← ignored: the repository's default branch, checked out while a skill reads it
+├── pages/<YYYY-MM-DD-HHmm>-<topic>.html  ← pages from `html` on no single repository
 ├── prototypes/<slug>.html                ← logic prototypes from `prototype`, one home even for a prototype across repositories
 ├── research/<slug>.md                    ← cited findings from `research`, with `<slug>/<group>.md` beside it when it fans out
 ├── specs/NNN-<slug>/…                    ← ignored: work planned or in flight, in one repository or several, by **Specs**
@@ -32,7 +33,7 @@ The shape of the second brain: the team's notes on every repository, shared, and
 └── handoff/                              ← ignored: what a session leaves for the next one on this machine
 ```
 
-The `.gitignore` is `.brain/.gitignore` in every kind, written by [SETUP.md](SETUP.md) and by the layout move; it holds each path marked `ignored` above. The team shares the rest: the notes, the cards, research, tours, refactor reports and prototypes. Only this machine keeps what is marked: what it learns reaches the team only as notes. A local brain's host also ignores the whole `.brain/`, by **Local brain**.
+The `.gitignore` is `.brain/.gitignore` in every kind, written by [SETUP.md](SETUP.md) and by the layout move; it holds each path marked `ignored` above. The team shares the rest: the notes, the cards, research, tours, refactor reports, pages and prototypes. Only this machine keeps what is marked: what it learns reaches the team only as notes. A local brain's host also ignores the whole `.brain/`, by **Local brain**.
 
 `BRAIN.md` holds a `kind` frontmatter line, `standalone`, `embedded` or `local`, so no skill works the kind out; `scripts/schema.mjs` checks it against the git test of **Embedded brain** and **Local brain**. A `standalone` brain is `<repo>/.brain/`, its agent file at the repository's root. The Obsidian vault opens at `.brain/` itself, since Obsidian skips hidden folders.
 

@@ -11,7 +11,7 @@ Built on the [report theme](../../brain/references/THEME.md): its scaffold, hero
 
 ## Hero
 
-- **Eyebrow**: the repo slug, the date, the branch, the short SHA scanned, and "uncommitted changes" when step 4 adds it.
+- **Eyebrow**: the theme's, stamped.
 - **Headline**: the count ("7 refactor candidates"), and under it one line naming the scanned areas.
 - **Stat tiles**: Candidates, Strong, Worth exploring, Speculative.
 - **Start here** row: the candidate to tackle first by number and title, one sentence on why, linking to its card's anchor.
@@ -31,7 +31,7 @@ In order:
 
 - **Meta row**: the lens (`deepening` or the smell's name) and each dependency category (`in-process`, `local-substitutable`, `remote but owned`, `true external`) as chips, and the strength pill.
 - **Title**: the number, then the refactor's name ("#3 Collapse the Order intake pipeline").
-- **Files**.
+- **Files**: a list of the theme's file links.
 - **Before / after diagram**: the centrepiece, two panels side by side (stacked below `md`), each about 320px tall, each on a diagram canvas labelled "Before", "After".
 - **Problem**: one sentence, what hurts.
 - **Refactor**: one sentence, what changes.

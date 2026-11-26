@@ -1,8 +1,8 @@
 # Report theme
 
-The look shared by every HTML report a skill writes into `.brain/` (tours, refactor reports): neutral grey surfaces, dark only, **sharp edges** (no rounded corners), **light headers** (weight 300), mono uppercase eyebrows, and colour that means something (a status, a strength, a leak), never decoration. This file is its one source. The brain page keeps its own look, with Agent Watcher's six themes.
+The look shared by every HTML report a skill writes into `.brain/`: neutral grey surfaces, dark only, **sharp edges** (no rounded corners), **light headers** (weight 300), mono uppercase eyebrows, and colour that means something (a status, a strength, a leak), never decoration. This file is its one source. The brain page keeps its own look, with Agent Watcher's six themes.
 
-A report is one self-contained file. Tailwind, the fonts and Mermaid come from CDNs; everything else is inline and static. The report's own reference fills each `{{slot}}` below, and names colours by the tokens in the scaffold's `:root`.
+A report is one self-contained file. Tailwind, the fonts and Mermaid come from CDNs; everything else is inline and static. The skill writing the report fills each `{{slot}}` below, from its own reference when it has one, and names colours by the tokens in the scaffold's `:root`.
 
 ## Scaffold
 
@@ -12,7 +12,7 @@ A report is one self-contained file. Tailwind, the fonts and Mermaid come from C
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{report name}} · {{repo name}}</title>
+<title>{{report name}}{{ · repo name, for a report in a repository's folder}}</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com/3.4.16"></script>
 <script type="module">
@@ -59,25 +59,25 @@ A report is one self-contained file. Tailwind, the fonts and Mermaid come from C
 </html>
 ```
 
-Surfaces, text and borders take the tokens, never a raw hex: `.panel` for a card, `.panel-2` for what sits inside one, `.muted` and `.faint` for secondary text, `var(--line)` for every border.
+In what you add to the scaffold, surfaces, text and borders take the tokens, never a raw hex: `.panel` for a card, `.panel-2` for what sits inside one, `.muted` and `.faint` for secondary text, `var(--line)` for every border.
 
 ## Hero
 
 A hero panel, `panel p-6 sm:p-8`. Inside, in order:
 
-- **Eyebrow**: repo name and date, in `.eyebrow`.
+- **Eyebrow**: in `.eyebrow`, the date, and for a report in a repository's folder (`repos/<slug>/…`) the repo name and its **stamp**: the branch `git -C <root> branch --show-current` names, `git -C <root> rev-parse --short HEAD`, and `uncommitted changes` when `git -C <root> status --porcelain` lists any, `<root>` being that repository's root by [FORMAT.md](FORMAT.md).
 - **Headline**: `h text-3xl`, with one `.muted` line under it.
 - **Stat tiles**: a `dl` grid of `panel-2 px-4 py-3` tiles, label in `.eyebrow`, value `h text-2xl tabular-nums`; a tile that counts a coloured class takes that colour on its value (`style="color:var(--green)"`).
 - **Rows**: below a `border-t` divider (`border-color:var(--line)`), the report's own rows, each under an `.eyebrow` label.
 
 ## Card
 
-One `<article>` per item, built as a report card: `panel edge p-6`, its top edge in the colour the report names (`style="--c:var(--green)"`). Its parts:
+One `<article>` per item, `panel edge p-6`, its top edge in the colour the report names (`style="--c:var(--green)"`). Its parts:
 
 - **Meta row**: `.chip`s, and a `.pill` pushed right (`ml-auto`, `style="--c:var(--amber)"`).
 - **Title**: `h text-xl`, a leading handle in `mono faint`.
-- **Files**: a `mono text-xs muted` list.
-- **Checks**: bullets marked with a green square tick, `✓` in `var(--green)`.
+- **File link**: every file path in a report, wherever it sits (a card's file list, a table cell, a hero row, a diagram label), `mono text-xs muted`, its `href` the file's absolute `file:///` URL (`file:///C:/work/acme/billing-api/src/orders/intake.ts`). The report sits in the brain, not the repository, so a relative path never reaches the code.
+- **Checks**: bullets marked with a green tick, `✓` in `var(--green)`.
 - **Callout**: one line in an amber box, `border px-3 py-2` with `border-color:color-mix(in srgb, var(--amber) 40%, transparent);background:color-mix(in srgb, var(--amber) 8%, transparent)`.
 
 ## Diagrams
@@ -86,5 +86,14 @@ A diagram sits on a canvas, `dots panel-2`, under an `.eyebrow` label. A hand-bu
 
 - **Module**: `border px-3 py-2` on `var(--panel)`, border `var(--line-2)`.
 - **Arrow**: inline SVG with `stroke-width="1.5"` in `var(--muted)`, and a filled arrowhead marker.
+- **Label**: each module's text in `.eyebrow`, so a hand-built diagram reads as schematic rather than UI.
 
-Label modules inside diagrams in `.eyebrow`, so they read as schematic rather than UI.
+## Hand-over
+
+How every report reaches the user, at the path its skill names under the brain's root:
+
+1. **Stamp.** Check that a report in a repository's folder carries the Hero's stamp.
+2. **Write.** Save the file, filling `<YYYY-MM-DD-HHmm>` in its path from the local clock (`date +%Y-%m-%d-%H%M`).
+3. **Open.** Open it (`cmd /c start "" "<path>"` on Windows, `open` on macOS, `xdg-open` on Linux) and give the user its absolute path.
+
+Done when the file sits at its path, carries the stamp when it is in a repository's folder, the open command ran or failed, and the user has its absolute path.

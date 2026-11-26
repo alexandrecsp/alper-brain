@@ -2,7 +2,7 @@
 
 Built on the [report theme](../../brain/references/THEME.md): its scaffold, hero, card and diagram canvas, filled as below. The tour reads top to bottom as its stops, each a `<section>` headed by its name in `h text-2xl`. Diagrams carry the big picture and the journeys; the cards and tables carry the detail.
 
-Every file path is a **file link**: `mono text-xs muted`, its `href` the file's absolute `file:///` URL under the repository's root (`file:///C:/work/acme/billing-api/src/orders/intake.ts`), so it opens from the page. The tour sits in the brain, not the repository, so a relative path never reaches the code.
+Every file path is the theme's **File link**, under the repository's root.
 
 ## Scaffold
 
@@ -12,7 +12,7 @@ Every file path is a **file link**: `mono text-xs muted`, its `href` the file's 
 
 ## Hero
 
-- **Eyebrow**: repo name, date, the stamped commit and its branch, and `uncommitted changes` when step 4 found any.
+- **Eyebrow**: the theme's, stamped.
 - **Headline**: what the system does, in one sentence, and under it a line naming the stack.
 - **Stat tiles**: Areas, Journeys, Entry points, Glossary terms.
 - **Start here** row: the first journey's title, linking to its card.
