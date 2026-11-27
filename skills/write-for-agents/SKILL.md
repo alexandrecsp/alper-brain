@@ -3,14 +3,16 @@ name: write-for-agents
 description: Writing documents for agents. Use when writing or reviewing a skill, a skill's reference file, an agent definition in agents/, a sub-agent brief, or an AGENTS.md or CLAUDE.md.
 user-invocable: false
 metadata:
-  type: process
+  type: reference
 ---
 
 Reference for writing any document an agent consumes: a skill, an `AGENTS.md` / `CLAUDE.md`, a doc reached by a pointer. The packaging differs; the writing does not: the same levers make each one predictable, since the agent takes the same _process_ every run rather than producing the same output.
 
-When the document you're writing is a skill, read [`SKILL-MECHANICS.md`](references/SKILL-MECHANICS.md) for frontmatter, invocation choice, and router skills. When it is an agent definition (`agents/*.md`) or a **brief** a step hands a sub-agent, read [`AGENT-MECHANICS.md`](references/AGENT-MECHANICS.md).
+When the document you're writing is a skill, read [`SKILL-MECHANICS.md`](references/SKILL-MECHANICS.md) for frontmatter, invocation choice, shared reference, and router skills. When it is an agent definition (`agents/*.md`) or a **brief** a step hands a sub-agent, read [`AGENT-MECHANICS.md`](references/AGENT-MECHANICS.md).
 
-Review a document against this reference by [`REVIEW.md`](references/REVIEW.md), in a fresh sub-agent. A review is done when every section of this file, and of each mechanics file whose branch applies, has a finding or `holds` for every part of the document.
+Review a document against this reference by [`REVIEW.md`](references/REVIEW.md).
+
+Claude Code's own docs are upstream of this reference on the harness: the [best-practices guide](https://code.claude.com/docs/en/best-practices) on what it enforces, what the model only reads, and the prompting habits current models have retired; the [skills](https://code.claude.com/docs/en/skills) and [sub-agents](https://code.claude.com/docs/en/sub-agents) pages on the frontmatter fields. Read them when you change this skill or its mechanics files, and when a choice turns on what the harness does rather than on how the agent reads. Where the docs and this reference disagree on Claude Code's mechanics, the docs win: fix this reference.
 
 ## Context pointers
 
@@ -21,6 +23,8 @@ A pointer does two jobs: state what the material is, and list the **branches** t
 - **Front-load the leading word**: the pointer is where it does its triggering work.
 - **One trigger per branch.** Synonyms that rename a single branch are one branch written twice; collapse them and keep only genuinely distinct branches.
 - **Name the material in one phrase; cut the rest of its identity.** The body explains itself; the pointer needs only enough to recognise each branch.
+
+A pointer's condition can be a path rather than words: a `.claude/rules/` file or a skill with `paths:` in its frontmatter loads only when the agent works on a matching file, so a rule that bears on one part of a tree costs nothing elsewhere.
 
 ## The two loads
 
@@ -77,11 +81,15 @@ Hunt for opportunities to refactor with leading words, and assume every document
 - "fast, deterministic, low-overhead" → _tight_ (a _tight_ loop).
 - "a loop you believe in" → _red_, turning a fuzzy gate into a binary observable state (the loop goes _red_ on the bug, or it doesn't).
 
-**Negation** is the failure mode beside this lever: steering by prohibition drags the forbidden behaviour into context and makes it _more_ available, not less. _Don't think of an elephant_, and the elephant is all there is; the negation is a weak modifier the strongly-activated concept overruns, so the ban half-reads as an instruction to do the thing. Prompt the **positive**: state the target behaviour ("write one-line comments") so the banned one is never spoken. A prohibition earns its place only as a hard guardrail you cannot phrase positively; even then, pair it with the positive target so attention lands on what to do.
+**Negation** is the failure mode beside this lever: steering by prohibition drags the forbidden behaviour into context and makes it _more_ available, not less. _Don't think of an elephant_, and the elephant is all there is; the negation is a weak modifier the strongly-activated concept overruns, so the ban half-reads as an instruction to do the thing. Prompt the **positive**: state the target behaviour ("write one-line comments") so the banned one is never spoken. A prohibition earns its place only as a hard guardrail you cannot phrase positively and cannot enforce (see Enforcement); even then, pair it with the positive target so attention lands on what to do.
+
+## Enforcement
+
+Every lever above steers the model, and the model weighs what it reads: no wording guarantees a behaviour. A rule the harness **enforces** runs every time instead: an agent's `tools`, a `command` hook, a permission deny rule, a `Stop` hook that exits 2 until a check passes. A check a step tells the agent to run is still read, not enforced. A rule with zero exceptions (never read `.env`, always run the check before handing over) belongs there, and the document keeps the rules that have exceptions, which the model is right to weigh. **Emphasis** (_IMPORTANT_, capitals, repetition) is the symptom of an unenforced rule: current models over-apply an emphasised line, and a plain line they still miss means the document is too long or the rule should be enforced. Keep the enforced set small: enforcing a preference takes away a judgement the model would have made well.
 
 ## Pruning
 
 - Keep each meaning in a **single source of truth**: one authoritative place, so changing the behaviour is a one-place edit. **Duplication** (the same meaning in more than one place) costs maintenance and tokens, and inflates a meaning's prominence on the ladder past its real rank. (The accidental inverse of a leading word, which repeats a token on purpose, never the meaning.) Across a context boundary, see [`AGENT-MECHANICS.md`](references/AGENT-MECHANICS.md).
 - The **environment** is a source of truth too (`package.json` scripts, config files, the directory layout, `--help` output), and a document that restates it is a **cache**: a copy of a lookup, earning its load only when the lookup is expensive. Cache what the agent cannot find by looking: the unwritten convention, the reason behind a choice, the gotcha no config confesses. Leave the one-file, one-command lookups to the environment, where they cannot go stale.
 - Check every line for **relevance**: does it still bear on what the document does? A line loses relevance by never bearing on the task (mere exposition, or a branch that should be disclosed) or by going stale as the behaviour or world it describes changes. Shorter documents are easier to keep relevant. Without a pruning discipline the default fate is **sediment**: stale layers that settle because adding feels safe and removing feels risky, until you must core down through them to find what is still live.
-- Hunt **no-ops** sentence by sentence: an instruction the model already obeys by default pays load to say nothing. The test (does it change behaviour versus the default?) is model-relative, not reader-relative: two people disagreeing about a no-op disagree about the default, and settle it by running the document, not by debate. Grade against the model that runs the document: a sub-agent's pinned `model`, not the session's. When a sentence fails, delete the whole sentence rather than trim words from it. The test also grades leading words: a word too weak to beat the default (_be thorough_ when the agent is already thorough-ish) is a no-op, and the fix is a stronger word (_relentless_), not a different technique.
+- Hunt **no-ops** sentence by sentence: an instruction the model already obeys by default pays load to say nothing. The test (does it change behaviour versus the default?) is model-relative, not reader-relative: two people disagreeing about a no-op disagree about the default, and settle it by running the document, not by debate. Grade against the model that runs the document: a sub-agent's pinned `model`, not the session's. When a sentence fails, delete the whole sentence rather than trim words from it. The test also grades leading words: a word too weak to beat the default is a no-op, and the fix is a word that names a behaviour (_relentless_ questioning, a _red_ loop). Words that ask for more thought or persistence (_think hard_, _be thorough_, _keep going_) barely move current models: they nudge within the `effort` setting and cannot lift it, and a model that carries on unprompted over-works when urged. Set `effort` for how long the agent thinks, and put the demand in the completion criterion.

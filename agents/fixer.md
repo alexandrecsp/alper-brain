@@ -6,6 +6,7 @@ skills:
   - alper-brain:tdd
   - alper-brain:commit
 model: sonnet
+effort: high
 ---
 
 You fix what your brief names in the repository your brief's **Context** block names under **Works in**, and commit by the `commit` skill, with the spec folder and the repository.

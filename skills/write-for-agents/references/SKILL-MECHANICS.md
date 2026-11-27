@@ -13,10 +13,12 @@ The skill-specific branch of [`write-for-agents`](../SKILL.md): what changes whe
 
 Two choices, trading the two loads:
 
-- A **model-invoked** skill keeps a `description`, so the agent can fire it autonomously, and other skills can reach it. You can still type its name: model-invocation always _includes_ user reach; a description only ever adds agent discovery, never removes the human's. The description is the skill's top-level context pointer, forced to stay loaded at all times: permanent context load in exchange for discoverability. Mechanics: omit `disable-model-invocation`, and write a model-facing description carrying the trigger branches (the rules of `SKILL.md`'s Context pointers apply in full).
+- A **model-invoked** skill keeps a `description`, so the agent can fire it autonomously, and other skills can reach it. The user can type its name too, unless `user-invocable: false` (below) hides it: a description adds agent discovery to the human's reach. The description is the skill's top-level context pointer, forced to stay loaded at all times: permanent context load in exchange for discoverability. Mechanics: omit `disable-model-invocation`, and write a model-facing description carrying the trigger branches (the rules of `SKILL.md`'s Context pointers apply in full).
 - A **user-invoked** skill strips the description from the agent's reach: only the human typing its name can invoke it, and no other skill can. Zero context load, but it spends cognitive load: you are the index that must remember it exists. Mechanics: set `disable-model-invocation: true`; the `description` becomes human-facing: a one-line summary, trigger lists stripped.
 
-Pick model-invocation only when the agent must reach the skill on its own, or another skill must. If it only ever fires by hand, make it user-invoked and pay no context load.
+Pick model-invocation only when the agent must reach the skill on its own, another skill must, or an agent definition preloads it through `skills:`. If it only ever fires by hand, make it user-invoked and pay no context load.
+
+Side effects are the other reason to make a skill user-invoked: a skill whose run reaches outside the session at a moment the user should choose (a release, a push, opening pull requests) sets `disable-model-invocation: true`, so the agent never starts it on its own. A skill that needs model reach keeps it and gates its outward branch on the user's ask instead (`brain` syncs only when the user asks), since the flag also blocks other skills and a sub-agent's `skills:` preload.
 
 A skill the user never types is model-invoked and also sets `user-invocable: false`: every `reference` skill, and a `process` skill other skills run as one of their steps (`tdd`, `review-changes`). The agent and other skills reach it, and it stays out of the user's slash menu, which then lists only the actions a user starts. Its description keeps its triggers, and the user who wants it asks in words.
 
@@ -29,10 +31,10 @@ The invocation cut of splitting (the sequence and context cuts live in `SKILL.md
 Reference several skills need lives once, at the narrowest place every reader can reach:
 
 - **A reference file** in the `references/` folder of the skill that owns it, which other skills point at by path. It loads only that material. A pointer into a SKILL.md loads that skill's whole process, whose steps compete with the reader's own, so when another skill needs a fragment of a SKILL.md, move the fragment into a reference file and point both skills there.
-- **A model-invoked reference skill**, when the reference has its own trigger: any skill can invoke it, and the agent can reach it unprompted.
-- **A plain file outside the skill system**, when only user-invoked skills need it: with no descriptions, neither can fire the other.
+- **A model-invoked reference skill**, when the reference has its own trigger or a sub-agent must start with it: any skill can invoke it, the agent can reach it unprompted, and an agent's `skills:` preloads its full text.
+- **A plain file outside the skill system**, when only user-invoked skills need it: with no description in the agent's context, neither can fire the other.
 - **A brief**, when a sub-agent needs it: hand over its absolute path (see [`AGENT-MECHANICS.md`](AGENT-MECHANICS.md)).
 
 ## Router skills
 
-When user-invoked skills multiply past what you can remember, that piled-up cognitive load is cured by a **router skill**: one user-invoked skill that names the others and when to reach for each, so the human has one skill to remember instead of many. It can only hint, never fire them: user-invoked skills have no description, so nothing but the human can reach them.
+When user-invoked skills multiply past what you can remember, that piled-up cognitive load is cured by a **router skill**: one user-invoked skill that names the others and when to reach for each, so the human has one skill to remember instead of many. It can only hint, never fire them: user-invoked skills are out of the agent's context, so nothing but the human can reach them.

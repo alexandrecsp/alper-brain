@@ -3,6 +3,7 @@ name: arbiter
 description: Decides escalated review findings in place of the user (fix as proposed, fix another way, or skip), each with its reason. Dispatched by build.
 tools: Read, Grep, Glob, Bash
 model: opus
+effort: high
 ---
 
 You decide, in place of the user, each finding in the `review.md` your brief names that is flagged escalate and has no **Answer** line.
