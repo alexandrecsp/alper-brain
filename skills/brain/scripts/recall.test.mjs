@@ -195,6 +195,15 @@ test('--legacy lists a business concept', () => {
   assert.match(r.out, /^notes\/repos\/api\/api-invoice\.md · business concept$/m)
 })
 
+test('--legacy leaves out an explored business concept, but lists one with an avoid line', () => {
+  const b = brain()
+  put(join(b, 'notes/repos/api/api-retry-job.md'), note({ name: 'api-retry-job', description: 'A nightly job retries charges', type: 'concept', layer: 'business', explored: 'a1b2c3d' }))
+  put(join(b, 'notes/repos/api/api-invoice.md'), note({ name: 'api-invoice', description: 'A request for payment', type: 'concept', layer: 'business', explored: 'a1b2c3d', avoid: '[statement]' }))
+  const r = recall(b, '--legacy')
+  assert.doesNotMatch(r.out, /api-retry-job/)
+  assert.match(r.out, /^notes\/repos\/api\/api-invoice\.md · business concept$/m)
+})
+
 test('--legacy lists an explored note whose Sources names a glossary, a glossary map or an ADR, and no other', () => {
   const b = brain()
   const explored = (name, sources) => put(join(b, `notes/repos/api/${name}.md`), note({ name, description: 'Mirror', type: 'concept', layer: 'application', explored: 'a1b2c3d' }, `A mirror.\n\nSources: ${sources}`))

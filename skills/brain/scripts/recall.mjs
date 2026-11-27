@@ -8,8 +8,8 @@
 // with --repo its line shows that repository's pairing, and a query word that is the pairing word of two terms prints a `homonym:` line.
 // Run: node recall.mjs <brain> [--repo <slug>]... [--layer business|application] [--type <type>]...
 //                              [--query "<words>"]... [--top <n>]
-//      node recall.mjs <brain> --legacy   (lists the notes FORMAT.md's types and layers do not yet describe, each business concept,
-//                                          and each explored note sourced from a glossary or an ADR)
+//      node recall.mjs <brain> --legacy   (lists the notes FORMAT.md's types and layers do not yet describe, each authored business
+//                                          concept, each explored one with an avoid line, and each explored note sourced from a glossary or an ADR)
 // Another script imports `rank` to rank a brain's notes with the same options; importing runs nothing.
 import { readFileSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
@@ -182,7 +182,8 @@ function main(argv) {
         const why = []
         if (!TYPES.has(n.type)) why.push(`type ${n.type || 'missing'}`)
         if (!LAYERS.has(n.layer)) why.push(`layer ${n.layer || 'missing'}`)
-        if (n.type === 'concept' && n.layer === 'business') why.push('business concept')
+        // An explored concept is business by FORMAT.md; one with an avoid line is an old term all the same.
+        if (n.type === 'concept' && n.layer === 'business' && (!n.explored || n.avoid.length)) why.push('business concept')
         if (n.explored && namesGlossaryOrAdr(n.body)) why.push('sources name a glossary or an ADR')
         return why.length ? [`${n.path} · ${why.join(', ')}`] : []
       })

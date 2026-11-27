@@ -55,7 +55,8 @@ function warned(n) {
   if (!n.explored && n.repos.length === 1 && typeof n.fm.name === 'string' && n.fm.type !== 'term' && !n.fm.name.startsWith(`${n.repos[0]}-`)) {
     out.push(`name ${n.fm.name} does not start with ${n.repos[0]}-, the repository its repos names`)
   }
-  if (n.type === 'concept' && n.layer === 'business') out.push('a business concept is a term: write it as a term note in notes/domain/')
+  // An explored concept is business, by the finding below; only an authored one is an old term.
+  if (n.type === 'concept' && n.layer === 'business' && !n.explored) out.push('a business concept is a term: write it as a term note in notes/domain/')
   if (n.type === 'concept' && n.fm.avoid !== undefined) out.push('avoid on a concept belongs on a term note')
   return out
 }

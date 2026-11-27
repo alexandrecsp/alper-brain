@@ -274,3 +274,11 @@ test('warns on a business concept and on an avoid line on a concept, and still p
   assert.match(r.out, /^notes\/repos\/api\/api-queue\.md: warn: avoid on a concept belongs on a term note$/m)
   assert.doesNotMatch(r.out, /api-queue\.md: warn: a business concept/)
 })
+
+test('passes an explored business concept with no warning', () => {
+  const b = brain()
+  put(join(b, 'notes/repos/api/api-retry-job.md'), note({ name: 'api-retry-job', description: 'A nightly job retries charges', type: 'concept', layer: 'business', explored: 'a1b2c3d' }))
+  const r = schema(b, join(b, 'notes/repos/api/api-retry-job.md'))
+  assert.equal(r.status, 0, r.out)
+  assert.doesNotMatch(r.out, /api-retry-job\.md/)
+})

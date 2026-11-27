@@ -171,7 +171,7 @@ Related: [[invoice-event-contract]]
 |---|---|
 | `feature` | something a user, an operator or another system can do through the repository: who does it, what happens, and its rules. Explored only; always `business` |
 | `term` | one canonical term of the business, named once above every repository, with each repository's word for it and its relations to other terms, by **The term note**. Authored only, always `business`, always in `notes/domain/` |
-| `concept` | how a part of the system works. Always `application`: a `business` `concept` is the old form of a `term`, which `scripts/schema.mjs` warns of |
+| `concept` | how a part of the system works. An authored one is always `application`: an authored `business` `concept` is the old form of a `term`, which `scripts/schema.mjs` warns of. An explored one is `business`, like every explored note |
 | `decision` | a choice and its reason: a product choice (`business`) or a technical one (`application`). |
 | `how-to` | what to do about a trap or a recurring task: surprising behaviour, a past incident and its lesson, or a procedure no script or doc in the repository runs |
 | `contract` | an interface between repositories (an API, event, queue or shared schema) with its producer and consumers. Its `repos` names at least two; always `application` |
