@@ -10,6 +10,7 @@ import { brainCopies as heldBrainCopies } from './application/services/brain-cop
 import { addBrain } from './application/use-cases/add-brain.use-case.mjs'
 import { findMergeBase } from './application/use-cases/find-merge-base.use-case.mjs'
 import { listBrains } from './application/use-cases/list-brains.use-case.mjs'
+import { pickBrain } from './application/use-cases/pick-brain.use-case.mjs'
 import { readBrainFile } from './application/use-cases/read-brain-file.use-case.mjs'
 import { readBrainFiles } from './application/use-cases/read-brain-files.use-case.mjs'
 import { readBrainHistory } from './application/use-cases/read-brain-history.use-case.mjs'
@@ -29,6 +30,7 @@ import { pluginVersion } from './infrastructure/driven/fs-plugin-manifest.adapte
 import { fsServerRecord } from './infrastructure/driven/fs-server-record.adapter.mjs'
 import { gitCliBrainHistory } from './infrastructure/driven/git-cli-brain-history.adapter.mjs'
 import { gitCliClone } from './infrastructure/driven/git-cli-clone.adapter.mjs'
+import { nativeFolderPicker } from './infrastructure/driven/native-folder-picker.adapter.mjs'
 import { jsonFileBrainList } from './infrastructure/driven/json-file-brain-list.adapter.mjs'
 import { resolvingBrainList } from './infrastructure/driven/resolving-brain-list.adapter.mjs'
 import { httpController } from './infrastructure/driving/http.controller.mjs'
@@ -61,6 +63,8 @@ const watching = (change) => (...args) => {
   return result
 }
 
+const add = addBrain({ brainList, brainFolderOf, nameOf, newId: randomUUID })
+const pick = pickBrain({ folderPicker: nativeFolderPicker(), brainFolderOf, add })
 const gitPorts = { brainList, brainFiles, gitClone: gitCliClone() }
 const subscribe = subscribeToChanges({ brainCopies })
 const server = httpController({
@@ -68,7 +72,12 @@ const server = httpController({
   page: servePage({ readPage, token }),
   brains: {
     list: listBrains({ brainList, brainFolderOf }),
-    add: watching(addBrain({ brainList, brainFolderOf, nameOf, newId: randomUUID })),
+    add: watching(add),
+    pick: async () => {
+      const entry = await pick()
+      brainCopies.sync()
+      return entry
+    },
     remove: watching(removeBrain({ brainList })),
   },
   files: { all: readBrainFiles({ brainCopies }), read: readBrainFile({ brainList, brainFiles }), write: writeBrainFile({ brainList, brainFiles }) },

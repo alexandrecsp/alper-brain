@@ -1,6 +1,8 @@
 import { timingSafeEqual } from 'node:crypto'
 import { createServer } from 'node:http'
 import { InvalidBrainPathError } from '../../domain/errors/invalid-brain-path.error.mjs'
+import { NoFolderPickerError } from '../../domain/errors/no-folder-picker.error.mjs'
+import { NotABrainError } from '../../domain/errors/not-a-brain.error.mjs'
 import { NotACloneError } from '../../domain/errors/not-a-clone.error.mjs'
 import { PathOutsideBrainError } from '../../domain/errors/path-outside-brain.error.mjs'
 import { UnknownBrainError } from '../../domain/errors/unknown-brain.error.mjs'
@@ -124,6 +126,18 @@ const addBrain = async (req, res, brains) => {
   }
 }
 
+// `POST /api/brains/pick`: opens the machine's folder dialog and adds the brain picked, answering its entry, or null on a cancel.
+// A folder holding no brain is `422`; a machine with no dialog is `501`, which sends the page back to a typed path.
+const pickBrain = async (res, brains) => {
+  try {
+    json(res, 200, await brains.pick())
+  } catch (e) {
+    if (e instanceof NotABrainError) return json(res, 422, { error: e.message, path: e.path })
+    if (e instanceof NoFolderPickerError) return json(res, 501, { error: e.message })
+    throw e
+  }
+}
+
 // The HTTP adapter: turns a request into a use-case call. It sends no CORS header, so no other origin can read `/`.
 export const httpController = ({ health, page, brains, files, history, repos, changes, shutdown, token }) =>
   createServer((req, res) => {
@@ -142,6 +156,7 @@ export const httpController = ({ health, page, brains, files, history, repos, ch
     }
     if (req.method === 'GET' && pathname === '/api/brains') return json(res, 200, brains.list())
     if (req.method === 'POST' && pathname === '/api/brains') return addBrain(req, res, brains)
+    if (req.method === 'POST' && pathname === '/api/brains/pick') return pickBrain(res, brains)
     const brainPath = pathname.match(/^\/api\/brains\/([^/]+)$/)
     if (req.method === 'DELETE' && brainPath) {
       brains.remove(decodeURIComponent(brainPath[1]))

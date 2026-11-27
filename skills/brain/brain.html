@@ -1932,6 +1932,17 @@ const BrainSource = (function () {
         return res.json();
       },
 
+      // Has the server open the machine's folder dialog and add the brain picked: gives its entry, or null when the user
+      // cancels. Throws an error marked `notABrain` when the folder holds no brain, and one marked `unavailable` when the
+      // machine has no dialog, so the caller asks for a typed path instead.
+      async pick() {
+        const res = await fetch(api('/pick'), { method: 'POST', headers: writeHeaders });
+        if (res.status === 501) throw Object.assign(new Error('no folder dialog'), { unavailable: true });
+        if (res.status === 422) throw Object.assign(new Error('no brain in that folder'), { notABrain: true });
+        if (!res.ok) await fail(res);
+        return res.json();
+      },
+
       // One file's text as it is on disk now, or null when it is missing.
       async read(b, path) {
         const res = await fetch(brainApi(b, `/file?path=${encodeURIComponent(path)}`));
@@ -2516,7 +2527,27 @@ function uniqueName(name) {
   return out;
 }
 
-// Over the server, Add brain takes the brain folder's path, typed, and the server lists it.
+// Over the server, Add brain has the server open the machine's folder dialog, since the browser's picker never tells the
+// path; the button waits while the dialog is open. A machine with no dialog falls back to a typed path.
+async function addBrainByPicking() {
+  const button = $('open'), label = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Choose a folder…';
+  let entry;
+  try { entry = await source.pick(); } catch (e) {
+    if (e.unavailable) return addBrainByPath();
+    state.notice = e.notABrain
+      ? `No <code>BRAIN.md</code> or <code>.brain/BRAIN.md</code> in that folder. Pick the brain's folder, the one holding <code>BRAIN.md</code> or a <code>.brain/</code> folder; <code>/brain setup</code> creates one.`
+      : `Could not add a brain: ${esc(e.message)}`;
+    return state.brain ? goBrain(null) : showHome();
+  } finally {
+    button.disabled = false;
+    button.textContent = label;
+  }
+  if (entry) await showAdded(entry);
+}
+
+// Over the server with no folder dialog, Add brain takes the brain folder's path, typed, and the server lists it.
 async function addBrainByPath() {
   const path = (window.prompt('The absolute path of the brain folder, the one holding BRAIN.md') || '').trim();
   if (!path) return;
@@ -2525,6 +2556,11 @@ async function addBrainByPath() {
     state.notice = `Could not add <b>${esc(path)}</b>: ${esc(e.message)}`;
     return state.brain ? goBrain(null) : showHome();
   }
+  await showAdded(entry);
+}
+
+// Lists the brain the server just added, unless it already is, and opens it.
+async function showAdded(entry) {
   state.notice = '';
   let b = state.brains.find((x) => x.id === entry.id);
   if (!b) { b = entry; state.brains.push(b); }
@@ -2533,7 +2569,7 @@ async function addBrainByPath() {
 }
 
 async function addBrain() {
-  if (viaServer) return addBrainByPath();
+  if (viaServer) return addBrainByPicking();
   let handle;
   try { handle = await window.showDirectoryPicker({ id: 'brain', mode: 'read' }); } catch { return; }
   for (const b of state.brains) if (await b.handle.isSameEntry(handle).catch(() => false)) return goBrain(b.id);
