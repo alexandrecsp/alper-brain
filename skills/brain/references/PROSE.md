@@ -19,7 +19,7 @@ Every other part of these files (header lines, Implementation Decisions, Relies 
 
 ## Rules
 
-1. **One name per thing.** Name each module, entity and interface by its glossary term, the same term every time, never by a term the glossary lists under _Avoid_. Give each word one meaning in a file.
+1. **One name per thing.** Name each module, entity and interface by its glossary term, the same term every time, never by a word the glossary avoids (its _Avoid_ line, or a term note's `avoid`). Give each word one meaning in a file.
 2. **Common words.** Take the short word: _use_, _start_, _end_, _before_, _after_, _if_, _about_. Write the verb itself (_test the import_), not a noun made from it (_perform testing of the import_).
 3. **Short sentences.** A procedural sentence holds at most 20 words, a descriptive one at most 25. A code span, path or `[[link]]` counts as one word, and an acceptance criterion's `, proven at <seam>` ending counts as none.
 4. **One action per sentence.** Write an instruction in the imperative, with its condition first: _When the retry fails, log the key._ Write a check (a criterion, a **Done when**) as one result the reader can see, and a question as one decision. Two actions take two sentences.

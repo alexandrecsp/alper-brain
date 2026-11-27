@@ -83,6 +83,14 @@ test('--query ranks the matching notes best first and leaves out the ones it doe
   assert.match(r.out, /^notes: \d+ of \d+ matching, best first$/m)
 })
 
+test('--query reaches a term note by the words its avoid line names', () => {
+  const b = brain()
+  put(join(b, 'notes/exploration/api/api-invoice.md'), note({ name: 'api-invoice', description: 'A request for payment sent after delivery', type: 'concept', layer: 'business', explored: 'a1b2c3d', avoid: '[statement, payment request]' }))
+  const r = recall(b, '--query', 'statement')
+  assert.equal(r.status, 0, r.err)
+  assert.deepEqual(paths(section(r.out, 'notes')), ['notes/exploration/api/api-invoice.md'])
+})
+
 test('several --query phrasings fuse, so a note only one phrasing reaches still lists', () => {
   const r = recall(brain(), '--query', 'idempotency key', '--query', 'system theme')
   const listed = paths(section(r.out, 'notes'))

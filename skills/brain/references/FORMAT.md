@@ -163,13 +163,14 @@ Related: [[invoice-event-contract]]
 - `repos`: on authored notes only, required, the registered slugs the note bears on, as `[billing-api]` or `[billing-api, web-app]`: one when the fact is about one repository, each one it holds for when it spans several. Recall finds a note for a repository by this line, so add a slug when another repository comes to rely on the fact. An explored note belongs to the repository whose folder holds it.
 - `explored`: on explored notes only, the short SHA of the commit the note was read at.
 - `aliases`: optional, 3 to 6 other words for the note's subject that its name and description leave out: business wording, the symptom a user reports, and the code's English terms. Recall ranks them like the description, so a search in other words still reaches the note. Write one `  - <alias>` line each under `aliases:`, as Obsidian does, or `[a, b]`.
+- `avoid`: on a term note only, optional, the words the domain avoids for the term, in the same list forms as `aliases`. A word on it is challenged wherever it names the term, and recall ranks it like the description.
 - `status` and `supersededBy`: on a superseded `decision` only, `status: superseded` and the name of the decision that replaced it, by **When a note stops being true**.
 
 | type | holds |
 |---|---|
 | `feature` | something a user, an operator or another system can do through the repository: who does it, what happens, and its rules. Explored only; always `business` |
-| `concept` | what a term or entity means and the states it moves through (`business`), or how a part of the system works (`application`). When the repository's `GLOSSARY.md` defines the term, link it and record only what the glossary lacks |
-| `decision` | a choice and its reason: a product choice (`business`) or a technical one (`application`). When the repository keeps ADRs, link the ADR's path and record only what it lacks |
+| `concept` | what a term or entity means and the states it moves through (`business`), or how a part of the system works (`application`). A **term note** defines one term of one repository, by [DOMAIN-DOCS.md](DOMAIN-DOCS.md)'s **A term**. When the repository keeps a glossary, `explore` mirrors each of its terms, and an authored note links the mirror and records only what the glossary lacks |
+| `decision` | a choice and its reason: a product choice (`business`) or a technical one (`application`). When the repository keeps ADRs, `explore` mirrors each as an explored `decision`, and an authored note links the mirror and records only what the ADR lacks |
 | `how-to` | what to do about a trap or a recurring task: surprising behaviour, a past incident and its lesson, or a procedure no script or doc in the repository runs |
 | `contract` | an interface between repositories (an API, event, queue or shared schema) with its producer and consumers. Its `repos` names at least two; always `application` |
 
@@ -179,7 +180,7 @@ Write the `description` and the body in plain prose, by [PROSE.md](PROSE.md). Th
 
 A note's **layer** names its reader:
 
-- **`business`**: what the product does and why, in the domain's words, for a product owner or a teammate on their first day. Every explored note is `business`.
+- **`business`**: what the product does and why, in the domain's words, for a product owner or a teammate on their first day. Every explored note is `business`, except a `decision` mirroring an ADR, which takes the decision's layer.
 - **`application`**: how the system is built (its modules, data, interfaces and traps), for whoever changes the code.
 
 A fact about both takes the layer of the reader who acts on it: a refund limit is `business`, the job that enforces it `application`.

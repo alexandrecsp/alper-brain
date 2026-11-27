@@ -43,6 +43,28 @@ test('passes a well-formed authored note, explored note and contract', () => {
   assert.match(r.out, /^schema: ok, 4 files checked$/m)
 })
 
+test('passes an explored decision in either layer, and holds every other explored note to business', () => {
+  const b = brain()
+  put(join(b, 'notes/exploration/api/api-manual-sql.md'), note({ name: 'api-manual-sql', description: 'SQL is written by hand', type: 'decision', layer: 'application', explored: 'a1b2c3d' }))
+  put(join(b, 'notes/exploration/api/api-retry-job.md'), note({ name: 'api-retry-job', description: 'A nightly job retries charges', type: 'concept', layer: 'application', explored: 'a1b2c3d' }))
+  const r = schema(b, ...['api-manual-sql', 'api-retry-job'].map((f) => join(b, `notes/exploration/api/${f}.md`)))
+  assert.equal(r.status, 1)
+  assert.doesNotMatch(r.out, /api-manual-sql\.md:/)
+  assert.match(r.out, /^notes\/exploration\/api\/api-retry-job\.md: an explored note is business, unless it is a decision$/m)
+})
+
+test('holds avoid to a non-empty list on a concept note', () => {
+  const b = brain()
+  put(join(b, 'notes/authored/api-invoice.md'), note({ name: 'api-invoice', description: 'A request for payment', type: 'concept', layer: 'business', repos: '[api]', avoid: '[bill, payment request]' }))
+  put(join(b, 'notes/authored/api-empty.md'), note({ name: 'api-empty', description: 'X', type: 'concept', layer: 'business', repos: '[api]', avoid: '[]' }))
+  put(join(b, 'notes/authored/api-howto.md'), note({ name: 'api-howto', description: 'X', type: 'how-to', layer: 'application', repos: '[api]', avoid: '[bill]' }))
+  const r = schema(b, ...['api-invoice', 'api-empty', 'api-howto'].map((f) => join(b, `notes/authored/${f}.md`)))
+  assert.equal(r.status, 1)
+  assert.doesNotMatch(r.out, /api-invoice\.md:/)
+  assert.match(r.out, /^notes\/authored\/api-empty\.md: avoid is empty/m)
+  assert.match(r.out, /^notes\/authored\/api-howto\.md: avoid belongs on a concept note only/m)
+})
+
 test('rejects an explored note in an unregistered folder or without its SHA, and a repos line on one', () => {
   const b = brain()
   put(join(b, 'notes/exploration/ghost/ghost-x.md'), note({ name: 'ghost-x', description: 'X', type: 'feature', layer: 'business', explored: 'a1b2c3d' }))

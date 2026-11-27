@@ -106,7 +106,7 @@ flowchart TD
 
 ## Decision
 
-**Where:** an ADR, as its Diagram section.
+**Where:** an ADR, as its Diagram section when the folder's ADRs have one, else in its body; or a `decision` note's body.
 
 The shape the decision chose: a `flowchart` of the architecture or boundary it fixes, or a `sequenceDiagram` of the integration it settles between contexts. The marks stay off, since an ADR outlives the work that made it. When Considered Options holds a rejected shape worth remembering, draw it too, under its option.
 

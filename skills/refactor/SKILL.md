@@ -18,7 +18,7 @@ Scan the **working repository**, by [FORMAT.md](../brain/references/FORMAT.md). 
 
 ## Process
 
-1. **Load the vocabulary.** Read `code-design`'s [MODULE-DESIGN.md](../code-design/references/module-design/MODULE-DESIGN.md), and use its terms exactly in every candidate. Read the repository's [domain docs](../domain-modeling/references/DOMAIN-DOCS.md): modules are named in the glossary's terms ("the Order intake module"), and the candidates respect the ADRs and `decision` notes. Done when you know the terms, the ADR and `decision`-note decisions that bind the repository, its `how-to` notes, and each `contract` note naming its slug with the repositories that consume it.
+1. **Load the vocabulary.** Read `code-design`'s [MODULE-DESIGN.md](../code-design/references/module-design/MODULE-DESIGN.md), and use its terms exactly in every candidate. Read the repository's domain docs by [DOMAIN-DOCS.md](../brain/references/DOMAIN-DOCS.md)'s **Read them**: modules are named in the glossary's terms ("the Order intake module"), and the candidates respect the ADRs and `decision` notes. Done when you know the terms, the ADR and `decision`-note decisions that bind the repository, its `how-to` notes, and each `contract` note naming its slug with the repositories that consume it.
 
 2. **Scope.** Deepening pays back through future changes, so look where **churn** is. When the user named a module, area or pain point, take it. Otherwise rank the **hot spots** by churn over the last six months (`git -C <root> log --since="6 months ago" --name-only --format=`), skipping lockfiles, generated and vendored code, and group them into areas by [AREAS.md](../brain/references/AREAS.md). Raise an area that a `how-to` note names, or that holds the **Sources** of a feature note with many rules. When changes are scattered with no hot spot, take every area. Done when you can name the areas to scan, each with why.
 
@@ -43,14 +43,13 @@ Scan the **working repository**, by [FORMAT.md](../brain/references/FORMAT.md). 
 
 4. **Report.** Number the candidates `#1` to `#N`, strongest first; the number is the candidate's handle, so the user picks by it and you refer to it by it from here on. Write the candidates as one self-contained HTML file, the brain's `repos/<repo-slug>/refactors/<YYYY-MM-DD-HHmm>.html`, by [HTML-REPORT.md](references/HTML-REPORT.md), and hand it over by [THEME.md](../brain/references/THEME.md)'s **Hand-over**. The cards show shape and seams, and leave each interface's signatures to step 5. List each candidate's number and title in your reply, and ask: "Which of these would you like to explore? Pick by number." Done when the file holds one card per candidate with every field and both diagrams, it is handed over, and the user has picked a candidate or declined them all, which ends the skill.
 
-5. **Brainstorm the pick.** Invoke the `brainstorm` and `domain-modeling` skills, and run the rounds on the candidate as a **feature** brainstorm by domain-modeling's **Beside brainstorm**.
+5. **Brainstorm the pick.** Invoke the `brainstorm` skill, and run the rounds on the candidate as a **feature** brainstorm.
 
    - **What**: the behaviour that must stay unchanged, the tests that pin it today and those it lacks, and the scope of the refactor.
    - **How**: the deepened module's interface, where its seam sits, what goes behind it, and how each dependency is tested by its category in DEEPENING.md. When the How changes an interface a `contract` note records, or the user has not settled the interface's shape, design it twice by [DESIGN-IT-TWICE.md](../code-design/references/module-design/DESIGN-IT-TWICE.md) of `code-design`.
-   - A new module named after a concept missing from `GLOSSARY.md` adds the term as it settles.
-   - When the user rejects the candidate for a reason a future scan would need, offer to record it: an ADR when the repository keeps `docs/adr/`, else a `decision` note in the brain by the brain's [RECORD.md](../brain/references/RECORD.md): "Want me to record this so future scans don't suggest it again?" Skip the offer for passing reasons ("not now").
+   - When the user rejects the candidate for a reason a future scan would need, offer to record it by [DOMAIN-DOCS.md](../brain/references/DOMAIN-DOCS.md)'s **Write it**: "Want me to record this so future scans don't suggest it again?" Skip the offer for passing reasons ("not now").
 
-   Done when the user confirms the How summary; or rejects the candidate, the record offer is answered or skipped for a passing reason, any record accepted is written to its ADR or sits in a draft, and the skill ends.
+   Done when the user confirms the How summary; or rejects the candidate, the record offer is answered or skipped for a passing reason, any record accepted is written, drafted or told to the user as pending by **Write it**, and the skill ends.
 
 6. **Size the refactor.** Check the confirmed How summary against five tests:
 

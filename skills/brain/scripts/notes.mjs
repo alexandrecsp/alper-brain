@@ -10,7 +10,7 @@ export const TYPES = new Set(['feature', 'concept', 'decision', 'how-to', 'contr
 export const LAYERS = new Set(['business', 'application'])
 
 // Frontmatter is flat `key: value` lines. A key with no value followed by `  - item` lines holds that list, as
-// Obsidian writes `aliases`; an inline `[a, b]` stays a string until listOf reads it.
+// Obsidian writes `aliases` (and a term's `avoid`); an inline `[a, b]` stays a string until listOf reads it.
 export function parse(text) {
   const lines = String(text ?? '').replace(/\r\n?/g, '\n').split('\n')
   const fm = {}
@@ -70,6 +70,7 @@ export function noteOf(path, text, { target = path, draft = null } = {}) {
     type: typeof fm.type === 'string' ? fm.type : '',
     layer: typeof fm.layer === 'string' ? fm.layer : '',
     aliases: fm.aliases === undefined ? [] : listOf(fm.aliases),
+    avoid: fm.avoid === undefined ? [] : listOf(fm.avoid),
     explored: !!fm.explored || place?.kind === 'explored',
     repos: place?.slug ? [place.slug] : listOf(fm.repos),
     superseded: fm.status === 'superseded',

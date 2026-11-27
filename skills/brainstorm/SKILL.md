@@ -1,6 +1,6 @@
 ---
 name: brainstorm
-description: Brainstorm a feature, a skill or agent, a decision or open ideas with the user, round by round, until you share one understanding. Use when the user asks to brainstorm or to stress-test a plan.
+description: Brainstorm a feature, a skill or agent, a decision, open ideas or a repository's domain terms with the user, round by round, until you share one understanding. Use when the user asks to brainstorm or to stress-test a plan.
 argument-hint: "[topic]"
 metadata:
   type: process
@@ -16,10 +16,10 @@ Before `What · Round 1`, infer the brainstorm's **kind** from the topic and the
 |---|---|---|---|---|
 | **Feature**: a change to code in the brain's repositories, a refactor included | behaviour a repository should gain or lose, a module to reshape | [FEATURE.md](references/FEATURE.md) | the decisions, then FEATURE.md's four lists | `/write-spec` |
 | **Agent document**: a skill, an agent, a reference, a `CLAUDE.md` | names a skill, an agent, a slash command or a prompt for Claude Code, here or in another plugin | invoke `write-for-agents` | **Design**: name and invocation, the description's branches, the steps with their completion criteria, what moves to references, the agents it dispatches | write it by `write-for-agents` |
-| **Decision**: a choice between options, with nothing built yet | "X or Y", "should we", a tool, vendor or approach | none | **Decision**: the options weighed, the choice, its reason, and what would reverse it | record it where [DOMAIN-DOCS.md](../domain-modeling/references/DOMAIN-DOCS.md) puts a decision: an ADR by `domain-modeling`'s **Offer ADRs sparingly**, or a brain `decision` note drafted by [RECORD.md](../brain/references/RECORD.md) |
+| **Decision**: a choice between options, with nothing built yet | "X or Y", "should we", a tool, vendor or approach | none | **Decision**: the options weighed, the choice, its reason, and what would reverse it | record it by [DOMAIN-DOCS.md](../brain/references/DOMAIN-DOCS.md)'s **Write it**, when it passes its **A decision** tests |
 | **Exploration**: open ideas, no choice owed yet | "ideas for", "what could we", "explore" | none | **Ideas**: each idea kept, ranked, with its one-line case; each dropped, with why; the open questions | save it as a page by `html`, or as a brain note drafted by [RECORD.md](../brain/references/RECORD.md), or brainstorm the top idea as its own kind |
 
-**Domain docs.** When the brainstorm settles what a registered repository's domain concepts mean or how they relate, invoke the `domain-modeling` skill and run it beside this one by its **Beside brainstorm**, so the glossary and ADRs are written as the design settles. That is every feature, and a decision or exploration about a repository's business; an agent document, or a topic no repository owns, runs without it. When domain terms first surface later in the session, invoke it then. Tell the user in one line above the round when it joins.
+**Domain lens.** Every feature runs it, and so does a decision or an exploration about a registered repository's business: once the kind is set, read [DOMAIN.md](references/DOMAIN.md), which challenges each term against the glossary and writes terms and decisions down as they settle. An agent document, or a topic no repository owns, runs without it. When a registered repository's domain terms first surface later in the session, or a kind change brings the lens in, read it then. Tell the user in one line above the round when it joins.
 
 The kind can change mid-session: an exploration or a decision that settles on one thing to build becomes a feature or an agent document. Say so in the next round's heading line and keep every settled decision. Then run what the new kind adds to the phases already settled (its reads and its `What` summary lists), and ask the user to confirm the changed `What` summary before the `How` goes on.
 
@@ -36,7 +36,7 @@ Every `How` decision hangs off `What` decisions, so settle the `What` first. Whe
 
 ### Summaries
 
-Close each phase, once its frontier is empty (in an exploration, once the user adds no more ideas), with a **summary** of its settled decisions as a short bulleted list, and ask the user to confirm it. Beside `domain-modeling`, each summary ends with the **Domain docs** list `domain-modeling` adds, after the lists named here.
+Close each phase, once its frontier is empty (in an exploration, once the user adds no more ideas), with a **summary** of its settled decisions as a short bulleted list, and ask the user to confirm it. Under the domain lens, each summary ends with the **Domain docs** list DOMAIN.md adds, after the lists named here.
 
 - The `What` summary's last list of its own is **Parked for How**. The user's confirmation opens the `How`, with the parked questions in its first frontier.
 - The `How` summary closes with the list its kind names in **Kind**, every item of it filled or written `none`.

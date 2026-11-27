@@ -12,7 +12,7 @@ TDD is the **red → green** loop.
 
 Name the **working repository** by [FORMAT.md](../brain/references/FORMAT.md)'s working repository rules (a sub-agent's brief names it on its Context block's **Works in** line), or by its **With no brain open** when no brain is open. It must be open. Run every command as `cd <root> && <command>`, the single filtered test included: with a brain open, each shell call starts in the brain. Its seams are the ones you test: a spec's seams in other repositories belong to their own milestones.
 
-Read the working repository's [domain docs](../domain-modeling/references/DOMAIN-DOCS.md): test names and interface vocabulary use the glossary's terms. When your brief lists the brain notes to read, read those instead of recalling notes yourself.
+Read the working repository's domain docs by [DOMAIN-DOCS.md](../brain/references/DOMAIN-DOCS.md)'s **Read them**: test names and interface vocabulary use the glossary's terms. When your brief lists the brain notes to read, read those instead of recalling notes yourself.
 
 ## What a good test is
 

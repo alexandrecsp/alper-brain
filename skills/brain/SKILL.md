@@ -1,6 +1,6 @@
 ---
 name: brain
-description: Recall from and record to the second brain, the team's notes on every repository. Use before working on a repository's code; when the user asks to set up, link, explore, tour, view, remember, recall, sync or export the brain, what is in flight, or a question that spans several repositories; or when you learn a gotcha, decision or contract a repository does not record.
+description: Recall from and record to the second brain, the team's notes on every repository. Use before working on a repository's code; when the user asks to set up, link, explore, tour, view, remember, recall, sync or export the brain, what is in flight, or a question that spans several repositories; or when you learn a term, gotcha, decision or contract a repository does not record.
 argument-hint: "[setup | link | explore [<repo>] | tour [<repo>] | status | ask <question> | view | recall | remember <fact> | sync | export] [@<brain>]"
 metadata:
   type: process

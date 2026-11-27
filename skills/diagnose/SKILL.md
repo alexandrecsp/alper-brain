@@ -54,7 +54,7 @@ Done when the loop is red on the user's symptom across repeated runs, the exact 
 
 ### 3. Hypothesise
 
-As each repository joins the failing path, read its [domain docs](../domain-modeling/references/DOMAIN-DOCS.md), the brain's notes on it included. A `how-to` whose trap matches the symptom becomes a hypothesis.
+As each repository joins the failing path, read its domain docs by [DOMAIN-DOCS.md](../brain/references/DOMAIN-DOCS.md)'s **Read them**, the brain's notes on it included. A `how-to` whose trap matches the symptom becomes a hypothesis.
 
 Rank 3–5 hypotheses before testing any, each naming the repository its cause sits in; a single hypothesis anchors on the first plausible idea. Each is **falsifiable**, stated as a prediction: "If X is the cause, then changing Y turns the loop green (or changing Z makes it worse)." A hypothesis whose prediction you cannot state gets sharpened or dropped.
 

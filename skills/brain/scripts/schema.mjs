@@ -111,7 +111,8 @@ function broken(n) {
   if (fm.type === 'contract' && LAYERS.has(fm.layer) && fm.layer !== 'application') out.push('a contract is always application')
   if (fm.type === 'feature' && where && where !== 'explored') out.push(`a feature is an explored note only, in ${exploredDir}`)
   if (fm.type === 'feature' && LAYERS.has(fm.layer) && fm.layer !== 'business') out.push('a feature is always business')
-  if (where === 'explored' && LAYERS.has(fm.layer) && fm.layer !== 'business') out.push('an explored note is always business')
+  // An explored decision mirrors one of the repository's ADRs, and takes that decision's layer.
+  if (where === 'explored' && fm.type !== 'decision' && LAYERS.has(fm.layer) && fm.layer !== 'business') out.push('an explored note is business, unless it is a decision')
 
   const isList = (v) => Array.isArray(v) || (typeof v === 'string' && /^\[.*\]$/.test(v))
   // repos is required where the folder names no repository: every authored note.
@@ -137,6 +138,11 @@ function broken(n) {
   if (fm.aliases !== undefined) {
     if (!isList(fm.aliases)) out.push('aliases is a list, as [a, b] or one "- alias" line each')
     else if (!n.aliases.length) out.push('aliases is empty: list other words for the subject, or leave the line out')
+  }
+  if (fm.avoid !== undefined) {
+    if (fm.type !== 'concept') out.push('avoid belongs on a concept note only: the term whose avoided words it lists')
+    else if (!isList(fm.avoid)) out.push('avoid is a list, as [a, b] or one "- word" line each')
+    else if (!n.avoid.length) out.push('avoid is empty: list the words the domain avoids for the term, or leave the line out')
   }
   return out
 }

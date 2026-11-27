@@ -59,7 +59,7 @@ Beside the theme's module and arrow:
 
 ## Voice
 
-Architecture words come from MODULE-DESIGN.md's vocabulary and domain words from `GLOSSARY.md`, used exactly, in short declarative phrases:
+Architecture words come from MODULE-DESIGN.md's vocabulary and domain words from the glossary, used exactly, in short declarative phrases:
 
 - "Order intake module is shallow: interface nearly matches the implementation."
 - "Pricing leaks across the seam."

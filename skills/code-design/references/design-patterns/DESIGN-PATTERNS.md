@@ -16,11 +16,11 @@ Wherever a pattern choice is written down, record it as Pattern, Where and Why, 
 |---|---|---|
 | Strategy | `billing-api` · pricing rules in the Order intake module | Three pricing schemes vary per Customer |
 
-A spec's rows stay on this machine. A choice the next change must repeat outlives it as a brain note, drafted by the brain's [RECORD.md](../../../brain/references/RECORD.md):
+A spec's rows stay on this machine. A choice the next change must repeat outlives it, recorded by the brain's [DOMAIN-DOCS.md](../../../brain/references/DOMAIN-DOCS.md)'s **Write it**:
 
 - about one contract (how it is versioned, delivered or deduplicated): the `contract` note;
 - spanning repositories, not one contract: a `decision` note whose `repos` names each repository;
-- inside one repository: a `decision` note naming it, linking the repository's ADR when it keeps ADRs.
+- inside one repository: an ADR when the repository keeps ADRs, else a `decision` note naming it.
 
 ## Catalogue
 

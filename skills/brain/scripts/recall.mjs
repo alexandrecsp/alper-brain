@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Lists the brain's notes a piece of work needs, by the brain's RECALL.md, so recall reads a short ranked list
 // instead of every description. It filters by repository, layer and type, ranks the rest by BM25 against the
-// query (over each note's name, aliases, description and body), and always lists every contract on those
+// query (over each note's name, aliases, avoid words, description and body), and always lists every contract on those
 // repositories, since a contract must never be ranked out. Several --query phrasings are each ranked, then fused
 // by reciprocal rank. A superseded decision gives way to the decision that replaced it.
 // Drafts in notes/drafts/ are listed beside the notes, marked as drafts.
@@ -94,9 +94,10 @@ const queries = opts.queries.map((q) => {
 const byPath = (x, y) => x.n.path.localeCompare(y.n.path)
 let ranked = pool.map((n) => ({ n, score: 0 })).sort(byPath)
 if (queries.length) {
-  // The aliases name the note's subject in other words, so they weigh as much as its description.
+  // The aliases name the note's subject in other words, and a term's avoid line the words people use for it
+  // instead, so both weigh as much as its description.
   const docs = pool.map((n) => {
-    const words = [...terms(n.name.replace(/-/g, ' ')), ...Array(3).fill(terms([n.description, ...n.aliases].join(' '))).flat(), ...terms(n.body)]
+    const words = [...terms(n.name.replace(/-/g, ' ')), ...Array(3).fill(terms([n.description, ...n.aliases, ...n.avoid].join(' '))).flat(), ...terms(n.body)]
     const tf = new Map()
     for (const w of words) tf.set(w, (tf.get(w) ?? 0) + 1)
     return { tf, len: words.length }

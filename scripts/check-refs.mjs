@@ -47,7 +47,7 @@ const skillFile = (name) => {
 }
 
 const ref =
-  /(?:\[`?([A-Z][A-Z0-9-]*\.md)`?\]\(([^)]+)\)|\b([A-Z][A-Z0-9-]*\.md)|`([a-z][a-z-]+)`|\b(build|brain|tdd|commit|write-spec|write-tickets|review-changes|brainstorm|domain-modeling|open-pr))'s \*\*([^*]+)\*\*/g
+  /(?:\[`?([A-Z][A-Z0-9-]*\.md)`?\]\(([^)]+)\)|\b([A-Z][A-Z0-9-]*\.md)|`([a-z][a-z-]+)`|\b(build|brain|tdd|commit|write-spec|write-tickets|review-changes|brainstorm|open-pr))'s \*\*([^*]+)\*\*/g
 const broken = []
 let checked = 0, entries = 0
 for (const path of docs) {

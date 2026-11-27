@@ -49,7 +49,7 @@ A table with one row per change from the reports, grouped by area: **To change**
 ## Vocabulary
 
 - **Terms**: a `dl` of every glossary term and its definition. Terms the code uses beside them that the glossary lacks carry an amber (`var(--amber)`) `not in glossary` pill, with the definition the code implies.
-- **Decisions**: one row per ADR: its number, title and decision in one line, linking to the ADR's file. Undocumented decisions follow, each in a callout naming the decision and its file.
+- **Decisions**: one row per ADR the repository keeps, or else per `decision` note on it: its title (an ADR's number first) and decision in one line, linking to its file. Undocumented decisions follow, each in a callout naming the decision and its file.
 
 ## Run and test
 
@@ -57,7 +57,7 @@ The commands from the manifests and the repository's `REPO.md` card, each in a `
 
 ## Voice
 
-Write for the newcomer: plain sentences, domain words from `GLOSSARY.md` used exactly, and each claim beside the file link that grounds it.
+Write for the newcomer: plain sentences, domain words from the glossary used exactly, and each claim beside the file link that grounds it.
 
 - "Checkout places an Order, then charges it through Stripe."
 - "Pricing rules live in one module: `pricing/rules.ts`."
