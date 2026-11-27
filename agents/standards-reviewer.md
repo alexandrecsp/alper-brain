@@ -1,6 +1,6 @@
 ---
 name: standards-reviewer
-description: Standards review of a diff or a document, against the standards its brief names. Dispatched by review-changes and agent-writing's review.
+description: Standards review of a diff or a document, against the standards its brief names. Dispatched by review-changes and write-for-agents' review.
 tools: Read, Grep, Glob, Bash, Write
 model: sonnet
 ---

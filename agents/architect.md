@@ -1,6 +1,6 @@
 ---
 name: architect
-description: Designs one alternative interface for a module under the constraint its brief names. Dispatched by codebase-design's DESIGN-IT-TWICE.
+description: Designs one alternative interface for a module under the constraint its brief names. Dispatched by code-design' DESIGN-IT-TWICE.
 tools: Read, Grep, Glob
 model: inherit
 ---

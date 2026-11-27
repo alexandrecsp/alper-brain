@@ -448,7 +448,7 @@ test('fills each agent its Context block, dispatches a builder, and moves on to 
   assert.match(builder, /^## Context\n- \*\*Brain:\*\* /)
   assert.ok(builder.includes(`- **Works in:** api at ${sl(repo)} (open), changes it`))
   assert.ok(builder.includes(`- **Docs:** ${sl(join(repo, 'docs/STRUCTURE.md'))}, `))
-  assert.match(builder, /skills\/project-structure\/SKILL\.md, .*skills\/codebase-design\/SKILL\.md, .*skills\/build\/scripts\/sdd\.mjs\n/)
+  assert.match(builder, /skills\/code-design\/references\/project-structure\/PROJECT-STRUCTURE\.md, .*skills\/code-design\/references\/module-design\/MODULE-DESIGN\.md,.*skills\/build\/scripts\/sdd\.mjs\n/)
   assert.ok(builder.includes(`- **Spec:** ${sl(t1)}`))
   assert.ok(builder.includes('- **Branch:** sdd/004-invoice-export/M001'))
   assert.ok(builder.includes(`- **Writes:** files under ${sl(repo)}, the ticket file at ${sl(t1)}`))

@@ -1,6 +1,6 @@
 # Agent mechanics
 
-The sub-agent branch of [`agent-writing`](../SKILL.md): what changes when the document is an agent definition (`agents/*.md`) or a **brief**, the text a step hands a sub-agent. Both are read across a **context boundary**: the child sees its definition's body, the brief, and the files it opens, plus whatever `CLAUDE.md` and memory the session loads for it, which varies by user, and nothing of the parent's conversation, skills or loaded reference. What the child needs and the brief leaves out is missing, so every gap at the boundary is a variance bug.
+The sub-agent branch of [`write-for-agents`](../SKILL.md): what changes when the document is an agent definition (`agents/*.md`) or a **brief**, the text a step hands a sub-agent. Both are read across a **context boundary**: the child sees its definition's body, the brief, and the files it opens, plus whatever `CLAUDE.md` and memory the session loads for it, which varies by user, and nothing of the parent's conversation, skills or loaded reference. What the child needs and the brief leaves out is missing, so every gap at the boundary is a variance bug.
 
 ## Agent definitions
 

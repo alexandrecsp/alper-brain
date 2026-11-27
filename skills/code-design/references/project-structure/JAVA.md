@@ -1,6 +1,6 @@
 # Java
 
-The layout and names of [SKILL.md](../SKILL.md), spelled for Java: folders become packages, and the role suffix lives in the class name.
+The layout and names of [PROJECT-STRUCTURE.md](PROJECT-STRUCTURE.md), spelled for Java: folders become packages, and the role suffix lives in the class name.
 
 ```
 src/main/java/com/acme/shop/

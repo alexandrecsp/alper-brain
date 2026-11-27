@@ -1,9 +1,9 @@
 ---
-name: agent-writing
+name: write-for-agents
 description: Writing documents for agents. Use when writing or reviewing a skill, a skill's reference file, an agent definition in agents/, a sub-agent brief, or an AGENTS.md or CLAUDE.md.
 user-invocable: false
 metadata:
-  type: reference
+  type: process
 ---
 
 Reference for writing any document an agent consumes: a skill, an `AGENTS.md` / `CLAUDE.md`, a doc reached by a pointer. The packaging differs; the writing does not: the same levers make each one predictable, since the agent takes the same _process_ every run rather than producing the same output.

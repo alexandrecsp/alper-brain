@@ -80,14 +80,21 @@ Each stage writes files the next one reads, and each ends by telling you the nex
 
 ### 1. `/brainstorm [topic]`
 
-The agent interviews you, one round of questions at a time, until you share an understanding of the work. The decisions form a **design tree** with two phases:
+The agent interviews you, one round of questions at a time, until you share an understanding. It first infers what kind of brainstorm this is, and the kind decides how it ends:
+
+- a **feature** closes with the lists `/write-spec` reads;
+- a **skill or agent** closes with its design, to write by `write-for-agents`;
+- a **decision** closes with the options, the choice and its reason, to record as an ADR or a brain note;
+- an **exploration** closes with the ideas kept and dropped, to save as a page or a note.
+
+The decisions form a **design tree** with two phases:
 
 - **What** comes first: the problem, scope, behaviour, constraints and what success looks like.
-- **How** comes second: the approach, architecture, data and design patterns (via `design-patterns`).
+- **How** comes second: the approach, architecture, data and design patterns (via `code-design`).
 
-Each round asks every question that can be answered *now*, with options and a recommended answer, so replying `ok` accepts all the recommendations. When a question depends on a fact about the codebase, the agent looks it up instead of asking you. It reads the brain's notes on every repository the topic touches first, and each contract the design would change becomes a question: do its consumers change too, or does the interface stay compatible? Each phase ends with a summary for you to confirm.
+Each round asks every question that can be answered *now*, with options and a recommended answer, so replying `ok` accepts all the recommendations. When a question depends on a fact about the codebase, the agent looks it up instead of asking you. For a feature, it reads the brain's notes on every repository the topic touches first, and each contract the design would change becomes a question: do its consumers change too, or does the interface stay compatible? Each phase ends with a summary for you to confirm.
 
-`/brainstorm --docs` runs the same interview together with `model-domain`. Terms are challenged against each repository's `GLOSSARY.md` and written down as they settle, and decisions that are hard to reverse are offered as ADRs in `docs/adr/`.
+When a brainstorm settles a repository's domain (every feature, and decisions or explorations about its business), it runs `domain-modeling` beside the interview. Terms are challenged against each repository's `GLOSSARY.md` and written down as they settle, and decisions that are hard to reverse are offered as ADRs in `docs/adr/`.
 
 ### 2. `/write-spec`
 
@@ -223,11 +230,9 @@ The pipeline uses the brain throughout. Every skill that reads the glossary and 
 | `commit` | `<KEY>: <Present-tense title>` plus one to three bullets. Reads the key from the spec, or the repository's card. |
 | `review-changes` | Reviews a diff in separate sub-agents. **Standards** checks repo docs, glossary, ADRs and the smell baseline. **Spec** checks for missing requirements, scope creep and requirements built wrong. **Consumers**, when the diff changes a contract, sends an explorer into each linked consumer repository and escalates every call site the change breaks. A whole spec gets one Standards reviewer per repository and one Spec reviewer across them all. Saves the report as `review.md` in the milestone's folder, or the spec's when it reviews the whole spec. |
 | `open-pr` | Writes a PR's title and body: a visual **Summary**, before-and-after **Evidence** checked against the spec's claims, and a **Merge Danger** call (one-way or two-way door, blast radius from the contract notes and an explorer per consumer). A spec across repositories gets one PR per landing, cross-linked under **Merge Order** in the order they must merge and deploy. It opens or updates the PRs only when you ask. Then `--comments` answers the PRs' review comments and `--merged` records their merge. |
-| `model-domain` | Maintains each repository's `GLOSSARY.md` and ADRs, including multi-context repos with `GLOSSARY-MAP.md`. |
-| `design-patterns` | A catalogue of patterns and when to choose each one. Each choice is recorded as Pattern, Where and Why. |
-| `project-structure` | One hexagonal layout for every language: `domain/` (entities, value objects, ports), `application/` (use cases, services, DTOs), `infrastructure/` (driving, driven, config). Covers role-suffixed names for TypeScript, Python and Java, and frontend, backend and full-stack apps. The repo's `docs/STRUCTURE.md` overrides it. |
-| `codebase-design` | Vocabulary for deep modules: module, interface, seam, adapter, depth. |
-| `agent-writing` | How to write skills, `CLAUDE.md` and `AGENTS.md`. Used when editing this repo. |
+| `domain-modeling` | Maintains each repository's `GLOSSARY.md` and ADRs, including multi-context repos with `GLOSSARY-MAP.md`. |
+| `code-design` | The shape of code, as three references sharing one vocabulary, each read only when its work comes up. **Module design**: deep modules (module, interface, seam, adapter, depth) and design it twice. **Design patterns**: a catalogue and when to choose each, recorded as Pattern, Where and Why. **Project structure**: one hexagonal layout for every language, with role-suffixed names for TypeScript, Python and Java and frontend, backend and full-stack apps; the repo's `docs/STRUCTURE.md` overrides it. |
+| `write-for-agents` | How to write skills, `CLAUDE.md` and `AGENTS.md`. Used when editing this repo. |
 | `diagnose` | Diagnoses a hard bug or performance regression. It first builds a tight loop that goes red on the bug, then minimises the repro, ranks falsifiable hypotheses, and instruments one variable at a time. It fixes with a regression test at a correct seam, or records that no such seam exists. |
 | `brain` | The hub, behind one command: `setup`, `link`, `explore`, `tour`, `status`, `ask`, `view`, `recall`, `remember` and `sync`. On its own, it reads a repository's notes before work and drafts a note when it learns something the repository doesn't record, for `sync` to consolidate. It syncs only when you ask. |
 | `research` | Researches a question against primary sources in a background sub-agent. Saves the cited findings to the brain's `.brain/research/<slug>.md`. |
@@ -235,7 +240,7 @@ The pipeline uses the brain throughout. Every skill that reads the glossary and 
 | `refactor` | Scans hot spots for deepening and smell refactors, shows them as an HTML report saved to the brain's `.brain/repos/<slug>/refactors/`, and brainstorms the one you pick. A contained refactor goes straight to `/write-tickets` and `/build`; a larger one starts at `/write-spec`. |
 | `html` | Shows any output as a self-contained HTML page in the report theme of the tours and refactor reports: "audit the auth flow, as HTML". Saves it to the brain's `.brain/repos/<slug>/pages/`, or `.brain/pages/` when it covers no single repository, and opens it. |
 
-The pipeline skills (`write-spec`, `write-tickets`, `build`), `refactor` and `open-pr` only run when you type their command. The other actions can also be invoked by the agent when it needs them. The skills other skills run as a step (`tdd`, `review-changes`, `model-domain`) and the reference skills (`codebase-design`, `design-patterns`, `project-structure`, `agent-writing`) stay out of the slash menu: the agent and other skills load them, and you ask for one in words ("review this branch", "build this test-first").
+The pipeline skills (`write-spec`, `write-tickets`, `build`), `refactor` and `open-pr` only run when you type their command. The other actions can also be invoked by the agent when it needs them. The skills other skills run as a step (`tdd`, `review-changes`, `domain-modeling`) and the reference skills (`code-design`, `write-for-agents`) stay out of the slash menu: the agent and other skills load them, and you ask for one in words ("review this branch", "build this test-first").
 
 ## Moving from 1.x
 

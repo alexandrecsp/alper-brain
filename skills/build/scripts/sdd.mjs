@@ -903,7 +903,7 @@ export const contextBlock = (path, agent, { writes = [], branch: onBranch } = {}
   const card = pathsFor(brain).card(track)
   const docs = [
     ...['docs/STRUCTURE.md', 'GLOSSARY-MAP.md', 'GLOSSARY.md', 'docs/adr/', ...(agent === 'standards-reviewer' ? ['CLAUDE.md', 'AGENTS.md'] : [])].map((f) => join(root, f)).filter((p) => existsSync(p)),
-    ...(changes ? ['skills/project-structure/SKILL.md', 'skills/codebase-design/SKILL.md'].map((f) => join(PLUGIN, f)) : []),
+    ...(changes ? ['skills/code-design/references/project-structure/PROJECT-STRUCTURE.md', 'skills/code-design/references/module-design/MODULE-DESIGN.md'].map((f) => join(PLUGIN, f)) : []),
     ...(agent === 'fixer' ? [join(PLUGIN, 'agents', 'builder.md')] : []),
     ...(agent === 'standards-reviewer' ? [join(PLUGIN, 'skills', 'review-changes', 'references', 'SMELLS.md')] : []),
     ...(changes ? [join(PLUGIN, 'skills', 'build', 'scripts', 'sdd.mjs')] : []),

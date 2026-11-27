@@ -1,18 +1,10 @@
----
-name: codebase-design
-description: Deep-module vocabulary. Use when shaping or deepening a module's interface or a contract between repositories, placing a seam, or making code more testable.
-user-invocable: false
-metadata:
-  type: reference
----
-
 Design **deep modules**: a lot of behaviour behind a small interface, placed at a clean seam, testable through that interface. The aim is leverage for callers, locality for maintainers, and testability for everyone.
 
 ## Vocabulary
 
-Use these terms exactly when you discuss a module's shape. Name the modules themselves in the glossary's terms, from the [domain docs](../model-domain/references/DOMAIN-DOCS.md) of the repository that holds each one ("the Order intake module"). A term with a _Replaces_ line displaces those words, so translate them when you meet them.
+Use these terms exactly when you discuss a module's shape. Name each module in its repository's glossary terms, by [DOMAIN-DOCS.md](../../../domain-modeling/references/DOMAIN-DOCS.md) ("the Order intake module"). A term with a _Replaces_ line displaces those words, so translate them when you meet them.
 
-**Module**: anything with an interface and an implementation. Deliberately scale-agnostic: a function, class, package, tier-spanning slice, or a whole repository as other repositories see it. _Replaces_: unit, component, service.
+**Module**: anything with an interface and an implementation. Deliberately scale-agnostic: a function, class, package, tier-spanning slice, or a whole repository as other repositories see it. _Replaces_: unit, component, and service (except **Service** in [PROJECT-STRUCTURE.md](../project-structure/PROJECT-STRUCTURE.md), application logic shared by use cases).
 
 **Interface**: everything a caller must know to use the module correctly: the type signature, but also invariants, ordering constraints, error modes, required configuration, and performance characteristics. _Replaces_: API, signature, a class's public methods, the `interface` keyword (each names only the type-level surface).
 
@@ -30,7 +22,7 @@ Use these terms exactly when you discuss a module's shape. Name the modules them
 
 **Locality**: what maintainers get from depth. Change, bugs, knowledge, and verification concentrate in one place: fix once, fixed everywhere.
 
-**Contract**: an interface at a seam between repositories (an API, event, queue or shared schema), recorded as a `contract` note in the brain ([FORMAT.md](../brain/references/FORMAT.md)). The **producer** is the repository whose module sits behind the seam. The **consumers** are callers in other repositories, and they count among the module's callers for leverage and for the deletion test.
+**Contract**: an interface at a seam between repositories (an API, event, queue or shared schema), recorded as a `contract` note in the brain ([FORMAT.md](../../../brain/references/FORMAT.md)). The **producer** is the repository whose module sits behind the seam. The **consumers** are callers in other repositories, and they count among the module's callers for leverage and for the deletion test.
 
 ## Principles
 
@@ -38,7 +30,7 @@ Use these terms exactly when you discuss a module's shape. Name the modules them
 - **The deletion test.** Imagine deleting the module. If complexity vanishes, it was a pass-through. If complexity reappears across N callers, it was earning its keep.
 - **The interface is the test surface.** Callers and tests cross the same seam. A test that needs to reach past the interface says the module is the wrong shape.
 - **One adapter means a hypothetical seam; two adapters mean a real one.** Introduce a seam only where something actually varies across it (typically production and test).
-- **A contract is the costliest interface to change.** Its consumers land and deploy on their own schedules, so any change to what crosses the wire ships expand–contract across repositories ([CONTRACT-CHANGE.md](../write-tickets/references/CONTRACT-CHANGE.md)). Name its consumers from the brain's contract notes before shaping it, and prefer a design every current consumer already tolerates.
+- **A contract is the costliest interface to change.** Its consumers land and deploy on their own schedules, so any change to what crosses the wire ships expand–contract across repositories ([CONTRACT-CHANGE.md](../../../write-tickets/references/CONTRACT-CHANGE.md)). Name its consumers from the brain's contract notes before shaping it, and prefer a design every current consumer already tolerates.
 
 ## Designing for testability
 
@@ -75,5 +67,5 @@ Use these terms exactly when you discuss a module's shape. Name the modules them
 
 ## Going deeper
 
-- **Classifying a module's dependencies** to decide how each crosses its seam and is tested, as when deepening shallow modules or placing a seam with a remote dependency: [DEEPENING.md](references/DEEPENING.md).
-- **When you can dispatch sub-agents and an interface's shape is unsettled (two plausible shapes you can name, or the user asks for alternatives), or it is a contract other repositories consume**: design it twice, one `alper-brain:architect` per design constraint, by [DESIGN-IT-TWICE.md](references/DESIGN-IT-TWICE.md).
+- **Classifying a module's dependencies** to decide how each crosses its seam and is tested, as when deepening shallow modules or placing a seam with a remote dependency: [DEEPENING.md](DEEPENING.md).
+- **When you can dispatch sub-agents and an interface's shape is unsettled (two plausible shapes you can name, or the user asks for alternatives), or it is a contract other repositories consume**: design it twice, one `alper-brain:architect` per design constraint, by [DESIGN-IT-TWICE.md](DESIGN-IT-TWICE.md).

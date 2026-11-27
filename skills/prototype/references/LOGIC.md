@@ -4,7 +4,7 @@ One self-contained HTML file, a **shareable demo**, in which anyone drives a sta
 
 ## Process
 
-1. **State the question.** Write the state model and the question in one paragraph, shown as a visible intro at the top of the page. It lets the user check, now or later, that the prototype answers the right question. Read the [domain docs](../../model-domain/references/DOMAIN-DOCS.md) of the repositories the model belongs to first: their glossaries give the page its domain language, and their `contract` notes the shapes a cross-repository model exchanges. Done when the paragraph names the model and the question.
+1. **State the question.** Write the state model and the question in one paragraph, shown as a visible intro at the top of the page. It lets the user check, now or later, that the prototype answers the right question. Read the [domain docs](../../domain-modeling/references/DOMAIN-DOCS.md) of the repositories the model belongs to first: their glossaries give the page its domain language, and their `contract` notes the shapes a cross-repository model exchanges. Done when the paragraph names the model and the question.
 
 2. **Write the pure module.** Put the logic and step 3's scenario data in one `<script>` block that holds no DOM code, as a small **pure** module that could be lifted into the real codebase: the page calls into it, and it never touches the DOM, `document` or a handler. Pick the shape the question needs, not the one easiest to wire:
 

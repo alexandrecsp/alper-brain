@@ -123,7 +123,7 @@ Adapted from Matt Pocock's `handoff` (`skills/productivity/handoff` in mattpococ
 - **User-invoked only** (`disable-model-invocation: true`, as in Pocock's version). Its description then costs no context load, and build's drain needs no skill because its state is already on disk.
 - **Done when** the file ends with the first prompt for the next session (the command plus the handoff's path), and that prompt plus the file's pointers are enough to take the next step without this conversation.
 
-Write the skill by `agent-writing`, as CLAUDE.md requires.
+Write the skill by `write-for-agents`, as CLAUDE.md requires.
 
 ## What changes per file
 

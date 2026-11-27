@@ -1,18 +1,14 @@
 ---
-name: model-domain
-description: Build and sharpen each repository's domain model, its glossary and decisions. Use when discussing domain terms, editing a GLOSSARY.md, or recording an ADR.
+name: domain-modeling
+description: Build and sharpen each repository's domain model: its glossary and ADRs. Use when settling or challenging a domain term, editing a GLOSSARY.md, or recording an ADR.
 user-invocable: false
 metadata:
   type: process
 ---
 
-# Domain Modeling
-
-Build and sharpen the domain model while you design.
-
 ## Where it lives
 
-Each repository the topic touches is its own context, with its own glossary and ADRs. Read the [domain docs](references/DOMAIN-DOCS.md) of every one of them before the first challenge: their glossaries are what you challenge against, and their notes are what you check terms and decisions against. Write each settled fact where DOMAIN-DOCS.md's table puts it.
+Read the [domain docs](references/DOMAIN-DOCS.md) of every repository the topic touches before the first challenge: their glossaries are what you challenge against, and their notes are what you check terms and decisions against. Done when you hold the glossary, the ADRs and the notes of each.
 
 Create files lazily: a `GLOSSARY.md` or a `docs/adr/` folder only when its first entry is written. When a `GLOSSARY-MAP.md` sits at a repository's root, it holds several contexts: follow [CONTEXTS.md](references/CONTEXTS.md).
 
@@ -36,11 +32,11 @@ When domain relationships are being discussed, stress-test them with specific sc
 
 When the user states how something works, check whether the code of each repository it involves agrees, and surface a contradiction: "Your code cancels entire Orders, but you just said partial cancellation is possible. Which is right?"
 
-Without `brainstorm`, read one repository's code yourself. For a claim spanning several linked repositories, dispatch one `alper-brain:explorer` per repository, in waves by [BRIEF.md](../brain/references/BRIEF.md)'s **Fanning out**, each brief opening with the Context block by BRIEF.md (**Works in** its repository, read only, **Writes** nothing), with the claim and this ask: "Does this repository's code agree with the claim? Answer yes, no or partly, citing each fact with its `path:line`, or 'not found' with where you looked." Read glossaries yourself: they are short, and a challenge quotes them exactly.
+Under `brainstorm`, see **Beside brainstorm**. Without it, read the code of a single repository yourself, and for a claim spanning several linked repositories dispatch one `alper-brain:explorer` per repository, in waves by [BRIEF.md](../brain/references/BRIEF.md)'s **Fanning out**, each brief opening with the Context block by BRIEF.md (**Works in** its repository, read only, **Writes** nothing), with the claim and this ask: "Does this repository's code agree with the claim? Answer yes, no or partly, citing each fact with its `path:line`, or 'not found' with where you looked." Done when every explorer has answered yes, no or partly with a `path:line` for each fact, or 'not found' with where it looked, re-dispatching one that has not. Read glossaries yourself: they are short, and a challenge quotes them exactly.
 
 ### Write it down as it settles
 
-When a term settles, write it where [DOMAIN-DOCS.md](references/DOMAIN-DOCS.md) puts it, in [GLOSSARY-FORMAT.md](references/GLOSSARY-FORMAT.md)'s format. A glossary or ADR in a repository needs that repository **open** ([FORMAT.md](../brain/references/FORMAT.md)). When it is only linked, add the entry to a **pending** list and keep the session moving. When it is only registered, the term rides on to the spec. A brain note needs only the brain: write it through the brain's [RECORD.md](../brain/references/RECORD.md).
+When a term settles, write it where [DOMAIN-DOCS.md](references/DOMAIN-DOCS.md) puts it, in [GLOSSARY-FORMAT.md](references/GLOSSARY-FORMAT.md)'s format. A glossary or ADR in a repository needs that repository **open** ([FORMAT.md](../brain/references/FORMAT.md)). When it is only linked, add the entry to a **pending** list and keep the session moving. When it is only registered, the term or decision rides on to the spec. A brain note needs only the brain: write it through the brain's [RECORD.md](../brain/references/RECORD.md).
 
 A glossary holds terms and their definitions only: an implementation decision is an ADR or part of the spec. When a settled term contradicts a brain note you read, draft that note's fix through RECORD.md when it is authored; an explored note catches up at the next `/brain explore`.
 
@@ -58,9 +54,9 @@ Weigh each candidate against **What qualifies** in [ADR-FORMAT.md](references/AD
 
 When this skill runs beside `brainstorm`, the brainstorm drives: its rounds, phases and summaries stay as written, and this skill feeds them.
 
-- Read the domain docs of every repository the topic touches alongside `What · Round 1`. They include the brain's recall, so they stand in for brainstorm's own.
+- Read the domain docs of every repository the topic touches alongside `What · Round 1`. They include the brain's recall at the `business` layer, so they stand in for brainstorm's first recall; the `application` scan when the `How` opens still runs.
 - Each challenge (a conflicting or fuzzy term, an edge-case scenario) enters the current round as a frontier question.
-- A claim about how the code works is a fact, checked by brainstorm's **Facts and Decisions**; each contradiction enters the next round as a frontier question.
+- A claim about how the code works is a fact, checked by `brainstorm`'s **Facts and Decisions**; each contradiction enters the next round as a frontier question.
 - A settled decision that passes the three tests enters the next round as a frontier question, naming where DOMAIN-DOCS.md puts it. Recommend yes or no.
 - Each phase summary closes with **Domain docs**, after the lists `brainstorm` names for that phase: per repository, the terms written, the ADRs written or declined, and the pending writes with what they wait on; cross-repository terms and decisions under the brain.
 
@@ -71,4 +67,4 @@ Done when every settled term and every accepted decision is written in its home 
 1. Ask the user once to run `/add-dir` for each root the **pending** list names, then write its entries.
 2. Offer to commit each repository's domain-doc changes with `commit`, one commit per repository, since `/build` stops on a dirty tree.
 
-Beside `brainstorm`, done when the user confirms the `How` summary with its **Domain docs** list complete, closed out as above.
+Beside `brainstorm`, run the close-out above once the user confirms the `How` summary, before brainstorm offers its next step. Done when the user has confirmed that summary with its **Domain docs** list complete and the close-out is finished.

@@ -56,7 +56,7 @@ For each dependency, the assumptions this spec makes about its planned state, on
 
 ## Design Patterns
 
-One row per pattern the user confirmed, as the `design-patterns` skill records them. When none is needed, write "None needed."
+One row per pattern the user confirmed, as `code-design`'s DESIGN-PATTERNS.md records them. When none is needed, write "None needed."
 
 | Pattern | Where | Why |
 |---|---|---|

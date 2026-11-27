@@ -1,10 +1,10 @@
 # Skill mechanics
 
-The skill-specific branch of [`agent-writing`](../SKILL.md): what changes when the document is a skill (frontmatter, the invocation choice, shared reference, and router skills).
+The skill-specific branch of [`write-for-agents`](../SKILL.md): what changes when the document is a skill (frontmatter, the invocation choice, shared reference, and router skills).
 
 ## Frontmatter
 
-- `name`: the folder's name, and what the user types after the slash. A `process` skill is named for its action, as a verb (`build`, `write-spec`, `model-domain`), unless the user already says a noun for it (`tdd`, `brain`); a `reference` skill for its subject, as a noun (`design-patterns`, `project-structure`).
+- `name`: the folder's name, and what the user types after the slash. A `process` skill is named for its action, as a verb (`build`, `write-spec`, `brainstorm`), unless the user already says a noun for it (`tdd`, `brain`); a `reference` skill for its subject, as a noun (`code-design`).
 - `description`, `disable-model-invocation` and `user-invocable`: see Invocation.
 - `argument-hint`: only when the skill takes arguments, written as the user types them (`"[spec-id]"`).
 - `metadata.type`: `process` when the skill has steps, `reference` when it is all reference, by the content types in `SKILL.md`'s Information hierarchy.

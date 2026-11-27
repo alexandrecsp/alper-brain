@@ -12,7 +12,7 @@ TDD is the **red → green** loop.
 
 Name the **working repository** by [FORMAT.md](../brain/references/FORMAT.md)'s working repository rules (a sub-agent's brief names it on its Context block's **Works in** line), or by its **With no brain open** when no brain is open. It must be open. Run every command as `cd <root> && <command>`, the single filtered test included: with a brain open, each shell call starts in the brain. Its seams are the ones you test: a spec's seams in other repositories belong to their own milestones.
 
-Read the working repository's [domain docs](../model-domain/references/DOMAIN-DOCS.md): test names and interface vocabulary use the glossary's terms. When your brief lists the brain notes to read, read those instead of recalling notes yourself.
+Read the working repository's [domain docs](../domain-modeling/references/DOMAIN-DOCS.md): test names and interface vocabulary use the glossary's terms. When your brief lists the brain notes to read, read those instead of recalling notes yourself.
 
 ## What a good test is
 
@@ -23,7 +23,7 @@ A good test verifies behaviour through a public interface and reads like a speci
 
 ## Seams: where tests go
 
-A **seam** is where a module's interface lives, as the `codebase-design` skill defines it: tests cross it and observe behaviour without reaching inside. Tests live at **confirmed seams** only, which puts the testing effort on the critical paths and complex logic rather than on every edge case.
+A **seam** is where a module's interface lives, as `code-design`'s [MODULE-DESIGN.md](../code-design/references/module-design/MODULE-DESIGN.md) defines it: tests cross it and observe behaviour without reaching inside. Tests live at **confirmed seams** only, which puts the testing effort on the critical paths and complex logic rather than on every edge case.
 
 - When a spec or ticket names the seams (its Testing Decisions or acceptance criteria), or the skill that called you declares one confirmed, they are already confirmed: test there.
 - A failing test or check your brief hands you is already red at a confirmed seam: start the loop at **Then green**.
@@ -32,7 +32,7 @@ A **seam** is where a module's interface lives, as the `codebase-design` skill d
 
 Done when every behaviour in scope has a confirmed seam, or you have reported the seams you would propose and stopped.
 
-When a seam is an interface another repository calls or offers (a `contract` note in the brain names it), read [CONTRACTS.md](references/CONTRACTS.md) before writing its test. When the shape of the interface is itself in question (how deep the module is, where the seam belongs, what the interface exposes), invoke the `codebase-design` skill for the vocabulary and principles.
+When a seam is an interface another repository calls or offers (a `contract` note in the brain names it), read [CONTRACTS.md](references/CONTRACTS.md) before writing its test. When the shape of the interface is itself in question (how deep the module is, where the seam belongs, what the interface exposes), read MODULE-DESIGN.md for the vocabulary and principles.
 
 ## Rules of the loop
 

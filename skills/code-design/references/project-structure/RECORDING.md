@@ -11,7 +11,7 @@ Before writing, detect each app's archetype and ask the user, in one message, wh
 
 - **Keep**, only when `docs/STRUCTURE.md` already has its section: the section as written, its archetype shown.
 - **As-is**, only when it has code: the layout the code already uses, mapped onto the vocabulary where it fits. Offer each move you would make as a `refactor` candidate in your reply.
-- **Default**, always: this skill's layout for its archetype, in its language's spelling. Each existing folder that does not fit it becomes a `refactor` candidate in your reply, naming where its files move.
+- **Default**, always: [PROJECT-STRUCTURE.md](PROJECT-STRUCTURE.md)'s layout for its archetype, in its language's spelling. Each existing folder that does not fit it becomes a `refactor` candidate in your reply, naming where its files move.
 
 Recommend keep when the section exists, else as-is when the app has code, else default. One answer for all of them is fine.
 

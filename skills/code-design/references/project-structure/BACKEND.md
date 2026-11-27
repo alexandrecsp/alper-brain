@@ -1,6 +1,6 @@
 # Backend
 
-A server with no UI of its own: an API, a worker, a CLI. Each module is a full hexagon; driving adapters are the transports that call in. The tree is TypeScript; Java and Python spell it as [SKILL.md](../SKILL.md)'s Names say.
+A server with no UI of its own: an API, a worker, a CLI. Each module is a full hexagon; driving adapters are the transports that call in. The tree is TypeScript; Java and Python spell it as [PROJECT-STRUCTURE.md](PROJECT-STRUCTURE.md)'s Names say.
 
 ```
 src/

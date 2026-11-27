@@ -6,10 +6,14 @@ Each release lists what changed for a user of the plugin. **Migrates by itself**
 
 ### Changed
 
+- **`code-design` is one skill for the shape of code.** `codebase-design`, `design-patterns` and `project-structure` are merged into it: one description triggers on all three, the agent reads only the reference its work reaches (`MODULE-DESIGN.md`, `DESIGN-PATTERNS.md`, `PROJECT-STRUCTURE.md`), and the three share one vocabulary.
+- **`/brainstorm` fits any topic.** It infers the kind (a feature, a skill or agent, a decision, an open exploration) and closes with that kind's summary and next step; only a feature leads to `/write-spec`. `--docs` is gone: it runs `domain-modeling` beside itself whenever it settles a repository's domain.
+- **`model-domain` is now `domain-modeling`.**
+- **`agent-writing` is now `write-for-agents`.**
 - **`/onboard` is now `/brain tour`.** The tour picks the repository's default branch like `/brain explore`, offers an explore first when the notes are behind, and starts from the explored notes, so its explorers spend their reads on how the code is built. Tours stay in `.brain/repos/<slug>/tours/`.
 - **One explorer agent.** `scout` is merged into `explorer`: every fact-finding, tour and refactor dispatch now goes to `alper-brain:explorer`, on Sonnet.
 - **`reviewer` is now `standards-reviewer`**, beside `spec-reviewer`.
-- **Design it twice reaches you.** `brainstorm`'s How phase, `refactor` and `codebase-design` now run DESIGN-IT-TWICE (the `architect` agents) when an interface's shape is unsettled or it is a contract other repositories consume.
+- **Design it twice reaches you.** `brainstorm`'s How phase, `refactor` and `code-design` now run DESIGN-IT-TWICE (the `architect` agents) when an interface's shape is unsettled or it is a contract other repositories consume.
 - **Sub-agents respect the parallel cap** (`parallelAgents`) everywhere, in waves.
 - **Your questions reach you.** A sub-agent's **Needs the user** items are kept in the tickets' Notes during a build and listed in every hand-over.
 - **`build`** writes each closing step's **Phase** before it acts, verifies every fixer's commits, and releases its claims on every way out.

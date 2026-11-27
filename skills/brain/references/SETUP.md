@@ -20,7 +20,7 @@ The `setup` branch of [`brain`](../SKILL.md): connect this machine to a brain, l
 
 6. **Move its old pipeline state.** Skip this unless the repository holds `.sdd/` at its root, from before the brain held it. Follow [MIGRATE.md](MIGRATE.md)'s **A repository's `.sdd/`**. Done when the user has moved or kept each of its specs.
 
-7. **Settle the layout.** Invoke the `project-structure` skill and record this repository's `docs/STRUCTURE.md` by its RECORDING.md, which offers the layout as-is or the plugin's default, iterating with the user. Done when the user confirms `docs/STRUCTURE.md`.
+7. **Settle the layout.** Read `code-design`'s [PROJECT-STRUCTURE.md](../../code-design/references/project-structure/PROJECT-STRUCTURE.md) and record this repository's `docs/STRUCTURE.md` by its [RECORDING.md](../../code-design/references/project-structure/RECORDING.md), which offers the layout as-is or the plugin's default, iterating with the user. Done when the user confirms `docs/STRUCTURE.md`.
 
 8. **Settle the suites.** The card names the repository's two suites, as FORMAT.md's `REPO.md` defines them. When the card already holds `unit` and `e2e`, or the repository's agent file a **Suites** line, show them and ask whether to keep them. Otherwise read the project's scripts and propose one command for each suite, or `none` when the repository has no e2e tests. When one script runs both suites, propose scripts that split them, and add them when the user agrees. Write both into the card. Done when the user confirms both commands, and running each one from the root starts the tests it names.
 

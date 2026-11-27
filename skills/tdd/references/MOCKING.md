@@ -9,7 +9,7 @@ Everything inside the working repository, your own modules and their internal co
 
 ## Designing a mocked dependency
 
-Inject each mocked dependency rather than creating it inside, as the `codebase-design` skill's testability rules describe. Then give it an **SDK-style interface**: one function per external operation, rather than one generic fetcher.
+Inject each mocked dependency rather than creating it inside, as [MODULE-DESIGN.md](../../code-design/references/module-design/MODULE-DESIGN.md)'s **Designing for testability** describes. Then give it an **SDK-style interface**: one function per external operation, rather than one generic fetcher.
 
 ```typescript
 // GOOD: each function is independently mockable
