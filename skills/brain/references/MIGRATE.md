@@ -72,7 +72,7 @@ For each entry, write its `buildsAfter` ids into the milestone's **Builds after*
 
 ## Note types
 
-Bring each note RECALL.md's script lists with `--legacy` to FORMAT.md's types and **Layers**. [SYNC.md](SYNC.md) runs this before it consolidates, as drafts, so the user confirms the migration with the other drafts. A listed note that already has its draft in `.local/drafts/` keeps it.
+Bring each note RECALL.md's script lists with `--legacy` to FORMAT.md's types and **Layers**. [SYNC.md](SYNC.md) runs this before it consolidates, as drafts, so the user confirms the migration with the other drafts. A listed note that already has its draft in `.local/drafts/` keeps it. An old term note and an old mirror are not migrated here: [ABSORB.md](ABSORB.md)'s **Absorb an old note** turns each into `term` and `decision` drafts.
 
 1. **Draft each note's change.** Write one draft per listed note, by FORMAT.md's **Drafts**:
    - A `gotcha` becomes a `how-to`: an `update` that changes its `type` and keeps its text.

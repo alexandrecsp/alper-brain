@@ -8,20 +8,20 @@ The explored notes already tell what the repository does for its users. The tour
 
 2. **Pick the source.** Read the default branch, or, in an embedded or local brain, the host's current branch, from its source by FORMAT.md: in place, claimed as `tour`, or a snapshot. Its **target** is `git -C <source> rev-parse HEAD`. Every read from here on is from the source, so the tour describes committed code. Done when you hold the source, its branch and its target.
 
-3. **Survey.** Read the source's README, manifests (`package.json`, `pyproject.toml`, `go.mod`, …), `docs/STRUCTURE.md`, `AGENTS.md` or `CLAUDE.md`, the card, and the glossary and ADRs by [DOMAIN-DOCS.md](DOMAIN-DOCS.md)'s **Read them**, every context's. Recall the repository by [RECALL.md](RECALL.md), reading every authored note whose `repos` names the slug and every note in `notes/repos/<slug>/`. Split the source's tracked files into **areas** by [AREAS.md](AREAS.md). Done when the split is done and every note on the repository is read.
+3. **Survey.** Read the source's README, manifests (`package.json`, `pyproject.toml`, `go.mod`, …), `docs/STRUCTURE.md`, `AGENTS.md` or `CLAUDE.md`, the card, and the terms and decisions by [DOMAIN-DOCS.md](DOMAIN-DOCS.md)'s **Read them**. Recall the repository by [RECALL.md](RECALL.md), reading every authored note whose `repos` names the slug and every note in `notes/repos/<slug>/`. Split the source's tracked files into **areas** by [AREAS.md](AREAS.md). Done when the split is done and every note on the repository is read.
 
-4. **Fan out.** Dispatch one `alper-brain:explorer` agent per area, in waves by [BRIEF.md](BRIEF.md)'s **Fanning out**, each brief opening with the Context block by BRIEF.md: **Works in** the source, read only; **Docs** the glossary the repository keeps and `docs/STRUCTURE.md`; **Notes** the notes whose **Sources** fall in its area or that name its files, and the repository's term notes when it keeps no glossary; **Writes** nothing. Then give each its area's paths, the area list, each ADR's title and decision, the slug and card summary of every other registered repository, the `contract` notes naming this one, and this brief:
+4. **Fan out.** Dispatch one `alper-brain:explorer` agent per area, in waves by [BRIEF.md](BRIEF.md)'s **Fanning out**, each brief opening with the Context block by BRIEF.md: **Works in** the source, read only; **Docs** `docs/STRUCTURE.md`; **Notes** the notes whose **Sources** fall in its area or that name its files, and the repository's term notes; **Writes** nothing. Then give each its area's paths, the area list, each `decision` note's title and decision, the slug and card summary of every other registered repository, the `contract` notes naming this one, and this brief:
 
    > Walk this area as a guide preparing a tour of it for a newcomer who knows the stack but not this repo. The notes given to you tell what the area does for its users: read them first, take each as true until a file you read contradicts it, and spend your reads on how the area is built. Report each fact with the file it comes from:
    >
-   > - **Purpose**: what the area does, in one sentence in the glossary's terms.
+   > - **Purpose**: what the area does, in one sentence in the repository's terms.
    > - **Entry points**: every route, command, handler, job, page or exported function that the outside world or another area calls, with its kind and the other areas and repositories it calls into.
    > - **Key modules**: at most eight, each with its interface in one line.
    > - **Dependencies**: every other area, every other registered repository (by slug, naming the contract when one is given), and every external system it calls or is called by, and how (import, HTTP, queue, database).
    > - **Data**: the entities it owns and where they are stored.
    > - **Tests**: where they live, their kinds, and the command that runs only them.
    > - **Changes**: the three to five kinds of change `git log` shows most often in this area, each as "to change X, go to `path`", with a commit that made one.
-   > - **Gaps**: terms the code uses that the glossary lacks or defines differently, each with the definition the code implies; and decisions the code makes that are hard to reverse and surprising, but that no ADR records.
+   > - **Gaps**: terms the code uses that the map lacks or pairs differently, each with the definition the code implies; and decisions the code makes that are hard to reverse and surprising, but that no `decision` note records.
    > - **Contradicted**: each note given to you that the code contradicts, with what the code does instead.
    >
    > Report every field, writing "none" for an empty one.
@@ -37,7 +37,7 @@ The explored notes already tell what the repository does for its users. The tour
 6. **Write the tour.** Write the brain's `docs/repos/<slug>/<YYYY-MM-DD-HHmm>-tour.html` by [TOUR-HTML.md](TOUR-HTML.md), and hand it over by [THEME.md](THEME.md)'s **Hand-over**. Done when it is handed over and every area has its card, every journey its card, and every fact on the page is grounded.
 
 7. **Offer the gaps.** Merge the reports' gaps, undocumented cross-repository dependencies and contradicted notes into one numbered list, one entry per item, in three groups: **terms** (with the definition the code implies), **decisions**, and **brain notes** (each dependency on another registered repository that no `contract` note records, and each contradicted note with its fix). Ask which terms and decisions to record, by number; the brain notes go to [RECORD.md](RECORD.md) as drafts, and `/brain sync` lets the user pick from them.
-   - Write each chosen term and decision by [DOMAIN-DOCS.md](DOMAIN-DOCS.md)'s **Write it**: into the glossary or `docs/adr/` the repository keeps, else as a brain note. Ask the user each chosen decision's reason first: the code shows what was decided, and only the user knows why.
+   - Write each chosen term and decision by [DOMAIN-DOCS.md](DOMAIN-DOCS.md)'s **Write it**, as a draft. Ask the user each chosen decision's reason first: the code shows what was decided, and only the user knows why.
    - Follow RECORD.md for the chosen brain notes. A contradicted explored note is fixed by `/brain explore <slug>`: suggest it.
 
    Done when the user has chosen or declined every term and decision, each chosen one is written or on the pending list, each brain note sits in a draft, and `/brain explore <slug>` is suggested for each contradicted explored note.

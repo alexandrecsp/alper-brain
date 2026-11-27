@@ -928,9 +928,9 @@ export const contextBlock = (path, agent, { writes = [], branch: onBranch } = {}
     ? [...m.buildsAfter, ...m.landsAfter].filter((id) => !id.bad && id.track && id.track !== track).map((id) => id.track)
     : agent === 'arbiter' ? contracts.flatMap((c) => c.repos).filter((s) => s !== track) : [])
   const card = pathsFor(brain).card(track)
-  // A builder takes the domain's terms and decisions from the brain's notes, so it is never pointed at the repository's own.
+  // Every agent takes the domain's terms and decisions from the brain's notes, so none is pointed at the repository's own.
   const docs = [
-    ...['docs/STRUCTURE.md', ...(changes ? [] : ['GLOSSARY-MAP.md', 'GLOSSARY.md', 'docs/adr/']), ...(agent === 'standards-reviewer' ? ['CLAUDE.md', 'AGENTS.md'] : [])].map((f) => join(root, f)).filter((p) => existsSync(p)),
+    ...['docs/STRUCTURE.md', ...(agent === 'standards-reviewer' ? ['CLAUDE.md', 'AGENTS.md'] : [])].map((f) => join(root, f)).filter((p) => existsSync(p)),
     ...(changes ? ['skills/code-design/references/project-structure/PROJECT-STRUCTURE.md', 'skills/code-design/references/module-design/MODULE-DESIGN.md'].map((f) => join(PLUGIN, f)) : []),
     ...(agent === 'fixer' ? [join(PLUGIN, 'agents', 'builder.md')] : []),
     ...(agent === 'standards-reviewer' ? [join(PLUGIN, 'skills', 'review-changes', 'references', 'SMELLS.md')] : []),

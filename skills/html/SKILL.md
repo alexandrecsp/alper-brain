@@ -23,6 +23,6 @@ The page lives in the brain, by [FORMAT.md](../brain/references/FORMAT.md); when
    - **Tables**, for items compared field by field: one row each, headers in `.eyebrow`.
    - **Diagrams**, for structure or flow: a Mermaid `flowchart` or `sequenceDiagram` on a diagram canvas, drawn by [DIAGRAMS.md](../write-spec/references/DIAGRAMS.md)'s smallest-view rule.
 
-   Lead every section with its answer, in the terms of the repository's glossary when it has one. Done when every fact from step 1 has its place beside its source.
+   Lead every section with its answer, in the terms of the repository's pairings in the map. Done when every fact from step 1 has its place beside its source.
 
 4. **Hand over** by [THEME.md](../brain/references/THEME.md)'s **Hand-over**. Done when the file sits at step 2's path, stamped when it is in a repository's folder, and the user has its absolute path.

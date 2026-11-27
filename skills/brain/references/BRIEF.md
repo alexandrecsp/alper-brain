@@ -14,7 +14,7 @@ Fill every line; write `none` where one does not apply.
 - **Works in:** <slug> at <root> (<open | linked | snapshot>), <changes it | reads it>
 - **Also reads:** <slug> at <root> (<linked | open>), one entry per other repository the task reads, or none
 - **Card:** <brain>/repos/<slug>.md
-- **Docs:** <absolute paths: docs/STRUCTURE.md, and the plugin reference files the task needs; a builder's never the repository's glossary, GLOSSARY-MAP.md or docs/adr/>
+- **Docs:** <absolute paths: docs/STRUCTURE.md, and the plugin reference files the task needs; the domain's terms and decisions come through **Notes**>
 - **Notes:** <absolute paths of the brain notes bearing on the task; a builder's adds the terms and decisions recall ranks for its ticket>, or none
 - **Spec:** <absolute path of the spec.md, milestone.md or ticket the task serves>, or none
 - **Branch:** <the branch the work belongs on>, or none

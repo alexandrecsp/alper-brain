@@ -2,7 +2,15 @@
 
 Each release lists what changed for a user of the plugin. **Migrates by itself** means the next command on an old brain or spec moves it to the new form; you do nothing.
 
-## Unreleased
+## 2.3.0
+
+### New
+
+- **The domain map.** The brain holds a graph of **canonical terms** above every repository: one meaning of the business, named once, in `notes/domain/`. Each repository's word for it is a **pairing**, with its degree (`same`, `narrower` or `broader`), its own `Avoid:` words and, in a monolith, its context. Terms relate by verbs in the domain's words (a Customer places an Order), `is a` and `part of` mark hierarchy, and a decision links the terms it binds. Recall finds a term by any repository's word, shows that repository's word and degree, and warns when one word names two terms. A brain of one repository has the map too.
+- **Absorption.** `/brain explore <slug>` absorbs the repository's `GLOSSARY.md`, `GLOSSARY-MAP.md` and `docs/adr/` into drafts of terms, pairings and decisions, and `/brain sync` absorbs the brain's old term notes and mirrors the same way. You confirm each draft at sync. Once the absorbed notes are committed, sync offers to delete each absorbed file from its repository, only when every entry of the file sits in the brain; a removal on the default branch goes on a new branch, and a local brain warns you first. A glossary or ADR that returns is absorbed again.
+- **The agent file names the brain.** A repository's agent file points at the brain for its terms and decisions, so `commit`, `tdd` and `diagnose` run on the code alone when no brain is open.
+
+**To update:** run `/brain sync`, which absorbs your old term notes and mirrors. Then run `/brain explore <slug>` for each repository that keeps a glossary or ADRs, and `/brain sync` again to confirm what it drafted.
 
 ### Changed
 
@@ -10,7 +18,7 @@ Each release lists what changed for a user of the plugin. **Migrates by itself**
 - **Add brain opens a folder dialog.** On the brain page, **Add brain** opens your system's own folder picker (Explorer on Windows, Finder on macOS, zenity or kdialog on Linux) instead of asking you to paste the path; a folder with no `BRAIN.md` is refused. Only a Linux machine with neither dialog still asks for the path.
 - **`code-design` is one skill for the shape of code.** `codebase-design`, `design-patterns` and `project-structure` are merged into it: one description triggers on all three, the agent reads only the reference its work reaches (`MODULE-DESIGN.md`, `DESIGN-PATTERNS.md`, `PROJECT-STRUCTURE.md`), and the three share one vocabulary.
 - **`/brainstorm` fits any topic.** It infers the kind (a feature, a skill or agent, a decision, an open exploration) and closes with that kind's summary and next step; only a feature leads to `/write-spec`. `--docs` is gone: it adds its domain lens whenever it settles a repository's domain.
-- **The brain is the home of a repository's terms and decisions.** `model-domain` is gone: its interviewing (challenging terms, sharpening them, probing scenarios) is `brainstorm`'s domain lens, and where things are written is the brain's `DOMAIN-DOCS.md`. A settled term becomes a `concept` note, with the words to avoid for it on a new `avoid` line, and a decision a `decision` note, both through `/brain sync`. No repository gains a `GLOSSARY.md` or `docs/adr/` it did not have; one that already keeps them gets its new entries there, and `/brain explore` mirrors them into explored notes, so recall finds every term and decision in one place, and a repository that is only registered has them too. Run `/brain explore <slug>` once for each repository that keeps a glossary or ADRs, to write its mirrors.
+- **The brain is the home of a repository's terms and decisions.** `model-domain` is gone: its interviewing (challenging terms, sharpening them, probing scenarios) is `brainstorm`'s domain lens, and where things are written is the brain's `DOMAIN-DOCS.md`. A settled term becomes a `term` note and a decision a `decision` note, both through `/brain sync`; a repository's own glossary and ADRs are absorbed, not mirrored.
 - **`agent-writing` is now `write-for-agents`.**
 - **`/onboard` is now `/brain tour`.** The tour picks the repository's default branch like `/brain explore`, offers an explore first when the notes are behind, and starts from the explored notes, so its explorers spend their reads on how the code is built. Tours go to `docs/repos/<slug>/<YYYY-MM-DD-HHmm>-tour.html`.
 - **One explorer agent.** `scout` is merged into `explorer`: every fact-finding, tour and refactor dispatch now goes to `alper-brain:explorer`, on Sonnet.

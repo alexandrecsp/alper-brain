@@ -36,7 +36,7 @@ In order:
 - **Problem**: one sentence, what hurts.
 - **Refactor**: one sentence, what changes.
 - **Wins**: check bullets of at most six words, each naming its gain in [MODULE-DESIGN.md](../../code-design/references/module-design/MODULE-DESIGN.md) terms ("locality: bugs concentrate in one module", "leverage: one interface, N call sites", "tests cross one interface").
-- **ADR callout**, when the candidate reopens an ADR or a `decision` note: "reopens ADR-0007 because…".
+- **Decision callout**, when the candidate reopens a `decision` note: "reopens `billing-api-retry-idempotency` because…".
 - **Contract callout**, when the refactor changes an interface a `contract` note records: "crosses `invoice-event-contract`: web-app and ledger consume it", in the same amber callout.
 - The before and after diagrams draw the candidate's **Shape** field.
 
@@ -59,7 +59,7 @@ Beside the theme's module and arrow:
 
 ## Voice
 
-Architecture words come from MODULE-DESIGN.md's vocabulary and domain words from the glossary, used exactly, in short declarative phrases:
+Architecture words come from MODULE-DESIGN.md's vocabulary and domain words from the map, used exactly, in short declarative phrases:
 
 - "Order intake module is shallow: interface nearly matches the implementation."
 - "Pricing leaks across the seam."

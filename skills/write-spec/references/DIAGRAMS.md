@@ -1,8 +1,8 @@
 # Diagrams
 
-The pipeline's documents carry Mermaid **diagrams**, so a human sees the **shape** of the work before reading its prose; the brain page draws each `mermaid` block where it stands, and GitHub draws them in ADRs and PRs. Each template names its diagrams' slots, by the names below.
+The pipeline's documents carry Mermaid **diagrams**, so a human sees the **shape** of the work before reading its prose; the brain page draws each `mermaid` block where it stands, and GitHub draws them in PRs. Each template names its diagrams' slots, by the names below.
 
-Draw the **smallest view** that makes the point: one idea per diagram, about a dozen nodes at most, labelled in the glossary's terms, placed right after the sentence it supports. When a diagram needs a paragraph to be understood, redraw the diagram; when prose only retells it, cut the prose.
+Draw the **smallest view** that makes the point: one idea per diagram, about a dozen nodes at most, labelled in the terms of the map, placed right after the sentence it supports. When a diagram needs a paragraph to be understood, redraw the diagram; when prose only retells it, cut the prose.
 
 ## Marks
 
@@ -106,9 +106,9 @@ flowchart TD
 
 ## Decision
 
-**Where:** an ADR, as its Diagram section when the folder's ADRs have one, else in its body; or a `decision` note's body.
+**Where:** a `decision` note's body.
 
-The shape the decision chose: a `flowchart` of the architecture or boundary it fixes, or a `sequenceDiagram` of the integration it settles between contexts. The marks stay off, since an ADR outlives the work that made it. When Considered Options holds a rejected shape worth remembering, draw it too, under its option.
+The shape the decision chose: a `flowchart` of the architecture or boundary it fixes, or a `sequenceDiagram` of the integration it settles between contexts. The marks stay off, since a `decision` note outlives the work that made it. When Considered Options holds a rejected shape worth remembering, draw it too, under its option.
 
 ```mermaid
 sequenceDiagram

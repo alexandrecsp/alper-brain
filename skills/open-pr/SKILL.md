@@ -7,7 +7,7 @@ metadata:
   type: process
 ---
 
-A PR body shows the reviewer the **shape** of the change before they open the diff, the **evidence** that it works, and the **merge danger**. It opens on its first heading, and its prose is the one sentence each visual or claim needs, in the glossary's terms.
+A PR body shows the reviewer the **shape** of the change before they open the diff, the **evidence** that it works, and the **merge danger**. It opens on its first heading, and its prose is the one sentence each visual or claim needs, in the terms of the map.
 
 The title reads like a commit title: it completes "If applied, this PR…", in the present tense, capitalised, at most 72 characters, prefixed `<key>: ` when the spec has a key.
 
@@ -57,7 +57,7 @@ Each item pairs a **before** with an **after** for one behaviour the PR claims. 
 
 ## Merge Danger
 
-The **door** is two-way when reverting the merge undoes it, one-way when it does not: destructive data changes and schema migrations, a removed or changed interface that others consume (another repository a second-brain contract names among them), anything that leaves the system (emails sent, webhooks fired, packages published), and any decision an ADR or a `decision` note records as hard to reverse. A change behind a flag stays two-way only until the first write in the new shape lands. An added shape beside an unchanged old one (an expand or migrate step of a contract change) stays two-way; removing the old shape (its contract step) is one-way until every consumer's migration has merged and deployed. When the repo's agent docs list changes it treats as one-way, their list wins. The agent that wrote the change is grading it, so a close call is one-way, with the reason stated.
+The **door** is two-way when reverting the merge undoes it, one-way when it does not: destructive data changes and schema migrations, a removed or changed interface that others consume (another repository a second-brain contract names among them), anything that leaves the system (emails sent, webhooks fired, packages published), and any decision a `decision` note records as hard to reverse. A change behind a flag stays two-way only until the first write in the new shape lands. An added shape beside an unchanged old one (an expand or migrate step of a contract change) stays two-way; removing the old shape (its contract step) is one-way until every consumer's migration has merged and deployed. When the repo's agent docs list changes it treats as one-way, their list wins. The agent that wrote the change is grading it, so a close call is one-way, with the reason stated.
 
 The **blast radius** names each thing that breaks if the change is wrong, by the module or user that feels it: consumers of a changed interface (every one its `contract` note lists, in other repositories too), data already stored, layout shift, mobile, performance.
 

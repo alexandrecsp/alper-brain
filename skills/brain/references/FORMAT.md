@@ -61,11 +61,11 @@ An **embedded brain** lives in the `.brain/` folder of the one repository it cov
 
 ## Local brain
 
-A **local brain** lives in the `.brain/` folder of the one repository it covers, its **host**, and never leaves this machine: one person's brain for one repository, with every skill working and nothing in the host's history. Its `BRAIN.md` says `kind: local`. It is a git repository of its own inside the host's working tree, so `git -C <brain> rev-parse --show-toplevel` prints the `.brain/` folder itself and it is not embedded: that git test tells it from an embedded brain, whose `.brain/` the host's git owns. The host's git ignores the whole `.brain/` through the exclude file `git -C <host> rev-parse --git-path info/exclude` prints, so no tracked file in the host names it. Its layout is the one above, under `<host>/.brain/`, its own `.gitignore` inside it. The rest of this reference holds for it, except:
+A **local brain** lives in the `.brain/` folder of the one repository it covers, its **host**, and never leaves this machine: one person's brain for one repository, with every skill working and nothing in the host's history. Its `BRAIN.md` says `kind: local`. It is a git repository of its own inside the host's working tree, so `git -C <brain> rev-parse --show-toplevel` prints the `.brain/` folder itself and it is not embedded: that git test tells it from an embedded brain, whose `.brain/` the host's git owns. The host's git ignores the whole `.brain/` through the exclude file `git -C <host> rev-parse --git-path info/exclude` prints, so no tracked file of the host holds its notes. Its layout is the one above, under `<host>/.brain/`, its own `.gitignore` inside it. The rest of this reference holds for it, except:
 
 - **Open with its host**, and **One repository**, as for an embedded brain.
 - **Its own git, local only.** The brain commits in its own repository and has no remote, so [SYNC.md](SYNC.md) neither pulls nor pushes. To share it, move it into a repository of its own by [EXPORT.md](EXPORT.md)'s **Local brain**.
-- **No agent file.** The active-brain rule finds the brain, so neither the host's agent file nor the brain names it, and the brain holds no `CLAUDE.md`.
+- **Its agent file line.** The host's agent file names the brain by [SETUP.md](SETUP.md)'s step 9 as on this machine only, with no **Brain** line. The active-brain rule finds the brain. The brain holds no `CLAUDE.md`.
 - **Lost with its folder.** No remote holds a copy, and `git clean -x` in the host deletes ignored folders with the rest.
 
 ## Repositories
@@ -117,7 +117,7 @@ Charges customers and emits the invoice events the web app and the ledger consum
 
 A skill that reads or changes code first names its **working repository**, and its **root**, the clone's path.
 
-- **With no brain open**, only `commit`, `tdd` and `diagnose` run; every other skill stops, by **The open session**. The working repository is the one holding the primary working directory, and its root is what `git -C <primary working directory> rev-parse --show-toplevel` prints; when that fails, ask the user to launch Claude inside the repository, and stop. It has no card, notes or specs: take the suites from the project's scripts, read the repository's own glossary and ADRs, and skip every step that recalls from or records to the brain or reads its `.brain/`. Another repository is read only by a path the user gives. The numbered rules below are for a brain; the bullets after them hold in both cases.
+- **With no brain open**, only `commit`, `tdd` and `diagnose` run; every other skill stops, by **The open session**. The working repository is the one holding the primary working directory, and its root is what `git -C <primary working directory> rev-parse --show-toplevel` prints; when that fails, ask the user to launch Claude inside the repository, and stop. It has no card, notes or specs: take the suites from the project's scripts, read only the code and `docs/STRUCTURE.md` (a skill that finds the task touching the domain tells the user to open the brain), and skip every step that recalls from or records to the brain or reads its `.brain/`. Another repository is read only by a path the user gives. The numbered rules below are for a brain; the bullets after them hold in both cases.
 
 In an embedded or local brain, it is the host, by **Embedded brain** and **Local brain**. With any other brain open, the session's primary folder is the brain, so the working repository is the one the first of these rules gives:
 
@@ -128,7 +128,7 @@ In an embedded or local brain, it is the host, by **Embedded brain** and **Local
 
 Otherwise ask the user, listing the registered repositories. Its root comes from `.local/repos.json` or the open folder; when it has neither, ask the user to run `/brain link`, or `/add-dir <path>`, and stop. Then:
 
-- Paths a skill gives relative to a repository (`docs/STRUCTURE.md`, `GLOSSARY.md`, `docs/adr/`, `AGENTS.md`, `CLAUDE.md`) are relative to its root. Read and write its files by absolute path.
+- Paths a skill gives relative to a repository (`docs/STRUCTURE.md`, `AGENTS.md`, `CLAUDE.md`) are relative to its root. Read and write its files by absolute path.
 - Run every git command as `git -C <root>`, and every suite or script from the root (`cd <root> && <command>`).
 - Its agent file is not loaded into a session started in the brain: read it when a skill names it.
 - Sub-agents have no user: brief each one by [BRIEF.md](BRIEF.md).
@@ -172,7 +172,7 @@ Related: [[invoice-event-contract]]
 | `feature` | something a user, an operator or another system can do through the repository: who does it, what happens, and its rules. Explored only; always `business` |
 | `term` | one canonical term of the business, named once above every repository, with each repository's word for it and its relations to other terms, by **The term note**. Authored only, always `business`, always in `notes/domain/` |
 | `concept` | how a part of the system works. Always `application`: a `business` `concept` is the old form of a `term`, which `scripts/schema.mjs` warns of |
-| `decision` | a choice and its reason: a product choice (`business`) or a technical one (`application`). When the repository keeps ADRs, `explore` mirrors each as an explored `decision`, and an authored note links the mirror and records only what the ADR lacks |
+| `decision` | a choice and its reason: a product choice (`business`) or a technical one (`application`). |
 | `how-to` | what to do about a trap or a recurring task: surprising behaviour, a past incident and its lesson, or a procedure no script or doc in the repository runs |
 | `contract` | an interface between repositories (an API, event, queue or shared schema) with its producer and consumers. Its `repos` names at least two; always `application` |
 
@@ -199,7 +199,7 @@ A `term` keeps flat frontmatter, with `type: term`, `layer: business` and `repos
 
 A note's **layer** names its reader:
 
-- **`business`**: what the product does and why, in the domain's words, for a product owner or a teammate on their first day. Every explored note is `business`, except a `decision` mirroring an ADR, which takes the decision's layer.
+- **`business`**: what the product does and why, in the domain's words, for a product owner or a teammate on their first day. Every explored note is `business`.
 - **`application`**: how the system is built (its modules, data, interfaces and traps), for whoever changes the code.
 
 A fact about both takes the layer of the reader who acts on it: a refund limit is `business`, the job that enforces it `application`.

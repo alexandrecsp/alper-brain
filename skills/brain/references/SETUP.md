@@ -24,14 +24,22 @@ The `setup` branch of [`brain`](../SKILL.md): connect this machine to a brain, l
 
 8. **Settle the suites.** The card names the repository's two suites, as FORMAT.md's **Repositories** defines them. When the card already holds `unit` and `e2e`, or the repository's agent file a **Suites** line, show them and ask whether to keep them. Otherwise read the project's scripts and propose one command for each suite, or `none` when the repository has no e2e tests. When one script runs both suites, propose scripts that split them, and add them when the user agrees. Write both into the card. Done when the user confirms both commands, and running each one from the root starts the tests it names.
 
-9. **Point the agent file.** The repository's agent file points every session working in it at its layout and its domain, in the repository's own words, and names no brain: the card holds everything the brain needs. The host of an embedded brain is the exception: its agent file also takes the **Brain** line below, since sessions start there. A local brain's host takes no **Brain** line, by FORMAT.md's **No agent file**. Ask whether its agent instructions live in `AGENTS.md` or `CLAUDE.md`, recommending the one that exists. When the user picks `AGENTS.md` and no `CLAUDE.md` exists, offer a `CLAUDE.md` holding only `@AGENTS.md`: Claude Code reads `CLAUDE.md`, never `AGENTS.md`. Delete any **Spec workflow** section; from a **Second brain** section an earlier setup wrote, delete this brain's line and the `sdd/` branch bullet, and its heading and opening paragraph once no brain's line is left. Then add each line below whose file the agent file does not point at yet, under its `# References` heading, creating the heading and the file when needed:
+9. **Point the agent file.** The repository's agent file points every session working in it at its layout and at the brain that holds its terms and decisions. The host of an embedded brain also takes the **Brain** line below, since sessions start there. Ask whether its agent instructions live in `AGENTS.md` or `CLAUDE.md`, recommending the one that exists. When the user picks `AGENTS.md` and no `CLAUDE.md` exists, offer a `CLAUDE.md` holding only `@AGENTS.md`: Claude Code reads `CLAUDE.md`, never `AGENTS.md`. Delete any **Spec workflow** section; from a **Second brain** section an earlier setup wrote, delete this brain's line and the `sdd/` branch bullet, and its heading and opening paragraph once no brain's line is left. Then add each line below that the agent file lacks, under its `# References` heading, creating the heading and the file when needed:
 
    ```markdown
    # References
 
    - `docs/STRUCTURE.md`: the folder layout and file names. Read it before creating, moving or naming a file.
-   - `GLOSSARY.md` and `docs/adr/` (or `GLOSSARY-MAP.md`), when present: the domain's terms and the decisions already made. Name code in the glossary's terms, and work within the ADRs.
+   - Terms and decisions: the second brain `<name>` (`<remote>`), read through the `brain` skill.
    ```
+
+   `<name>` is the brain name by FORMAT.md, and `<remote>` its `git remote get-url origin`. A local brain has no remote, so its line reads:
+
+   ```markdown
+   - Terms and decisions: the second brain `<name>` (on this machine only), read through the `brain` skill.
+   ```
+
+   Replace a line an earlier setup wrote that points at the repository's glossary or decision records with this one, and leave those files in place: `/brain explore` absorbs them.
 
    The **Brain** line, for the host of an embedded brain only:
 
@@ -39,7 +47,7 @@ The `setup` branch of [`brain`](../SKILL.md): connect this machine to a brain, l
    - `.brain/`: this repository's second brain (see `.brain/BRAIN.md`). Before changing code, invoke the `brain` skill to recall its notes.
    ```
 
-   Done when the user declines, or the file points at both, and names the brain in the **Brain** line alone when it hosts an embedded brain, or nowhere otherwise.
+   Done when the user declines, or the file points at the layout and names the brain in the line above. An embedded brain's host also names it in the **Brain** line. No line points at a glossary or decision records.
 
 10. **Commit the brain.** Commit every picked repository's `repos/<slug>.md` and `BRAIN.md` as one commit, titled by what changed: `Registers <slug>` for a new card, `Updates <slug>'s card` for a rerun's, joined for several (`Registers api and web`, `Registers api and updates web's card`). Done when `git -C <brain> status --porcelain -- repos/ BRAIN.md` lists nothing, and one commit holds them.
 

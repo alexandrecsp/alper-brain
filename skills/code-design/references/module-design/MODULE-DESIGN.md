@@ -2,7 +2,7 @@ Design **deep modules**: a lot of behaviour behind a small interface, placed at 
 
 ## Vocabulary
 
-Use these terms exactly when you discuss a module's shape. Name each module in its repository's glossary terms, by [DOMAIN-DOCS.md](../../../brain/references/DOMAIN-DOCS.md)'s **Read them** ("the Order intake module"). A term with a _Replaces_ line displaces those words, so translate them when you meet them.
+Use these terms exactly when you discuss a module's shape. Name each module in its repository's terms of the map, by [DOMAIN-DOCS.md](../../../brain/references/DOMAIN-DOCS.md)'s **Read them** ("the Order intake module"). A term with a _Replaces_ line displaces those words, so translate them when you meet them.
 
 **Module**: anything with an interface and an implementation. Deliberately scale-agnostic: a function, class, package, tier-spanning slice, or a whole repository as other repositories see it. _Replaces_: unit, component, and service (except **Service** in [PROJECT-STRUCTURE.md](../project-structure/PROJECT-STRUCTURE.md), application logic shared by use cases).
 

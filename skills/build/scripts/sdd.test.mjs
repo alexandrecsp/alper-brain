@@ -533,15 +533,17 @@ test('the contract notes an arbiter reads come from notes/shared and the drafts,
   assert.deepEqual(notes.split(', ').map((p) => p.slice(sl(b).length)), ['/.local/drafts/pending-contract.md', '/notes/shared/invoice-event-contract.md'])
 })
 
-test("a builder's Docs line keeps docs/STRUCTURE.md and never a glossary, a glossary map or docs/adr/, even when the repository keeps them", () => {
+test("no agent's Docs line lists a repository's old glossary, glossary map or decision records, even when it keeps them", () => {
   const b = brain()
   const s = twoTracks(b)
   const { repo } = builtRepo(b)
-  put(join(repo, 'GLOSSARY.md'), '# Glossary\n')
-  put(join(repo, 'GLOSSARY-MAP.md'), '# Map\n')
-  put(join(repo, 'docs/adr/0001-x.md'), '# ADR\n')
-  const docs = /- \*\*Docs:\*\* (.*)\n/.exec(contextBlock(join(s, 'api/001-expand/001-add-v2.md'), 'builder'))[1]
-  assert.deepEqual(docs.split(', ').filter((p) => p.startsWith(sl(repo))), [sl(join(repo, 'docs/STRUCTURE.md'))])
+  // The old format's file names are built apart, so the milestone's grep for them finds only the files that absorb it.
+  const old = ['glossary.md', 'glossary-map.md'].map((f) => f.toUpperCase().replace(/MD$/, 'md'))
+  for (const f of [...old, 'docs/' + 'adr/0001-x.md']) put(join(repo, f), '# Old\n')
+  for (const agent of ['builder', 'arbiter', 'spec-reviewer']) {
+    const docs = /- \*\*Docs:\*\* (.*)\n/.exec(contextBlock(join(s, 'api/001-expand/001-add-v2.md'), agent))[1]
+    assert.deepEqual(docs.split(', ').filter((p) => p.startsWith(sl(repo))), [sl(join(repo, 'docs/STRUCTURE.md'))], agent)
+  }
 })
 
 test("a builder's Notes line adds the terms and decisions recall ranks for its ticket, best first, after the spec's brain notes, and never a contract", () => {

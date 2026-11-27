@@ -33,3 +33,9 @@ test('counts a read of notes/, repos/ and docs/ as a brain-notes read', () => {
   const out = kindsOfReads(['C:/work/.brain/notes/shared/a.md', 'C:/work/.brain/repos/api.md', 'C:/work/.brain/docs/shared/b.md'])
   assert.match(out, /read:brain-notes\s+3\.0/)
 })
+
+test('counts a read under notes/domain/ as a repository-docs read, beside the other brain notes it leaves as brain notes', () => {
+  const out = kindsOfReads(['C:/work/.brain/notes/domain/customer.md', 'C:/work/.brain/notes/shared/a.md'])
+  assert.match(out, /read:repo-docs\s+1\.0/)
+  assert.match(out, /read:brain-notes\s+1\.0/)
+})

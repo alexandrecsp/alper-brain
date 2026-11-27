@@ -6,7 +6,7 @@ Lay code out as a **hexagon** per module (Ports and Adapters, Cockburn): the dom
 
 Use these terms exactly. Module, interface, seam, port and adapter mean what [MODULE-DESIGN.md](../module-design/MODULE-DESIGN.md)'s **Vocabulary** says; the terms below add where each sits in the layout.
 
-- **Module**, at the layout's scale: a feature-sized slice named by a glossary term, holding its own hexagon. Code is grouped by module first, layer second.
+- **Module**, at the layout's scale: a feature-sized slice named by a term of the map, holding its own hexagon. Code is grouped by module first, layer second.
 - **Domain**: the module's rules: entities, value objects, and the driven ports they need, plus domain events and errors. Pure: no framework, no I/O.
 - **Aggregate**: a root entity and the entities and value objects it guards, loaded and saved as one. Each root gets one repository port.
 - **Driven port**: MODULE-DESIGN.md's driven port. It lives in the domain, so every driven port has one home.
@@ -52,7 +52,7 @@ Use these terms exactly. Module, interface, seam, port and adapter mean what [MO
 
 ## Names
 
-Entities and value objects take the plain glossary noun: they are the domain's language. Every other file names its role with a suffix, so its layer reads from a tab title or a search hit, and every role is one glob away.
+Entities and value objects take the plain noun of the term: they are the domain's language. Every other file names its role with a suffix, so its layer reads from a tab title or a search hit, and every role is one glob away.
 
 | Folder | Role suffix | Example |
 |---|---|---|

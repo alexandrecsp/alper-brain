@@ -5,4 +5,4 @@ Skills point at each other's sections by name ("LAND.md's **Land a track**"): af
 # References
 
 - `docs/STRUCTURE.md`: the folder layout and file names. Read it before creating, moving or naming a file.
-- `GLOSSARY.md` and `docs/adr/` (or `GLOSSARY-MAP.md`), when present: the domain's terms and the decisions already made. Name code in the glossary's terms, and work within the ADRs.
+- Terms and decisions: the second brain `alper-brain` (on this machine only), read through the `brain` skill.

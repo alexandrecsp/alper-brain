@@ -14,19 +14,19 @@ Every file path is the theme's **File link**, under the clone's root, never unde
 
 - **Eyebrow**: the theme's, its stamp taken from TOUR.md's source: the branch read and the target's short SHA.
 - **Headline**: what the system does, in one sentence, and under it a line naming the stack.
-- **Stat tiles**: Areas, Journeys, Entry points, Glossary terms.
+- **Stat tiles**: Areas, Journeys, Entry points, Terms.
 - **Start here** row: the first journey's title, linking to its card.
 
 ## Big picture
 
-A **context map** on a diagram canvas: a Mermaid `flowchart LR` with one node per area, labelled in the glossary's terms, an edge per dependency labelled with how it calls (`HTTP`, `queue`, `import`), and each external system as a cylinder (`[(Postgres)]`) or a subroutine node (`[[Stripe]]`). Draw it by [DIAGRAMS.md](../../write-spec/references/DIAGRAMS.md)'s smallest-view rule, with its nodes unmarked: the tour describes the code as it stands. With more than a dozen areas, group them in `subgraph`s by app or context. Around the areas, draw one node per other registered repository this one produces for or consumes from, as a stadium (`([web-app])`), each edge labelled with its `contract` note's name: draw them from the contract notes and the cards. Under the map, one line per area: its name linking to its card, and its purpose.
+A **context map** on a diagram canvas: a Mermaid `flowchart LR` with one node per area, labelled in the map's terms, an edge per dependency labelled with how it calls (`HTTP`, `queue`, `import`), and each external system as a cylinder (`[(Postgres)]`) or a subroutine node (`[[Stripe]]`). Draw it by [DIAGRAMS.md](../../write-spec/references/DIAGRAMS.md)'s smallest-view rule, with its nodes unmarked: the tour describes the code as it stands. With more than a dozen areas, group them in `subgraph`s by app or context. Around the areas, draw one node per other registered repository this one produces for or consumes from, as a stadium (`([web-app])`), each edge labelled with its `contract` note's name: draw them from the contract notes and the cards. Under the map, one line per area: its name linking to its card, and its purpose.
 
 ## Journeys
 
 One card per journey, its top edge `var(--sky)`:
 
 - **Meta row**: the entry point's kind as a chip.
-- **Title**: "What happens when…", in the glossary's terms ("What happens when a customer places an Order").
+- **Title**: "What happens when…", in the map's terms ("What happens when a customer places an Order").
 - **Sequence diagram**: a Mermaid `sequenceDiagram` on a canvas, one participant per area the journey crosses, prefixed with its repository's slug when the journey leaves this one, one message per hop.
 - **Hops**: an ordered list, each hop its function in `mono`, its file link, and its area as a chip linking to the area's card.
 
@@ -48,8 +48,8 @@ A table with one row per change from the reports, grouped by area: **To change**
 
 ## Vocabulary
 
-- **Terms**: a `dl` of every glossary term and its definition. Terms the code uses beside them that the glossary lacks carry an amber (`var(--amber)`) `not in glossary` pill, with the definition the code implies.
-- **Decisions**: one row per ADR the repository keeps, or else per `decision` note on it: its title (an ADR's number first) and decision in one line, linking to its file. Undocumented decisions follow, each in a callout naming the decision and its file.
+- **Terms**: a `dl` of every term whose pairings name the repository, with its definition and the repository's word. Terms the code uses beside them that the map lacks carry an amber (`var(--amber)`) `not in map` pill, with the definition the code implies.
+- **Decisions**: one row per `decision` note on the repository: its title and decision in one line, linking to its note. Undocumented decisions follow, each in a callout naming the decision and its file.
 
 ## Run and test
 
@@ -57,7 +57,7 @@ The commands from the manifests and the repository's card (`repos/<slug>.md`), e
 
 ## Voice
 
-Write for the newcomer: plain sentences, domain words from the glossary used exactly, and each claim beside the file link that grounds it.
+Write for the newcomer: plain sentences, domain words from the map used exactly, and each claim beside the file link that grounds it.
 
 - "Checkout places an Order, then charges it through Stripe."
 - "Pricing rules live in one module: `pricing/rules.ts`."

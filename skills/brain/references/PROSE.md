@@ -1,6 +1,6 @@
 # Plain prose
 
-The writing rules for what people read: brain notes, brainstorm rounds, and the narrative parts of specs and tickets. They adapt the writing rules of ASD-STE100 (Simplified Technical English), so a teammate reads each sentence once, in any first language. The glossary of the repository the text is about stands in for the STE dictionary. Its terms are the **technical names**, and every other word is the plainest common word that fits.
+The writing rules for what people read: brain notes, brainstorm rounds, and the narrative parts of specs and tickets. They adapt the writing rules of ASD-STE100 (Simplified Technical English), so a teammate reads each sentence once, in any first language. The terms of the repository the text is about, read in the map, stand in for the STE dictionary. They are the **technical names**, and every other word is the plainest common word that fits.
 
 ## Where it applies
 
@@ -19,7 +19,7 @@ Every other part of these files (header lines, Implementation Decisions, Relies 
 
 ## Rules
 
-1. **One name per thing.** Name each module, entity and interface by its glossary term, the same term every time, never by a word the glossary avoids (its _Avoid_ line, or a term note's `avoid`). Give each word one meaning in a file.
+1. **One name per thing.** Name each module, entity and interface by the word its repository's pairing gives for its term, the same word every time. Never use a word the pairing avoids (its `Avoid:` line, or the term note's `avoid`). Give each word one meaning in a file.
 2. **Common words.** Take the short word: _use_, _start_, _end_, _before_, _after_, _if_, _about_. Write the verb itself (_test the import_), not a noun made from it (_perform testing of the import_).
 3. **Short sentences.** A procedural sentence holds at most 20 words, a descriptive one at most 25. A code span, path or `[[link]]` counts as one word, and an acceptance criterion's `, proven at <seam>` ending counts as none.
 4. **One action per sentence.** Write an instruction in the imperative, with its condition first: _When the retry fails, log the key._ Write a check (a criterion, a **Done when**) as one result the reader can see, and a question as one decision. Two actions take two sentences.

@@ -10,7 +10,7 @@ Each pattern name below is used exactly as written: the name alone carries its s
 
 ## Recording
 
-Wherever a pattern choice is written down, record it as Pattern, Where and Why, one row per choice per repository. "Where" names the repository's slug, then the module in that repository's glossary terms, never a file path. A choice that spans repositories (an Outbox in the producer, an Idempotent Consumer in each consumer) takes one row per repository, so each milestone's tickets copy only their own.
+Wherever a pattern choice is written down, record it as Pattern, Where and Why, one row per choice per repository. "Where" names the repository's slug, then the module in that repository's terms of the map, never a file path. A choice that spans repositories (an Outbox in the producer, an Idempotent Consumer in each consumer) takes one row per repository, so each milestone's tickets copy only their own.
 
 | Pattern | Where | Why |
 |---|---|---|
@@ -20,7 +20,7 @@ A spec's rows stay on this machine. A choice the next change must repeat outlive
 
 - about one contract (how it is versioned, delivered or deduplicated): the `contract` note;
 - spanning repositories, not one contract: a `decision` note whose `repos` names each repository;
-- inside one repository: an ADR when the repository keeps ADRs, else a `decision` note naming it.
+- inside one repository: a `decision` note naming it.
 
 ## Catalogue
 
@@ -48,5 +48,5 @@ A spec's rows stay on this machine. A choice the next change must repeat outlive
 - **Transactional Outbox**: a repository must commit its own change and publish the event or call another repository relies on, and neither may happen without the other.
 - **Idempotent Consumer**: a consumer can receive the same message twice (at-least-once delivery, retries, an outbox relay). Key it on the id the contract note names.
 - **Tolerant Reader**: a consumer must keep working through the producer's expand step: it reads only the fields it uses and ignores the rest. Choose it where a consumer would break on a field it does not use.
-- **Anti-Corruption Layer**: a consumer's glossary names the producer's concepts differently. Translate in its driven adapter, so the producer's terms stop at its edge.
+- **Anti-Corruption Layer**: a consumer's pairings name the producer's concepts differently. Translate in its driven adapter, so the producer's terms stop at its edge.
 - **Consumer-Driven Contract**: the producer must know a change breaks no consumer before it lands, since each repository lands and deploys alone. Each consumer's expectations run in the producer's suite; name that seam in the spec's Testing Decisions.
