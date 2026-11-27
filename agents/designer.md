@@ -13,7 +13,7 @@ Your tools are Read, Grep, Glob and Write, with no Edit or Bash: write the file 
 
 Variants differ in **structure**: layout, information hierarchy, primary affordance. Colour and copy alone make a tweak, not a variant. Your brief's **Stage** names the pass:
 
-- **`wireframe`**: the variant at low fidelity. Grey boxes for its regions, each labelled with the content it holds, inside the host page's real chrome (header, sidebar), with no styling past layout.
+- **`wireframe`**: the variant at low fidelity. Grey boxes for its regions, each labelled with the content it holds, inside the host page's real chrome (header, sidebar), with no styling past layout. When your brief carries **Feedback**, read the wireframe already at your path and change what the feedback names, keeping the rest.
 - **`full`**: read the wireframe already at your path, then rewrite it in the project's components and styling. Keep its regions in their arrangement; the detail inside each region is yours.
 
 When your brief lists inspirations, Read each screenshot, and take from each only what its line says the user likes in it; your structural constraint wins where they clash.

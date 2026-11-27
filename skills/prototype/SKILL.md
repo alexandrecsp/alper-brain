@@ -13,7 +13,7 @@ A prototype is **throwaway** code that answers one question. The question decide
 Name the question from the argument, else the user's prompt and the code around it, then its branch. `<slug>` is the question in kebab-case, for both branches.
 
 - **"Does this logic or state model feel right?"** → [LOGIC.md](references/LOGIC.md)'s **Process**, after **Where it lives**: a shareable HTML demo.
-- **"What should this look like?"** → [UI.md](references/UI.md)'s **Process**, after **Where it lives**: switchable variants on one route, each a wireframe first.
+- **"What should this look like?"** → [UI.md](references/UI.md)'s **Process**, after **Where it lives**: switchable variants on one route, iterated as wireframes until the user says to build them.
 
 When the question is unclear, ask the user; when they are away, follow the code around it (a backend module or a contract → logic, a page or component → UI) and state that assumption at the top of the prototype. Done when the question stands written in one sentence and its branch is named.
 

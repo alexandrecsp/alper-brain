@@ -21,6 +21,7 @@ A variant is judged best **in situ**: against the app's real header, sidebar, da
    - the variant's structural constraint from step 1, and each other variant's constraint, so this one stays clear of them
    - the inspirations from step 1, each line with its screenshot's path, when there are any
    - **Stage**: `wireframe`; at step 6, `full`, with the project's component library and styling, by file path
+   - **Feedback**, only on a step-5 revision: the user's notes on this variant's last wireframe, in their words
 
    Each designer reports one line on its structure. While they draft, write step 3's switcher and step 4's bar from step 1's keys, names and exports, and run their checks once this step is done. Done when every report has its structure line, every variant file exists at its path and exports its name, `git -C <root> status --porcelain` lists only the prototype's files, the brain is unchanged, and, reading each one's top-level layout, no two match; redispatch one with a sharper constraint ("no card grid") when two come out alike.
 
@@ -50,9 +51,15 @@ A variant is judged best **in situ**: against the app's real header, sidebar, da
 
    Done when the arrows and keys cycle every variant and the URL follows, checked with the project's browser tooling, else by reading the bar's key handler; say which in the hand-over.
 
-5. **Review the wireframes.** Give the user the URL and the `?variant=` keys, and let them cut, merge or redirect a variant. Fold each change into step 1's plan and redispatch that variant's wireframe. Done when the user approves the set; when the user is away, go on, and say in step 7's hand-over that the wireframes went unreviewed.
+5. **Iterate on the wireframes**, round by round. Each round, give the user the URL and the live `?variant=` keys, and turn their feedback into changes:
 
-6. **Build the variants.** Dispatch one `alper-brain:designer` per approved variant again, with step 2's brief at **Stage** `full`: it turns the wireframe at its path into the full variant. Done when step 2's checks pass again and each variant's top-level layout keeps its wireframe's regions; redispatch one that strays.
+   - **Refine** a variant: redispatch its designer with step 2's brief plus **Feedback**. Moving, relabelling or dropping one region you do yourself in its file, at the same fidelity.
+   - **Cut** one: take it out of the switcher and the bar; its file stays on the branch.
+   - **Merge** parts of several into a new variant, or **redirect** one to a new constraint: fold it into step 1's plan (key, name, export, path), dispatch its designer by step 2, and update the switcher and the bar.
+
+   Close the round once step 2's checks pass on what changed: commit it on `prototype/<slug>` (`git -C <root>`, the message naming the round and its changes), so an earlier round can be restored, then ask the user whether to run another round or build at full fidelity, and which live variants go to full. Picking a winner narrows the live set to it, and the next round refines it; only the user's answer to build ends this step. Done when the user says to build and names the variants; when the user is away, go on with the live set, and say in step 7's hand-over that the wireframes went unreviewed.
+
+6. **Build the variants.** Dispatch one `alper-brain:designer` per variant the user named in step 5, with step 2's brief at **Stage** `full`: it turns the wireframe at its path into the full variant. Done when step 2's checks pass again and each variant's top-level layout keeps its wireframe's regions; redispatch one that strays.
 
 7. **Hand it over.** Give the user the URL and the `?variant=` keys. The best feedback is usually "the header from B with the sidebar from C": that combination is the design they want. Done when a variant, or a combination, has won. When the user is away, end with the hand-over and report the verdict as open; **Capture** waits for it.
 
