@@ -53,6 +53,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { RecallError, rank } from '../../brain/scripts/recall.mjs'
 import { brainOfSpec, findBrain, fwd, oldLayoutOf, pathsOf, specFolderOf } from '../../brain/scripts/layout.mjs'
 
 export const DEFAULT_CAP = 5
@@ -897,6 +898,17 @@ const briefTemplate = () => {
   return block.replace(/\r/g, '').trimEnd()
 }
 
+/** The terms and decisions recall ranks, on the repository, for a ticket's title and body (its diagrams left out), as absolute paths. */
+const domainNotesFor = (brain, slug, ticketPath) => {
+  const query = read(ticketPath).replace(/^```[\s\S]*?^```/gm, '')
+  try {
+    return rank(brain, { repos: [slug], types: ['term', 'decision'], queries: [query] }).shown.map(({ n }) => slash(join(brain, n.path)))
+  } catch (e) {
+    if (e instanceof RecallError) return []
+    throw e
+  }
+}
+
 /**
  * The Context block by BRIEF.md for one of build's sub-agents on a ticket or milestone, every line filled from the
  * spec, the brain and the repository: what each agent reads and may write, by build's steps 5 to 9.
@@ -916,15 +928,16 @@ export const contextBlock = (path, agent, { writes = [], branch: onBranch } = {}
     ? [...m.buildsAfter, ...m.landsAfter].filter((id) => !id.bad && id.track && id.track !== track).map((id) => id.track)
     : agent === 'arbiter' ? contracts.flatMap((c) => c.repos).filter((s) => s !== track) : [])
   const card = pathsFor(brain).card(track)
+  // A builder takes the domain's terms and decisions from the brain's notes, so it is never pointed at the repository's own.
   const docs = [
-    ...['docs/STRUCTURE.md', 'GLOSSARY-MAP.md', 'GLOSSARY.md', 'docs/adr/', ...(agent === 'standards-reviewer' ? ['CLAUDE.md', 'AGENTS.md'] : [])].map((f) => join(root, f)).filter((p) => existsSync(p)),
+    ...['docs/STRUCTURE.md', ...(changes ? [] : ['GLOSSARY-MAP.md', 'GLOSSARY.md', 'docs/adr/']), ...(agent === 'standards-reviewer' ? ['CLAUDE.md', 'AGENTS.md'] : [])].map((f) => join(root, f)).filter((p) => existsSync(p)),
     ...(changes ? ['skills/code-design/references/project-structure/PROJECT-STRUCTURE.md', 'skills/code-design/references/module-design/MODULE-DESIGN.md'].map((f) => join(PLUGIN, f)) : []),
     ...(agent === 'fixer' ? [join(PLUGIN, 'agents', 'builder.md')] : []),
     ...(agent === 'standards-reviewer' ? [join(PLUGIN, 'skills', 'review-changes', 'references', 'SMELLS.md')] : []),
     ...(changes ? [join(PLUGIN, 'skills', 'build', 'scripts', 'sdd.mjs')] : []),
   ].map(slash)
   const brainNotes = isNone(spec.brainNotes) ? [] : spec.brainNotes.split(',').map((s) => s.trim()).filter(Boolean)
-  const notes = [...new Set([...brainNotes, ...contracts.map((c) => c.path)])]
+  const notes = [...new Set([...brainNotes, ...contracts.map((c) => c.path), ...(changes && ticketPath ? domainNotesFor(brain, track, ticketPath) : [])])]
   const msPath = slash(join(m.dir, 'milestone.md'))
   const own = ticketPath && changes ? `, the ticket file at ${ticketPath}` : ''
   const write = changes ? `files under ${slash(root)}${own}` : writes.length ? writes.map((w) => `the file at ${slash(resolve(w))}`).join(', ') : 'nothing'

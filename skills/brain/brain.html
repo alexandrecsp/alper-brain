@@ -200,7 +200,8 @@ const Theme = (function () {
 // ============================================================ THE BRAIN VIEW
 // One brain, as screens: Overview (KPIs, the ticket heatmap, the specs in dependency waves, what needs you, recent
 // activity, a card per repository), a spec's page (its milestones as a pipeline, one lane per repository), Board (a
-// kanban of specs or milestones), Notes graph (notes and links in a force layout) and Activity (the brain's commits). A
+// kanban of specs or milestones), Notes graph (notes and links in a force layout), Domain (the canonical terms, their relations
+// and decisions, read from the server) and Activity (the brain's commits). A
 // rail picks the screen and filters by repository; the details panel opens over the screen with the selected item.
 // The route is #/b/<brain>/<screen>[/<arg>]. App.load(id, D) draws a brain's data (toData's shape); loading the same
 // brain again, as a live reload does, keeps the screen, selection and filters.
@@ -261,7 +262,7 @@ const App = (function () {
   function ctx() {
     const D = S.D, r = route();
     return {
-      D, ui, STATUS, ORDER, TICKET, STAGE_ICON, route: r, sel: S.sel, repo: S.repo, q: S.q, scope: S.scope,
+      D, brain: S.brain, ui, STATUS, ORDER, TICKET, STAGE_ICON, route: r, sel: S.sel, repo: S.repo, q: S.q, scope: S.scope,
       specs: D.specs.filter((s) => inScope(s) && matches(s)), inScope, repoColor,
       select: (kind, id) => { S.sel = kind ? { kind, id } : null; renderInspector(); window.dispatchEvent(new Event('app-select')); },
       go, specOf: (id) => D.specs.find((s) => s.id === id),
@@ -330,10 +331,11 @@ const App = (function () {
     if (key) return md.slice(0, key.index + key[0].length) + '\n\n' + line + md.slice(key.index + key[0].length);
     const h = /^# .*$/m.exec(md); return h ? md.slice(0, h.index + h[0].length) + '\n\n' + line + md.slice(h.index + h[0].length) : line + '\n\n' + md;
   };
-  // A draft names the note's home as its target, by layout.mjs's noteHome rule: its repository's notes for a repos line of
-  // one slug, else the shared notes.
+  // A draft names the note's home as its target, by layout.mjs's noteHome rule: the domain notes for a term, else its
+  // repository's notes for a repos line of one slug, else the shared notes.
+  const homeOf = (type, repos) => (type === 'term' ? BrainSource.LAYOUT.domainNotes : repos.length === 1 ? BrainSource.LAYOUT.repoNotes(repos[0]) : BrainSource.LAYOUT.sharedNotes);
   const draftNote = ({ name, type, layer, description, repos, body }) =>
-    `---\nname: ${name}\ndescription: ${description}\ntype: ${type}\nlayer: ${layer}\nrepos: [${repos.join(', ')}]\ntarget: ${repos.length === 1 ? BrainSource.LAYOUT.repoNotes(repos[0]) : BrainSource.LAYOUT.sharedNotes}/${name}.md\naction: record\n---\n\n${body.trim()}\n`;
+    `---\nname: ${name}\ndescription: ${description}\ntype: ${type}\nlayer: ${layer}\nrepos: [${repos.join(', ')}]\ntarget: ${homeOf(type, repos)}/${name}.md\naction: record\n---\n\n${body.trim()}\n`;
   async function save(path, change, done) {
     try { await S.io.edit(path, change); toast(done); } catch (e) { toast('Not saved: ' + (e.message || e)); }
   }
@@ -364,10 +366,10 @@ const App = (function () {
     const repos = S.D.repos.map((r) => r.slug), opt = (v, l = v) => `<option value="${esc(v)}">${esc(l)}</option>`, sel = (attr, opts) => `<select ${attr} class="${INPUT}" ${inputStyle}>${opts}</select>`;
     const backRepo = S.D.notes.find((x) => x.links.includes(id))?.repos[0];
     return sec('Draft it here', `<div class="space-y-2.5" data-draft="${esc(id)}">
-      <div class="grid grid-cols-2 gap-2">${field('Type', sel('data-type', ['concept', 'decision', 'how-to', 'contract'].map((t) => opt(t)).join('')))}${field('Layer', sel('data-layer', opt('application') + opt('business')))}</div>
+      <div class="grid grid-cols-2 gap-2">${field('Type', sel('data-type', ['concept', 'term', 'decision', 'how-to', 'contract'].map((t) => opt(t)).join('')))}${field('Layer', sel('data-layer', opt('application') + opt('business')))}</div>
       ${field('Repos', `<input data-repos value="${esc(backRepo || '')}" placeholder="${esc(repos.slice(0, 2).join(', ') || 'billing-api, web-app')}" class="${INPUT}" ${inputStyle}>`)}
       ${field('Description', `<input data-description placeholder="One line that stands alone" class="${INPUT}" ${inputStyle}>`)}
-      ${field('Body', `<textarea data-body rows="6" placeholder="The fact first. A decision or how-to adds **Why:** and **How to apply:** lines." class="${INPUT}" ${inputStyle}></textarea>`)}
+      ${field('Body', `<textarea data-body rows="6" placeholder="The fact first. A decision or how-to adds **Why:** and **How to apply:** lines. A term adds a ## Pairings line per repository, then ## Relations." class="${INPUT}" ${inputStyle}></textarea>`)}
       <div class="flex flex-wrap items-center gap-2"><button class="btn btn-accent text-[12px]" data-draft-save="${esc(id)}">Save the draft</button><span class="faint text-[11.5px]">into ${BrainSource.LAYOUT.drafts}/ · /brain sync shares it</span></div>
       <div class="faint pt-1 text-[11.5px]">Or let Claude write it: ${ui.copyBtn(`/brain remember ${id}`)}</div></div>`);
   }
@@ -594,12 +596,40 @@ const App = (function () {
   window.addEventListener('app-select', () => render());
 
   return {
-    register: (k, v) => { screens[k] = v; },
+    // nav, { label, icon, after }, adds the screen to the rail's list, after the screen named
+    register: (k, v, nav) => {
+      screens[k] = v;
+      if (nav) { const at = NAV.findIndex(([n]) => n === nav.after); NAV.splice(at < 0 ? NAV.length : at + 1, 0, [k, nav.label, nav.icon]); }
+    },
     // a new brain starts clean; the same brain again (a live reload) keeps the screen, selection and filters
     // io: { edit(path, change) } for the open brain, by the page; change gets the file's text (undefined when absent)
     load: (brain, D, io) => { if (S.brain !== brain) Object.assign(S, { brain, sel: null, repo: null, q: '', showDraft: false }); S.D = D; S.io = io; render(); },
     render, state: S,
   };
+})();
+</script>
+
+<script>
+// ============================================================ THE FORCE LAYOUT
+// The forces the Notes graph and the Domain screen settle their nodes by: springs along the links, every node repelling every
+// other, a pull to the centre that holds the loose ones at the rim, and a collision radius `r` on each node. Each node has
+// a `deg`, its number of links. The sliders' values are `DEFAULTS`' keys.
+const ForceLayout = (function () {
+  const DEFAULTS = { center: 0.5, repel: 10, link: 0.5, dist: 60 };
+  const simulation = (d3, nodes, links) => d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id((d) => d.id))
+    .force('charge', d3.forceManyBody().distanceMax(900))
+    .force('x', d3.forceX(0)).force('y', d3.forceY(0))
+    .force('collide', d3.forceCollide((d) => d.r + 2))
+    .stop();
+  // the four forces, from the sliders. Link strength is divided by the lesser degree, as d3 does by default, so a node
+  // with many springs does not shake.
+  const tune = (sim, F) => {
+    sim.force('link').distance(F.dist).strength((l) => Math.min(1, (2 * F.link) / Math.max(1, Math.min(l.source.deg, l.target.deg))));
+    sim.force('charge').strength(-F.repel * 12);
+    sim.force('x').strength(F.center * 0.1); sim.force('y').strength(F.center * 0.1);
+  };
+  return { DEFAULTS, simulation, tune };
 })();
 </script>
 
@@ -1155,7 +1185,7 @@ App.register('overview', {
 // type; ghosts are dashed circles, cross-repository links dashed lines.
 (function () {
   const ACCENT = 'var(--accent)', GREY = 'var(--muted)', GHOST = 'var(--muted)';
-  const F = { cross: true, ghosts: true, labels: true, by: 'repo', center: 0.5, repel: 10, link: 0.5, dist: 60 };
+  const F = { cross: true, ghosts: true, labels: true, by: 'repo', ...ForceLayout.DEFAULTS };
   const FORCES = [['center', 'Center force', 0, 1, 0.01], ['repel', 'Repel force', 0, 20, 0.1], ['link', 'Link force', 0, 1, 0.01], ['dist', 'Link distance', 20, 400, 1]];
   // the toggles and forces are this viewer's preference, kept across visits
   const KEY = 'brain.notes-graph';
@@ -1225,13 +1255,7 @@ App.register('overview', {
     });
   }
 
-  // the four forces, from the sliders. Link strength is divided by the lesser degree, as d3 does by default, so a note
-  // with many springs does not shake.
-  function tune() {
-    sim.force('link').distance(F.dist).strength((l) => Math.min(1, (2 * F.link) / Math.max(1, Math.min(l.source.deg, l.target.deg))));
-    sim.force('charge').strength(-F.repel * 12);
-    sim.force('x').strength(F.center * 0.1); sim.force('y').strength(F.center * 0.1);
-  }
+  const tune = () => ForceLayout.tune(sim, F);
 
   function build(D) {
     if (sim) sim.stop();
@@ -1270,13 +1294,7 @@ App.register('overview', {
     typeCol = (t) => Theme.color(Math.max(0, types.indexOf(t)));
     typeCount = d3.rollup(D.notes, (v) => v.length, (n) => n.type);
 
-    // springs along links, every note repelling every other, a pull to the centre that holds orphans at the rim
-    sim = d3.forceSimulation(nodes)
-      .force('link', d3.forceLink(links).id((d) => d.id))
-      .force('charge', d3.forceManyBody().distanceMax(900))
-      .force('x', d3.forceX(0)).force('y', d3.forceY(0))
-      .force('collide', d3.forceCollide((d) => d.r + 2))
-      .stop();
+    sim = ForceLayout.simulation(d3, nodes, links);
     tune();
     // most of the settling happens off screen; the rest plays out live, as Obsidian's graph does
     for (let i = 0; i < (prev.size ? 0 : 160); i++) sim.tick();
@@ -1501,6 +1519,141 @@ App.register('overview', {
   });
 })();
 
+</script>
+
+<script>
+// ============================================================ THE DOMAIN SCREEN
+// The Domain screen: the brain's canonical terms as a graph, read from the server's domain route. A term is a node; a
+// relation is an edge labelled with its verb; a decision is a node linked to the terms it binds. Selecting a node opens its
+// inspector at the side of the graph. The nodes settle by the Notes graph's forces (ForceLayout). The route is read again
+// whenever the brain's data is, so each change event the server sends shows here. Over file:/// there is no route to read.
+(function () {
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // a node's id, and the kind of a relation's target: a term when one holds the name, else a ghost
+  const idOf = (kind, name) => kind + '|' + name;
+  const kindOfTarget = (known, name) => (known.has(name) ? 'term' : 'ghost');
+
+  // The graph of a map: a node per term, and a ghost for each relation target no term holds yet, as the Notes graph draws a
+  // note not written yet; an edge per relation, labelled with its verb; a node per decision, linked to each term that lists it.
+  const graphOf = (map) => {
+    const nodes = [], byId = new Map(), edges = [], links = [];
+    const node = (kind, name) => {
+      const id = idOf(kind, name);
+      if (!byId.has(id)) { const d = { id, kind, name, deg: 0, r: kind === 'term' ? 10 : kind === 'decision' ? 7 : 6 }; byId.set(id, d); nodes.push(d); }
+      return byId.get(id);
+    };
+    const known = new Set(map.terms.map((t) => t.name));
+    map.terms.forEach((t) => node('term', t.name));
+    map.terms.forEach((t) => t.relations.forEach((r) => {
+      const to = node(kindOfTarget(known, r.target), r.target), from = byId.get(idOf('term', t.name));
+      from.deg++; to.deg++;
+      edges.push({ key: `${t.name}|${r.verb}|${r.target}`, verb: r.verb, source: from.id, target: to.id });
+    }));
+    map.terms.forEach((t) => t.decisions.forEach((name) => {
+      const decision = node('decision', name), term = byId.get(idOf('term', t.name));
+      decision.deg++; term.deg++;
+      links.push({ key: `${decision.id}|${t.name}`, source: decision.id, target: term.id });
+    }));
+    return { nodes, edges, links, byId };
+  };
+
+  // the nodes laid out on a ring, then settled by the forces
+  const layout = (graph) => {
+    graph.nodes.forEach((d, i) => { const a = (2 * Math.PI * i) / graph.nodes.length; d.x = 160 * Math.cos(a); d.y = 160 * Math.sin(a); });
+    const sim = ForceLayout.simulation(d3, graph.nodes, [...graph.edges, ...graph.links].map((e) => ({ source: e.source, target: e.target })));
+    ForceLayout.tune(sim, ForceLayout.DEFAULTS);
+    for (let i = 0; i < 300; i++) sim.tick();
+  };
+
+  const svgOf = (graph) => {
+    const xs = graph.nodes.map((d) => d.x), ys = graph.nodes.map((d) => d.y), pad = 70;
+    const x0 = Math.min(...xs) - pad, y0 = Math.min(...ys) - pad;
+    const edges = graph.edges.map((e) => {
+      const a = graph.byId.get(e.source), b = graph.byId.get(e.target);
+      return `<g data-edge="${esc(e.key)}"><line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke-opacity="0.5" style="stroke:var(--muted)"/><text x="${(a.x + b.x) / 2}" y="${(a.y + b.y) / 2}" text-anchor="middle" font-size="10" style="fill:var(--muted)">${esc(e.verb)}</text></g>`;
+    });
+    const links = graph.links.map((l) => {
+      const a = graph.byId.get(l.source), b = graph.byId.get(l.target);
+      return `<line data-link="${esc(l.key)}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke-opacity="0.4" stroke-dasharray="3 3" style="stroke:var(--s-active)"/>`;
+    });
+    const shape = (d) => (d.kind === 'decision' ? `<rect x="${-d.r}" y="${-d.r}" width="${2 * d.r}" height="${2 * d.r}" style="fill:var(--s-active)"/>` : `<circle r="${d.r}" ${d.kind === 'ghost' ? 'fill-opacity="0.4" stroke-dasharray="2 2.5"' : ''} style="fill:var(--accent)"/>`);
+    const nodes = graph.nodes.map((d) => `<g data-node="${esc(d.id)}" transform="translate(${d.x},${d.y})" style="cursor:pointer">${shape(d)}<text y="${d.r + 13}" text-anchor="middle" font-size="11" ${d.kind === 'ghost' ? 'font-style="italic"' : ''} style="fill:var(--text)">${esc(d.name)}</text></g>`);
+    return `<svg viewBox="${x0} ${y0} ${Math.max(...xs) + pad - x0} ${Math.max(...ys) + pad - y0}" width="100%" height="100%">${links.join('')}${edges.join('')}${nodes.join('')}</svg>`;
+  };
+
+  // the node selected, by its data-node value, and the last answer drawn: the brain's data it was read for, its map and its graph; `reads` numbers the reads, so a slow answer never draws over a newer one
+  let sel = null, built = null, reads = 0;
+
+  // a pairing as a chip in its repository's colour, with its nuance beside it
+  const pairingOf = (p, ctx) => {
+    const color = ctx.repoColor(p.repo);
+    return `<div data-pairing="${esc(p.repo)}" style="margin-bottom:6px"><span class="chip" style="background:color-mix(in srgb, ${color} 16%, transparent);color:color-mix(in srgb, ${color} 80%, white)"><span class="h-1.5 w-1.5 rounded-full" style="background:${color}"></span>${esc(p.repo)}${p.context ? ' · ' + esc(p.context) : ''}: ${esc(p.word)} (${esc(p.degree)})</span>${p.nuance ? ` <span class="muted text-[11.5px]">${esc(p.nuance)}</span>` : ''}</div>`;
+  };
+  const sectionOf = (title, inner) => `<section data-section="${title}" class="border-t px-4 py-3 hairline"><div class="eyebrow mb-2">${title}</div>${inner}</section>`;
+  // a row that selects the node it names
+  const pickOf = (id, inner) => `<div class="row" data-pick="${esc(id)}">${inner}</div>`;
+
+  const inspectorOf = (map, ctx) => {
+    const [kind, name] = sel ? [sel.slice(0, sel.indexOf('|')), sel.slice(sel.indexOf('|') + 1)] : [];
+    const title = `<div class="px-4 pb-2 pt-4 text-[18px]">${esc(name)}</div>`;
+    if (kind === 'decision') return title + sectionOf('Terms', map.terms.filter((t) => t.decisions.includes(name)).map((t) => pickOf(idOf('term', t.name), esc(t.name))).join(''));
+    if (kind === 'ghost') return title + '<div class="muted px-4 pb-4 text-[12.5px]">Not written yet: a relation names it, and no term note holds it.</div>';
+    const term = kind === 'term' && map.terms.find((t) => t.name === name);
+    if (!term) return '<div class="faint p-4 text-[12.5px]">Select a term to read what it means in each repository.</div>';
+    const known = new Set(map.terms.map((t) => t.name));
+    // the words to avoid: the term's own, then each repository's
+    const avoid = [...term.avoid.map(esc), ...term.pairings.flatMap((p) => p.avoid.map((w) => `${esc(w)} <span class="faint">(${esc(p.repo)})</span>`))];
+    return title
+      + sectionOf('Definition', `<p class="text-[12.5px] leading-relaxed">${esc(term.description)}</p>`)
+      + sectionOf('Pairings', term.pairings.map((p) => pairingOf(p, ctx)).join(''))
+      + (avoid.length ? sectionOf('Avoid', `<div class="flex flex-wrap gap-1.5">${avoid.map((w) => `<span class="chip" style="background:var(--panel-2)">${w}</span>`).join('')}</div>`) : '')
+      + (term.relations.length ? sectionOf('Relations', term.relations.map((r) => pickOf(idOf(kindOfTarget(known, r.target), r.target), `<span class="muted">${esc(r.verb)}</span><span>→</span><span>${esc(r.target)}</span>`)).join('')) : '')
+      + (term.decisions.length ? sectionOf('Decisions', term.decisions.map((d) => pickOf(idOf('decision', d), esc(d))).join('')) : '');
+  };
+
+  const draw = (el, ctx) => {
+    const { map, graph } = built;
+    if (!graph.nodes.length) { el.innerHTML = '<div class="mx-auto max-w-[900px] p-5"><div class="text-[22px]">Domain</div><div class="muted mt-2">This brain holds no term yet. A <span class="mono">term</span> note in <span class="mono">notes/domain/</span> draws here.</div></div>'; return; }
+    el.innerHTML = `<div style="position:absolute;inset:0;display:flex"><div style="flex:1;min-width:0">${svgOf(graph)}</div><aside data-inspector class="panel" style="width:340px;flex:none;overflow:auto;margin:12px">${inspectorOf(map, ctx)}</aside></div>`;
+    el.onclick = (e) => {
+      const t = e.target.closest('[data-node],[data-pick]');
+      if (!t) return;
+      sel = t.dataset.node ?? t.dataset.pick;
+      draw(el, ctx);
+    };
+  };
+
+  App.register('domain', {
+    async render(el, ctx) {
+      if (!viaServer) {
+        el.innerHTML = '<div class="mx-auto max-w-[900px] p-5"><div class="text-[22px]">Domain</div><div class="muted mt-2">The Domain screen needs the brain server: the terms and decisions are read from its domain route. Start it with <span class="mono">/brain view</span> and open the page it serves.</div></div>';
+        return;
+      }
+      // the route is read when the brain's data is new, which each change event brings, not when the screen redraws for a selection or a filter
+      if (!built || built.D !== ctx.D || built.brain !== ctx.brain) {
+        const asked = ++reads;
+        let map;
+        try {
+          const res = await fetch(`/api/brains/${encodeURIComponent(ctx.brain)}/domain`);
+          if (!res.ok) throw new Error(`the server answered ${res.status}`);
+          map = await res.json();
+        } catch (e) {
+          if (asked !== reads) return;
+          built = null;
+          el.innerHTML = `<div class="mx-auto max-w-[900px] p-5"><div class="text-[22px]">Domain</div><div class="muted mt-2">The page could not read the domain map: ${esc(e.message)}.</div></div>`;
+          return;
+        }
+        if (asked !== reads) return;
+        const graph = graphOf(map);
+        layout(graph);
+        if (built && built.brain !== ctx.brain) sel = null;
+        built = { brain: ctx.brain, D: ctx.D, map, graph };
+      }
+      draw(el, ctx);
+    },
+  }, { label: 'Domain', icon: 'M5 5h5v5H5zM14 14h5v5h-5zM17 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM10 7.5h5M7.5 10v4a2 2 0 0 0 2 2H14', after: 'notes' });
+})();
 </script>
 
 <script>
@@ -1753,7 +1906,7 @@ const BrainSource = (function () {
   // The paths of a brain in its `.brain/` folder, relative to it: a copy of layout.mjs's pathsOf, which
   // skills/brain/scripts/layout-copies.test.mjs checks.
   const LAYOUT = {
-    specs: '.local/specs', repoNotesRoot: 'notes/repos', repoNotes: (slug) => `notes/repos/${slug}`, sharedNotes: 'notes/shared', drafts: '.local/drafts',
+    specs: '.local/specs', repoNotesRoot: 'notes/repos', repoNotes: (slug) => `notes/repos/${slug}`, sharedNotes: 'notes/shared', domainNotes: 'notes/domain', drafts: '.local/drafts',
     repos: 'repos', reposJson: '.local/repos.json', card: (slug) => `repos/${slug}.md`,
   };
   // the key a clone is kept under: its path, or its slug when the brain links no path
@@ -1785,7 +1938,7 @@ const BrainSource = (function () {
       return d.getFileHandle(parts.at(-1), { create });
     };
 
-    // A brain's specs with times, the notes of its repositories and shared ones, its drafts, every repository's card and
+    // A brain's specs with times, the notes of its repositories, shared ones and domain ones, its drafts, every repository's card and
     // repos.json, keyed relative to the brain: the files the server source reads. The folder source has no history, so it
     // gives no timeline.
     async function readFiles(dir) {
@@ -1794,6 +1947,7 @@ const BrainSource = (function () {
       await under(LAYOUT.specs, true);
       await under(LAYOUT.repoNotesRoot);
       await under(LAYOUT.sharedNotes);
+      await under(LAYOUT.domainNotes);
       await under(LAYOUT.drafts);
       try {
         for await (const [name, h] of (await sub(dir, LAYOUT.repos)).entries()) {
@@ -2113,12 +2267,12 @@ const ticketsStatus = (ts) => (!ts.length ? 'draft' : ts.every((t) => t.status =
   : ts.some((t) => t.status === 'doing' || t.status === 'done') ? 'active' : 'ready');
 const WIKI = /\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]/g;
 
-// Where a path sits, as notes.mjs's placeOf reads it: the repository its folder names (null in the shared notes' folder) and
+// Where a path sits, as notes.mjs's placeOf reads it: the repository its folder names (null in the shared and domain notes' folders) and
 // whether the file is a card. It never tells a note's kind: the note's `explored` line does.
 function placeOf(path) {
   const p = path.split('/'), L = BrainSource.LAYOUT, dir = p.slice(0, -1).join('/');
   if (p.length === 4 && dir === L.repoNotes(p[2])) return { slug: p[2], card: false };
-  if (dir === L.sharedNotes) return { slug: null, card: false };
+  if (dir === L.sharedNotes || dir === L.domainNotes) return { slug: null, card: false };
   if (path === L.card(p[1]?.slice(0, -3))) return { slug: p[1].slice(0, -3), card: true };
   return null;
 }

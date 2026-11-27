@@ -103,6 +103,7 @@ const B = 'C:/work/acme-brain'
 const BRAIN = filesOf({
   [`${B}/BRAIN.md`]: '# acme',
   [`${B}/notes/shared/retry-keys.md`]: 'x',
+  [`${B}/notes/domain/customer.md`]: 'x',
   [`${B}/repos/api.md`]: 'x',
   [`${B}/repos/web.md`]: 'x',
   [`${B}/notes/repos/api/billing.md`]: 'x',
@@ -133,7 +134,7 @@ test('a brain folder of an old layout is not found', async () => {
 
 test('the brain counts its notes and specs, and reads each track of a spec in flight', async () => {
   const b = await readBrain(BRAIN, B)
-  expect([b.name, b.notes, b.repos, b.drafts, b.inFlight, b.landed]).toEqual(['acme-brain', 2, 2, 1, 1, 1])
+  expect([b.name, b.notes, b.repos, b.drafts, b.inFlight, b.landed]).toEqual(['acme-brain', 3, 2, 1, 1, 1])
   expect(b.specs.map(s => [s.id, s.title])).toEqual([['003', 'Billing v2']])
   const [api, web] = b.specs[0]!.tracks
   expect(api!.milestones.map(m => [m.num, m.landed, m.phase])).toEqual([['001', true, 'none'], ['002', false, 'review']])

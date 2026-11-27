@@ -6,7 +6,7 @@ import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathsOf, relativeTo } from './layout.mjs'
 
-export const TYPES = new Set(['feature', 'concept', 'decision', 'how-to', 'contract'])
+export const TYPES = new Set(['feature', 'concept', 'decision', 'how-to', 'contract', 'term'])
 export const LAYERS = new Set(['business', 'application'])
 
 // Frontmatter is flat `key: value` lines. A key with no value followed by `  - item` lines holds that list, as
@@ -45,19 +45,67 @@ export const listOf = (value) =>
     .map((v) => unquote(String(v).trim()))
     .filter(Boolean)
 
-// What a path, relative to the brain, tells of its place in it: the repository its folder names (null in notes/shared/,
-// whose notes name theirs on a repos line) and whether the file is a repository's card. It never tells a note's kind: the
+// The lines under a body's `## <title>` heading, up to the next `## ` heading, without the blank ones.
+const sectionOf = (body, title) => {
+  const lines = body.replace(/\r\n?/g, '\n').split('\n')
+  const start = lines.findIndex((l) => l.trim() === `## ${title}`)
+  if (start < 0) return []
+  const next = lines.findIndex((l, i) => i > start && /^##\s/.test(l))
+  return lines.slice(start + 1, next < 0 ? undefined : next).map((l) => l.trim()).filter(Boolean)
+}
+
+// A pairing line, as FORMAT.md's **A term note** writes it: ``- <slug>[ · <context>]: `<word>`, <degree>[. <nuance>][. Avoid: `<w>`, `<w>`].``
+// The degree is any word here, so schema.mjs can tell a degree it does not know from a line that is no pairing.
+const PAIRING = /^-\s+([a-z0-9]+(?:-[a-z0-9]+)*)(?: · (.+?))?:\s+`([^`]+)`,\s+(\w+)(?:\.(?:\s+(.*))?)?\s*$/
+const AVOID = /(?:^|\s)Avoid:\s*(`[^`]+`(?:,\s*`[^`]+`)*)\.?\s*$/
+
+// One pairing from its line, or null when the line does not parse.
+function pairingOf(line) {
+  const m = PAIRING.exec(line)
+  if (!m) return null
+  const rest = m[5] ?? ''
+  const avoid = AVOID.exec(rest)
+  return {
+    repo: m[1],
+    context: m[2] ?? '',
+    word: m[3],
+    degree: m[4],
+    nuance: (avoid ? rest.slice(0, avoid.index) : rest).trim().replace(/\.$/, ''),
+    avoid: avoid ? [...avoid[1].matchAll(/`([^`]+)`/g)].map((w) => w[1]) : [],
+  }
+}
+
+// A relation line, `- <verb> [[<term>]]`, as { verb, target }, or null.
+function relationOf(line) {
+  const m = /^-\s+(.+?)\s+\[\[([^\]|#]+)\]\]\s*$/.exec(line)
+  return m ? { verb: m[1], target: m[2].trim() } : null
+}
+
+// What a path, relative to the brain, tells of its place in it: the repository its folder names (null in notes/shared/ and notes/domain/,
+// whose notes name theirs on a repos line; `domain` marks the second) and whether the file is a repository's card. It never tells a note's kind: the
 // `explored` line does. Null for any path that is neither a note's nor a card's, a research note's included.
 export function placeOf(path) {
   const p = path.split('/')
   if (p[0] === 'notes' && p[1] === 'repos' && p.length === 4) return { slug: p[2], card: false }
   if (p[0] === 'notes' && p[1] === 'shared' && p.length === 3) return { slug: null, card: false }
+  if (p[0] === 'notes' && p[1] === 'domain' && p.length === 3) return { slug: null, card: false, domain: true }
   if (p[0] === 'repos' && p.length === 2 && p[1].endsWith('.md')) return { slug: p[1].replace(/\.md$/, ''), card: true }
   return null
 }
 
 // A repository's card, relative to the brain.
 export const cardOf = (brain, slug) => relativeTo(brain, pathsOf(brain).card(slug))
+
+// A term's pairings, the lines of its `## Pairings` section that do not parse, and its relations: the one parser of both sections.
+const termPartsOf = (body) => {
+  const lines = sectionOf(body, 'Pairings')
+  const pairings = lines.map(pairingOf)
+  return {
+    pairings: pairings.filter(Boolean),
+    badPairings: lines.filter((_, i) => !pairings[i]),
+    relations: sectionOf(body, 'Relations').map(relationOf).filter(Boolean),
+  }
+}
 
 // One note from its text. `path` is where the file is, `target` where the note lands (a draft's target), and
 // `draft` the draft's action, or null for a committed note.
@@ -76,6 +124,7 @@ export function noteOf(path, text, { target = path, draft = null } = {}) {
     repos: place?.slug && fm.explored ? [place.slug] : listOf(fm.repos),
     superseded: fm.status === 'superseded',
     supersededBy: typeof fm.supersededBy === 'string' && fm.supersededBy ? fm.supersededBy : null,
+    ...(fm.type === 'term' ? termPartsOf(body) : { pairings: [], badPairings: [], relations: [] }),
   }
 }
 
@@ -95,12 +144,12 @@ export function draftOf(path, text) {
   return noteOf(path, text, { target: typeof fm.target === 'string' && fm.target ? fm.target : path, draft: fm.action || 'record' })
 }
 
-// Every registered repository's slug, every committed note (notes/repos/ and notes/shared/, never research) and every
+// Every registered repository's slug, every committed note (notes/repos/, notes/shared/ and notes/domain/, never research) and every
 // draft in the brain, each path relative to the brain.
 export function loadBrain(brain) {
   const at = pathsOf(brain)
   const slugs = list(at.repos).filter((f) => f.endsWith('.md')).map((f) => f.replace(/\.md$/, ''))
-  const paths = [...mdUnder(brain, at.repoNotesRoot), ...mdUnder(brain, at.sharedNotes)]
+  const paths = [...mdUnder(brain, at.repoNotesRoot), ...mdUnder(brain, at.sharedNotes), ...mdUnder(brain, at.domainNotes)]
   const notes = paths.map((path) => noteOf(path, readFileSync(join(brain, path), 'utf8')))
   const drafts = mdUnder(brain, at.drafts).map((path) => draftOf(path, readFileSync(join(brain, path), 'utf8')))
   return { slugs, notes, drafts }

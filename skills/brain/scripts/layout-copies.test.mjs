@@ -38,3 +38,8 @@ test("the pane's copy of the layout's paths matches layout.mjs", () => {
   assert.ok(Object.keys(PANE_LAYOUT).length > 0)
   matchesLayout(PANE_LAYOUT)
 })
+
+test("the page's and the pane's copy hold domainNotes, the folder of the terms", () => {
+  assert.ok('domainNotes' in BrainSource.LAYOUT, 'the page')
+  assert.ok('domainNotes' in PANE_LAYOUT, 'the pane')
+})

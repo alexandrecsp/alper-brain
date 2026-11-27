@@ -8,7 +8,8 @@ As a sub-agent, read only the notes your brief's Context block lists, and skip t
 
 - **cards**, when no `--repo` is given: each registered repository with its summary.
 - **contracts**: every `contract` note on those repositories, never ranked out.
-- **notes**: the rest, drafts included, best match first, `--top` of them (15 by default). It leaves out a superseded decision and lists the decision that replaced it.
+- **notes**: the rest, drafts included, best match first, `--top` of them (15 by default). It leaves out a superseded decision and lists the decision that replaced it. A `term` is found by any repository's word for it, or a word that repository avoids. `--type term --repo <slug>` lists the terms paired with that repository. With `--repo`, a term's line shows that repository's pairing as `<slug>: <word> (<degree>)`, such as `billing-api: Customer (narrower)`, a context after the slug when the pairing has one.
+- **homonym**, only with a query: when a word of a `--query` is, in any case, the pairing word of two or more terms, a line such as `homonym: account → ledger-account (ledger), user-account (auth-service)` sits before the notes, naming each term with the repositories that use the word. Ask the user which term they mean before naming code by it.
 
 Write the **query** as three phrasings, each its own `--query`, in the notes' language: the work in its own words, then in the domain terms and module names the notes would use, then in synonyms and the code's likely English terms. The script ranks each phrasing and fuses the rankings, so a note that only one phrasing reaches still rises. Pass `--layer` when the skill that runs recall names one; a contract is listed under either layer. When the last notes listed still bear on the work, run the script again with the `--top` it suggests.
 

@@ -533,6 +533,32 @@ test('the contract notes an arbiter reads come from notes/shared and the drafts,
   assert.deepEqual(notes.split(', ').map((p) => p.slice(sl(b).length)), ['/.local/drafts/pending-contract.md', '/notes/shared/invoice-event-contract.md'])
 })
 
+test("a builder's Docs line keeps docs/STRUCTURE.md and never a glossary, a glossary map or docs/adr/, even when the repository keeps them", () => {
+  const b = brain()
+  const s = twoTracks(b)
+  const { repo } = builtRepo(b)
+  put(join(repo, 'GLOSSARY.md'), '# Glossary\n')
+  put(join(repo, 'GLOSSARY-MAP.md'), '# Map\n')
+  put(join(repo, 'docs/adr/0001-x.md'), '# ADR\n')
+  const docs = /- \*\*Docs:\*\* (.*)\n/.exec(contextBlock(join(s, 'api/001-expand/001-add-v2.md'), 'builder'))[1]
+  assert.deepEqual(docs.split(', ').filter((p) => p.startsWith(sl(repo))), [sl(join(repo, 'docs/STRUCTURE.md'))])
+})
+
+test("a builder's Notes line adds the terms and decisions recall ranks for its ticket, best first, after the spec's brain notes, and never a contract", () => {
+  const b = brain()
+  const s = twoTracks(b)
+  builtRepo(b)
+  const t = join(s, 'api/001-expand/001-add-v2.md')
+  put(t, ticket({ n: '001' }).replace('T001', 'Export invoices as CSV').replace('## Notes', '## What to build\n\nThe export names every invoice line by its ledger entry.\n\n## Notes'))
+  put(join(b, 'notes/domain/ledger-entry.md'), '---\nname: ledger-entry\ndescription: One posted line of the ledger\ntype: term\nlayer: business\nrepos: [api]\n---\n\nA posted line.\n\n## Pairings\n- api: `LedgerEntry`, same.\n')
+  put(join(b, 'notes/repos/api/csv-quoting.md'), '---\nname: csv-quoting\ndescription: Why the invoice export quotes every CSV field\ntype: decision\nlayer: application\nrepos: [api]\n---\n\nQuote each field.\n')
+  put(join(b, 'notes/repos/api/unrelated-queue.md'), '---\nname: unrelated-queue\ndescription: The retry queue drains hourly\ntype: decision\nlayer: application\nrepos: [api]\n---\n\nHourly.\n')
+  put(join(b, 'notes/repos/api/export-howto.md'), '---\nname: export-howto\ndescription: Invoice export CSV how-to\ntype: how-to\nlayer: application\nrepos: [api]\n---\n\nInvoice export CSV.\n')
+  put(join(s, 'spec.md'), readFileSync(join(s, 'spec.md'), 'utf8').replace('**Brain notes:** None', `**Brain notes:** ${sl(join(b, 'notes/repos/api/api-retry.md'))}`))
+  const notes = /- \*\*Notes:\*\* (.*)\n/.exec(contextBlock(t, 'builder'))[1].split(', ').map((p) => p.slice(sl(b).length))
+  assert.deepEqual(notes, ['/notes/repos/api/api-retry.md', '/notes/repos/api/csv-quoting.md', '/notes/domain/ledger-entry.md'])
+})
+
 test('lands a track: rebases, follows each squash, runs the suite, fast-forwards and records', () => {
   const b = brain()
   const s = twoTracks(b, { apiM1: { t: { status: 'done' } } })

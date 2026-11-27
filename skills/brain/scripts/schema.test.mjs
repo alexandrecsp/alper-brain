@@ -53,16 +53,17 @@ test('passes an explored decision in either layer, and holds every other explore
   assert.match(r.out, /^notes\/repos\/api\/api-retry-job\.md: an explored note is business, unless it is a decision$/m)
 })
 
-test('holds avoid to a non-empty list on a concept note', () => {
+test('holds avoid to a non-empty list on a term note, and keeps it off every type but a concept, which only warns', () => {
   const b = brain()
-  put(join(b, 'notes/repos/api/api-invoice.md'), note({ name: 'api-invoice', description: 'A request for payment', type: 'concept', layer: 'business', repos: '[api]', avoid: '[bill, payment request]' }))
-  put(join(b, 'notes/repos/api/api-empty.md'), note({ name: 'api-empty', description: 'X', type: 'concept', layer: 'business', repos: '[api]', avoid: '[]' }))
-  put(join(b, 'notes/repos/api/api-howto.md'), note({ name: 'api-howto', description: 'X', type: 'how-to', layer: 'application', repos: '[api]', avoid: '[bill]' }))
-  const r = schema(b, ...['api-invoice', 'api-empty', 'api-howto'].map((f) => join(b, `notes/repos/api/${f}.md`)))
+  assert.equal(term(b, { fm: { avoid: '[client, buyer]' } }).status, 0)
+  const empty = term(brain(), { fm: { avoid: '[]' } })
+  assert.equal(empty.status, 1)
+  assert.match(empty.out, /^notes\/domain\/customer\.md: avoid is empty/m)
+  const b2 = brain()
+  put(join(b2, 'notes/repos/api/api-howto.md'), note({ name: 'api-howto', description: 'X', type: 'how-to', layer: 'application', repos: '[api]', avoid: '[bill]' }))
+  const r = schema(b2, join(b2, 'notes/repos/api/api-howto.md'))
   assert.equal(r.status, 1)
-  assert.doesNotMatch(r.out, /api-invoice\.md:/)
-  assert.match(r.out, /^notes\/repos\/api\/api-empty\.md: avoid is empty/m)
-  assert.match(r.out, /^notes\/repos\/api\/api-howto\.md: avoid belongs on a concept note only/m)
+  assert.match(r.out, /^notes\/repos\/api\/api-howto\.md: avoid belongs on a term note only/m)
 })
 
 test('rejects an explored note in an unregistered folder, and a repos line on one', () => {
@@ -101,7 +102,7 @@ test('rejects a note outside notes/repos/<slug>/ and notes/shared/ when named, a
   put(join(b, 'notes/research/api-x.md'), note(good))
   const r = schema(b, join(b, 'notes/repos/api/deep/api-x.md'), join(b, 'notes/research/api-x.md'))
   assert.equal(r.status, 1)
-  assert.match(r.out, /^notes\/repos\/api\/deep\/api-x\.md: path notes\/repos\/api\/deep\/api-x\.md is not notes\/repos\/<slug>\/<name>\.md or notes\/shared\/<name>\.md$/m)
+  assert.match(r.out, /^notes\/repos\/api\/deep\/api-x\.md: path notes\/repos\/api\/deep\/api-x\.md is not notes\/repos\/<slug>\/<name>\.md, notes\/shared\/<name>\.md or notes\/domain\/<name>\.md$/m)
   assert.match(r.out, /^notes\/research\/api-x\.md: path notes\/research\/api-x\.md is not /m)
 })
 
@@ -192,4 +193,84 @@ test('checks a draft as the note it lands as, and needs its target and action', 
   assert.equal(bad.status, 1)
   assert.match(bad.out, /api-bad\.md: a draft needs target: /)
   assert.match(bad.out, /api-bad\.md: action is "rewrite"; it is one of record, update, supersede, delete/)
+})
+
+// A term note of the spec's shape: flat frontmatter, its pairings and relations in the body.
+const PAIRINGS = ['- api: `Customer`, narrower. Only who has paid at least once. Avoid: `buyer`.', '- web · checkout: `User`, broader. Anyone signed up.']
+const term = (b, { fm = {}, pairings = PAIRINGS, relations = ['- places [[order]]'], file = 'notes/domain/customer.md' } = {}) => {
+  const body = `A person or company that buys from us.\n\n## Pairings\n${pairings.join('\n')}\n\n## Relations\n${relations.join('\n')}`
+  put(join(b, file), note({ name: 'customer', description: 'A Customer buys from us', type: 'term', layer: 'business', repos: '[api, web]', ...fm }, body))
+  return schema(b, join(b, file))
+}
+
+test('passes a well-formed term in notes/domain/ with no warning, though its name carries no repository prefix', () => {
+  const b = brain()
+  const r = term(b)
+  assert.equal(r.status, 0, r.out)
+  assert.equal(r.out.trim(), 'schema: ok, 1 file checked')
+})
+
+test('rejects an explored term, and a term whose layer is not business', () => {
+  const explored = term(brain(), { fm: { explored: 'a1b2c3d' } })
+  assert.equal(explored.status, 1)
+  assert.match(explored.out, /^notes\/domain\/customer\.md: a term is authored, never explored$/m)
+  const applied = term(brain(), { fm: { layer: 'application' } })
+  assert.equal(applied.status, 1)
+  assert.match(applied.out, /^notes\/domain\/customer\.md: a term is always business$/m)
+})
+
+test('rejects a term outside notes/domain/', () => {
+  const r = term(brain(), { file: 'notes/shared/customer.md' })
+  assert.equal(r.status, 1)
+  assert.match(r.out, /^notes\/shared\/customer\.md: a term belongs in notes\/domain\/$/m)
+})
+
+test('rejects a term with no pairing, and a pairing line that does not parse', () => {
+  const none = term(brain(), { pairings: [] })
+  assert.equal(none.status, 1)
+  assert.match(none.out, /^notes\/domain\/customer\.md: a term needs at least one pairing under ## Pairings$/m)
+  const loose = term(brain(), { pairings: [...PAIRINGS, '- web: Customer is the same'] })
+  assert.equal(loose.status, 1)
+  assert.match(loose.out, /^notes\/domain\/customer\.md: pairing line does not parse: - web: Customer is the same$/m)
+})
+
+test('rejects a degree other than same, narrower or broader', () => {
+  const r = term(brain(), { pairings: ['- api: `Customer`, narrower.', '- web: `User`, equal. Anyone signed up.'] })
+  assert.equal(r.status, 1)
+  assert.match(r.out, /^notes\/domain\/customer\.md: degree equal of the web pairing is not same, narrower or broader$/m)
+  assert.doesNotMatch(r.out, /api pairing/)
+})
+
+test('rejects a term whose repos differs from the slugs its pairings name', () => {
+  const r = term(brain(), { fm: { repos: '[api]' } })
+  assert.equal(r.status, 1)
+  assert.match(r.out, /^notes\/domain\/customer\.md: repos api differs from the repositories its pairings name: api, web$/m)
+})
+
+test('passes a term with two pairings of one repository, since repos lists the slug once', () => {
+  const r = term(brain(), { fm: { repos: '[web]' }, pairings: ['- web · checkout: `User`, broader.', '- web · billing: `Account`, narrower.'] })
+  assert.equal(r.status, 0, r.out)
+})
+
+test('rejects a term that names an unregistered repository', () => {
+  const r = term(brain(), { fm: { repos: '[api, ghost]' }, pairings: ['- api: `Customer`, same.', '- ghost: `Client`, same.'] })
+  assert.equal(r.status, 1)
+  assert.match(r.out, /^notes\/domain\/customer\.md: repos names ghost, which is not registered$/m)
+})
+
+test('passes a relation to a term not written yet', () => {
+  const r = term(brain(), { relations: ['- places [[order]]', '- is a [[party]]'] })
+  assert.equal(r.status, 0, r.out)
+})
+
+test('warns on a business concept and on an avoid line on a concept, and still passes', () => {
+  const b = brain()
+  put(join(b, 'notes/repos/api/api-invoice.md'), note({ name: 'api-invoice', description: 'A request for payment', type: 'concept', layer: 'business', repos: '[api]', avoid: '[bill]' }))
+  put(join(b, 'notes/repos/api/api-queue.md'), note({ name: 'api-queue', description: 'How the queue drains', type: 'concept', layer: 'application', repos: '[api]', avoid: '[line]' }))
+  const r = schema(b, ...['api-invoice', 'api-queue'].map((f) => join(b, `notes/repos/api/${f}.md`)))
+  assert.equal(r.status, 0, r.out)
+  assert.match(r.out, /^notes\/repos\/api\/api-invoice\.md: warn: a business concept is a term: write it as a term note in notes\/domain\/$/m)
+  assert.match(r.out, /^notes\/repos\/api\/api-invoice\.md: warn: avoid on a concept belongs on a term note$/m)
+  assert.match(r.out, /^notes\/repos\/api\/api-queue\.md: warn: avoid on a concept belongs on a term note$/m)
+  assert.doesNotMatch(r.out, /api-queue\.md: warn: a business concept/)
 })

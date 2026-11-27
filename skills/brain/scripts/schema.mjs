@@ -12,6 +12,7 @@ import { KINDS, pathsOf, kindOf, noteHome, relativeTo } from './layout.mjs'
 import { TYPES, LAYERS, cardOf, draftOf, loadBrain, noteOf, placeOf } from './notes.mjs'
 
 const ACTIONS = new Set(['record', 'update', 'supersede', 'delete'])
+const DEGREES = new Set(['same', 'narrower', 'broader'])
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 const fail = (message) => {
@@ -48,9 +49,15 @@ for (const n of notes) owners.set(n.name, [...(owners.get(n.name) ?? []), n.path
 
 // What FORMAT.md asks of a new note, which a note written before the rule may lack: a warning, never a finding.
 function warned(n) {
-  if (n.brainMd || n.draft === 'delete' || n.explored || n.repos.length !== 1 || typeof n.fm.name !== 'string') return []
-  const slug = n.repos[0]
-  return n.fm.name.startsWith(`${slug}-`) ? [] : [`name ${n.fm.name} does not start with ${slug}-, the repository its repos names`]
+  if (n.brainMd || n.draft === 'delete') return []
+  const out = []
+  // A term is named for the business, with no repository prefix.
+  if (!n.explored && n.repos.length === 1 && typeof n.fm.name === 'string' && n.fm.type !== 'term' && !n.fm.name.startsWith(`${n.repos[0]}-`)) {
+    out.push(`name ${n.fm.name} does not start with ${n.repos[0]}-, the repository its repos names`)
+  }
+  if (n.type === 'concept' && n.layer === 'business') out.push('a business concept is a term: write it as a term note in notes/domain/')
+  if (n.type === 'concept' && n.fm.avoid !== undefined) out.push('avoid on a concept belongs on a term note')
+  return out
 }
 
 // The folder git says holds the brain, or null when the brain is in no repository.
@@ -94,7 +101,7 @@ function broken(n) {
     if (fm.action === 'delete') return out
   }
   const repoNotesDir = 'notes/repos/<slug>/'
-  const paths = `${repoNotesDir}<name>.md or notes/shared/<name>.md`
+  const paths = `${repoNotesDir}<name>.md, notes/shared/<name>.md or notes/domain/<name>.md`
   if (!where) out.push(`${n.draft ? 'target' : 'path'} ${n.target} is not ${paths}`)
   if (placed && place.slug && !slugs.includes(place.slug)) out.push(`repository ${place.slug} is not registered: it has no ${cardOf(brain, place.slug)}`)
 
@@ -111,6 +118,13 @@ function broken(n) {
   if (!LAYERS.has(fm.layer)) out.push(`layer is ${fm.layer ? `"${fm.layer}"` : 'missing'}; it is business or application`)
   if (fm.type === 'contract' && where === 'explored') out.push('a contract is an authored note')
   if (fm.type === 'contract' && LAYERS.has(fm.layer) && fm.layer !== 'application') out.push('a contract is always application')
+  if (fm.type === 'term' && where === 'explored') out.push('a term is authored, never explored')
+  if (fm.type === 'term' && LAYERS.has(fm.layer) && fm.layer !== 'business') out.push('a term is always business')
+  if (fm.type === 'term') {
+    if (!n.pairings.length) out.push('a term needs at least one pairing under ## Pairings')
+    for (const line of n.badPairings) out.push(`pairing line does not parse: ${line}`)
+    for (const p of n.pairings) if (!DEGREES.has(p.degree)) out.push(`degree ${p.degree} of the ${p.repo} pairing is not same, narrower or broader`)
+  }
   if (fm.type === 'feature' && where && where !== 'explored') out.push(`a feature is an explored note only, in ${repoNotesDir}`)
   if (fm.type === 'feature' && LAYERS.has(fm.layer) && fm.layer !== 'business') out.push('a feature is always business')
   // An explored decision mirrors one of the repository's ADRs, and takes that decision's layer.
@@ -127,10 +141,18 @@ function broken(n) {
     }
   } else if (fm.repos !== undefined) out.push('repos belongs on an authored note only: an explored note takes its repository from its folder')
 
+  // A term's repos is the slugs its pairings name, each once.
+  if (fm.type === 'term' && where === 'authored' && isList(fm.repos) && n.pairings.length) {
+    const named = [...new Set(n.pairings.map((p) => p.repo))]
+    if ([...named].sort().join() !== [...new Set(n.repos)].sort().join()) out.push(`repos ${n.repos.join(', ')} differs from the repositories its pairings name: ${named.join(', ')}`)
+  }
+
   // An explored note sits in its repository's folder; an authored note sits at the noteHome of its repos line.
   if (placed && n.explored && !place.slug) out.push(`an explored note belongs in ${repoNotesDir}, its repository's folder`)
-  if (where === 'authored' && isList(fm.repos) && n.repos.length) {
-    const home = relativeTo(brain, noteHome(brain, n.repos))
+  // A term sits in notes/domain/, whatever its repos line says.
+  if (fm.type === 'term' && where && !place.domain) out.push(`a term belongs in ${relativeTo(brain, pathsOf(brain).domainNotes)}/`)
+  else if (where === 'authored' && isList(fm.repos) && n.repos.length) {
+    const home = relativeTo(brain, noteHome(brain, n.repos, fm.type))
     if (at.slice(0, -1).join('/') !== home) out.push(`an authored note on ${n.repos.join(', ')} belongs in ${home}/`)
   }
 
@@ -145,8 +167,9 @@ function broken(n) {
     if (!isList(fm.aliases)) out.push('aliases is a list, as [a, b] or one "- alias" line each')
     else if (!n.aliases.length) out.push('aliases is empty: list other words for the subject, or leave the line out')
   }
-  if (fm.avoid !== undefined) {
-    if (fm.type !== 'concept') out.push('avoid belongs on a concept note only: the term whose avoided words it lists')
+  // A concept in the old format may still carry avoid: warned of, until sync absorbs it into a term.
+  if (fm.avoid !== undefined && fm.type !== 'concept') {
+    if (fm.type !== 'term') out.push('avoid belongs on a term note only: the term whose avoided words it lists')
     else if (!isList(fm.avoid)) out.push('avoid is a list, as [a, b] or one "- word" line each')
     else if (!n.avoid.length) out.push('avoid is empty: list the words the domain avoids for the term, or leave the line out')
   }

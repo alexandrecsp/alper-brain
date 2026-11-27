@@ -75,6 +75,42 @@ test('reads the clusters layout: cards from repos/, notes of both folders, draft
   assert.deepEqual(drafts.map((d) => [d.path, d.target, d.draft]), [['.local/drafts/api-limits.md', 'notes/repos/api/api-limits.md', 'record']])
 })
 
+const CUSTOMER = note(
+  { name: 'customer', description: 'A Customer is a person or company that buys from us', type: 'term', layer: 'business', repos: '[billing-api, web-app]', avoid: '[client]' },
+  [
+    'A person or company that buys from us. A Customer moves from prospect to active to churned.',
+    '',
+    '## Pairings',
+    '- billing-api: `Customer`, narrower. Only who has paid at least once. Avoid: `buyer`.',
+    '- web-app · checkout: `User`, broader. Anyone signed up.',
+    '',
+    '## Relations',
+    '- places [[order]]',
+    '- is a [[party]]',
+  ].join('\n'),
+)
+
+test("noteOf gives a term its pairings with repo, context, word, degree, nuance and avoid", () => {
+  const term = noteOf('notes/domain/customer.md', CUSTOMER)
+  assert.deepEqual(term.pairings, [
+    { repo: 'billing-api', context: '', word: 'Customer', degree: 'narrower', nuance: 'Only who has paid at least once', avoid: ['buyer'] },
+    { repo: 'web-app', context: 'checkout', word: 'User', degree: 'broader', nuance: 'Anyone signed up', avoid: [] },
+  ])
+})
+
+test('noteOf gives a term its relations with verb and target', () => {
+  const term = noteOf('notes/domain/customer.md', CUSTOMER)
+  assert.deepEqual(term.relations, [{ verb: 'places', target: 'order' }, { verb: 'is a', target: 'party' }])
+})
+
+test('loadBrain reads a term from notes/domain/, and a place for it', () => {
+  const b = brain()
+  put(join(b, 'notes/domain/customer.md'), CUSTOMER)
+  const { notes } = loadBrain(b)
+  assert.deepEqual(notes.map((n) => [n.path, n.type, n.repos]), [['notes/domain/customer.md', 'term', ['billing-api', 'web-app']]])
+  assert.deepEqual(placeOf('notes/domain/customer.md'), { slug: null, card: false, domain: true })
+})
+
 test('a draft without an action is a record, and one without a target lands where it sits', () => {
   const b = brain()
     put(join(b, '.local/drafts/api-x.md'), note({ name: 'api-x', type: 'how-to' }))

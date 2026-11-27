@@ -329,3 +329,12 @@ test("toData marks a note explored by its explored line, wherever its file sits"
   const data = toData('team', files, new Map())
   assert.deepEqual(data.notes.map((n) => [n.id, n.kind]), [['seen', 'explored'], ['plain', 'authored']])
 })
+
+test('toData reads a term in the domain notes, and a draft aimed there, as notes bearing on the repositories its repos line names', () => {
+  const files = new Map(Object.entries({
+    'notes/domain/customer.md': '---\ntype: term\nrepos: [api, web]\n---\nA customer.',
+    '.local/drafts/order.md': '---\ntarget: notes/domain/order.md\nrepos: [api]\n---\nAn order.',
+  }))
+  const data = toData('team', files, new Map())
+  assert.deepEqual(data.notes.map((n) => [n.id, n.path, n.repos, n.draft]), [['customer', 'notes/domain/customer.md', ['api', 'web'], null], ['order', 'notes/domain/order.md', ['api'], 'record']])
+})

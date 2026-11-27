@@ -35,3 +35,14 @@ test('the watcher reports a change to a note, and none to a file the .gitignore 
     rmSync(host, { recursive: true, force: true })
   }
 })
+
+test('all reads the notes in notes/domain', () => {
+  const { host, root } = brainWith('.local/\n')
+  try {
+    mkdirSync(join(root, 'notes', 'domain'), { recursive: true })
+    writeFileSync(join(root, 'notes', 'domain', 'customer.md'), '# Customer\n')
+    assert.equal(fsBrainFiles().all(root).files['notes/domain/customer.md'], '# Customer\n')
+  } finally {
+    rmSync(host, { recursive: true, force: true })
+  }
+})

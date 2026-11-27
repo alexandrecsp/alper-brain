@@ -24,6 +24,7 @@ export function pathsOf(root) {
     repoNotesRoot: at('notes', 'repos'),
     repoNotes: (slug) => at('notes', 'repos', slug),
     sharedNotes: at('notes', 'shared'),
+    domainNotes: at('notes', 'domain'),
     research: at('notes', 'research'),
     docs: at('docs'),
     repoDocs: (slug) => at('docs', 'repos', slug),
@@ -41,9 +42,11 @@ export function pathsOf(root) {
   }
 }
 
-// The folder an authored note belongs in, by its `repos` list: its repository's notes for a list of one slug, else notes/shared/.
-export const noteHome = (root, repos) => {
+// The folder an authored note belongs in: notes/domain/ for a term, whatever its `repos`; any other type goes by its `repos` list, to its
+// repository's notes for a list of one slug, else to notes/shared/.
+export const noteHome = (root, repos, type) => {
   const at = pathsOf(root)
+  if (type === 'term') return at.domainNotes
   return repos.length === 1 ? at.repoNotes(repos[0]) : at.sharedNotes
 }
 

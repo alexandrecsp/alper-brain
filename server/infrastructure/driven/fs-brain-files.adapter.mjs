@@ -35,7 +35,7 @@ const walk = (dir, prefix, files, times) => {
   }
 }
 
-// A brain's specs with times, the notes of its repositories and shared ones, its drafts, every card and `.local/repos.json`, as paths
+// A brain's specs with times, the notes of its repositories, shared ones and terms, its drafts, every card and `.local/repos.json`, as paths
 // relative to the brain. It reads no research note and no doc.
 const all = (root) => {
   const at = pathsOf(root)
@@ -45,6 +45,7 @@ const all = (root) => {
   under(at.specs, true)
   under(at.repoNotesRoot)
   under(at.sharedNotes)
+  under(at.domainNotes)
   under(at.drafts)
   let cards = []
   try {

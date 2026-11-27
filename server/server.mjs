@@ -14,6 +14,7 @@ import { pickBrain } from './application/use-cases/pick-brain.use-case.mjs'
 import { readBrainFile } from './application/use-cases/read-brain-file.use-case.mjs'
 import { readBrainFiles } from './application/use-cases/read-brain-files.use-case.mjs'
 import { readBrainHistory } from './application/use-cases/read-brain-history.use-case.mjs'
+import { readDomainMap } from './application/use-cases/read-domain-map.use-case.mjs'
 import { readCommit } from './application/use-cases/read-commit.use-case.mjs'
 import { readRefs } from './application/use-cases/read-refs.use-case.mjs'
 import { readRemoteUrl } from './application/use-cases/read-remote-url.use-case.mjs'
@@ -82,6 +83,7 @@ const server = httpController({
   },
   files: { all: readBrainFiles({ brainCopies }), read: readBrainFile({ brainList, brainFiles }), write: writeBrainFile({ brainList, brainFiles }) },
   history: readBrainHistory({ brainList, brainHistory: gitCliBrainHistory() }),
+  domain: readDomainMap({ brainList, brainFiles }),
   repos: { refs: readRefs(gitPorts), commit: readCommit(gitPorts), remoteUrl: readRemoteUrl(gitPorts), walk: walkHistory(gitPorts), mergeBase: findMergeBase(gitPorts) },
   changes: (tell) => {
     openStreams++

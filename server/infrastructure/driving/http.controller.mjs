@@ -85,6 +85,9 @@ const repoWalk = async (req, res, repos, id, slug) => {
 // `GET /api/brains/:id/files`: every file of the brain with the specs' times.
 const brainFiles = (res, files, id) => brainFileErrors(res, () => json(res, 200, files.all(id)))
 
+// `GET /api/brains/:id/domain`: the brain's terms with their pairings, relations and decisions, in the domain map's JSON shape.
+const brainDomain = (res, domain, id) => brainFileErrors(res, () => json(res, 200, domain(id)))
+
 // `GET /api/brains/:id/history`: every committed change to the brain's notes, in the timeline's JSON shape.
 const brainHistory = (res, history, id) => brainFileErrors(res, async () => json(res, 200, await history(id)))
 
@@ -139,7 +142,7 @@ const pickBrain = async (res, brains) => {
 }
 
 // The HTTP adapter: turns a request into a use-case call. It sends no CORS header, so no other origin can read `/`.
-export const httpController = ({ health, page, brains, files, history, repos, changes, shutdown, token }) =>
+export const httpController = ({ health, page, brains, files, history, domain, repos, changes, shutdown, token }) =>
   createServer((req, res) => {
     if (!hostAllowed(req)) return json(res, 403, { error: 'forbidden host' })
     if (!writeAllowed(req, token)) return json(res, 403, { error: 'forbidden write' })
@@ -165,6 +168,8 @@ export const httpController = ({ health, page, brains, files, history, repos, ch
     }
     const filesRoute = pathname.match(/^\/api\/brains\/([^/]+)\/files$/)
     if (req.method === 'GET' && filesRoute) return brainFiles(res, files, decodeURIComponent(filesRoute[1]))
+    const domainRoute = pathname.match(/^\/api\/brains\/([^/]+)\/domain$/)
+    if (req.method === 'GET' && domainRoute) return brainDomain(res, domain, decodeURIComponent(domainRoute[1]))
     const historyRoute = pathname.match(/^\/api\/brains\/([^/]+)\/history$/)
     if (req.method === 'GET' && historyRoute) return brainHistory(res, history, decodeURIComponent(historyRoute[1]))
     const fileRoute = pathname.match(/^\/api\/brains\/([^/]+)\/file$/)

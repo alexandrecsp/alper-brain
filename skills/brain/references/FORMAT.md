@@ -12,6 +12,7 @@ The shape of the second brain: the team's notes on every repository, shared, and
 ├── notes/                                ← what the agent knows
 │   ├── repos/<slug>/<name>.md            ← the authored notes whose `repos` line names the one repository `<slug>`, and its explored notes
 │   ├── shared/<name>.md                  ← the authored notes whose `repos` line names several repositories, or none
+│   ├── domain/<name>.md                  ← the `term` notes: the canonical terms of the business, whatever their `repos`
 │   └── research/<slug>.md                ← cited findings from `research`, with `<slug>/<group>.md` beside it when it fans out; never read as notes
 ├── docs/                                 ← what people read
 │   ├── repos/<slug>/<YYYY-MM-DD-HHmm>-<kind>.html   ← one repository's tour (`tour`), refactor reports (`refactors`), or a page from `html` on it (its topic)
@@ -136,7 +137,7 @@ Otherwise ask the user, listing the registered repositories. Its root comes from
 
 One fact per file. Teammates adding notes at the same time never conflict, and the graph shows one node per fact. A note is one of two kinds, told by its `explored` line and never by its folder:
 
-- **Authored**: what a repository cannot tell by looking, such as the reason behind a choice, a trap, or a contract between two repositories. It lives in its **home**: `notes/repos/<slug>/` when its `repos` line names one repository, else `notes/shared/`. Its `repos` line names the repositories it bears on. [RECORD.md](RECORD.md) writes it as a draft, and [SYNC.md](SYNC.md)'s **Consolidate** there commits it once the user confirms it.
+- **Authored**: what a repository cannot tell by looking, such as the reason behind a choice, a trap, or a contract between two repositories. It lives in its **home**: `notes/domain/` for a `term`, else `notes/repos/<slug>/` when its `repos` line names one repository, else `notes/shared/`. Its `repos` line names the repositories it bears on. [RECORD.md](RECORD.md) writes it as a draft, and [SYNC.md](SYNC.md)'s **Consolidate** there commits it once the user confirms it.
 - **Explored**: what the code does, written for an outsider who never opens it. It lives in `notes/repos/<slug>/`, its repository's folder, beside that repository's authored notes. Only `/brain explore` writes it, by [EXPLORE.md](EXPLORE.md), and its next run rewrites it. Its `explored` line marks it.
 
 ```markdown
@@ -156,25 +157,43 @@ A retried charge sends the first attempt's idempotency key, and the provider ans
 Related: [[invoice-event-contract]]
 ```
 
-- `name`: the file name without `.md`, in kebab-case, unique across the **whole brain** and not only its folder, since `[[name]]` resolves by it here and in Obsidian. A note naming one repository starts with its slug, as `billing-api-retry-idempotency`, so a folder listing groups it with its repository; the brain page's graph drops the prefix from the label, since the colour already shows the repository. A note naming several takes no prefix. A new note a link already names keeps that name. `scripts/schema.mjs` warns about a name without its prefix and does not fail on it, since a note's name changes only with every link to it.
+- `name`: the file name without `.md`, in kebab-case, unique across the **whole brain** and not only its folder, since `[[name]]` resolves by it here and in Obsidian. A note naming one repository starts with its slug, as `billing-api-retry-idempotency`, so a folder listing groups it with its repository; the brain page's graph drops the prefix from the label, since the colour already shows the repository. A note naming several takes no prefix, and neither does a `term`, which is named for the business: `customer`, `ledger-account`. A new note a link already names keeps that name. `scripts/schema.mjs` warns about a name without its prefix, a `term` excepted, and does not fail on it, since a note's name changes only with every link to it.
 - `description`: one line that stands alone. Recall judges relevance from it without opening the note.
 - `type`: one of the types below.
 - `layer`: `business` or `application`, by **Layers**.
-- `repos`: on authored notes only, required, the registered slugs the note bears on, as `[billing-api]` or `[billing-api, web-app]`: one when the fact is about one repository, each one it holds for when it spans several. Recall finds a note for a repository by this line, so add a slug when another repository comes to rely on the fact. The note's folder follows the line, so a change to it moves the note, by [SYNC.md](SYNC.md)'s **Consolidate**. An explored note belongs to the repository whose folder holds it.
+- `repos`: on authored notes only, required, the registered slugs the note bears on, as `[billing-api]` or `[billing-api, web-app]`: one when the fact is about one repository, each one it holds for when it spans several. Recall finds a note for a repository by this line, so add a slug when another repository comes to rely on the fact. The note's folder follows the line, so a change to it moves the note, by [SYNC.md](SYNC.md)'s **Consolidate**. An explored note belongs to the repository whose folder holds it. A `term`'s line lists each repository its pairings name, once, and no other.
 - `explored`: on explored notes only, the short SHA of the commit the note was read at.
 - `aliases`: optional, 3 to 6 other words for the note's subject that its name and description leave out: business wording, the symptom a user reports, and the code's English terms. Recall ranks them like the description, so a search in other words still reaches the note. Write one `  - <alias>` line each under `aliases:`, as Obsidian does, or `[a, b]`.
-- `avoid`: on a term note only, optional, the words the domain avoids for the term, in the same list forms as `aliases`. A word on it is challenged wherever it names the term, and recall ranks it like the description.
+- `avoid`: on a `term` note only, optional, the words the domain avoids for the term, in the same list forms as `aliases`. A word on it is challenged wherever it names the term, and recall ranks it like the description. A pairing carries its own avoided words in its line. An `avoid` line on a `concept` is a legacy form: `scripts/schema.mjs` warns of it, and sync absorbs the note into a term.
 - `status` and `supersededBy`: on a superseded `decision` only, `status: superseded` and the name of the decision that replaced it, by **When a note stops being true**.
 
 | type | holds |
 |---|---|
 | `feature` | something a user, an operator or another system can do through the repository: who does it, what happens, and its rules. Explored only; always `business` |
-| `concept` | what a term or entity means and the states it moves through (`business`), or how a part of the system works (`application`). A **term note** defines one term of one repository, by [DOMAIN-DOCS.md](DOMAIN-DOCS.md)'s **A term**. When the repository keeps a glossary, `explore` mirrors each of its terms, and an authored note links the mirror and records only what the glossary lacks |
+| `term` | one canonical term of the business, named once above every repository, with each repository's word for it and its relations to other terms, by **The term note**. Authored only, always `business`, always in `notes/domain/` |
+| `concept` | how a part of the system works. Always `application`: a `business` `concept` is the old form of a `term`, which `scripts/schema.mjs` warns of |
 | `decision` | a choice and its reason: a product choice (`business`) or a technical one (`application`). When the repository keeps ADRs, `explore` mirrors each as an explored `decision`, and an authored note links the mirror and records only what the ADR lacks |
 | `how-to` | what to do about a trap or a recurring task: surprising behaviour, a past incident and its lesson, or a procedure no script or doc in the repository runs |
 | `contract` | an interface between repositories (an API, event, queue or shared schema) with its producer and consumers. Its `repos` names at least two; always `application` |
 
 Write the `description` and the body in plain prose, by [PROSE.md](PROSE.md). The body states the fact first. A `decision` or `how-to` follows it with **Why:** and **How to apply:** lines; a procedure's steps follow its **How to apply:** line as a numbered list. Link every note it builds on or bears on with `[[name]]`: each link is an edge in the graph. A link to a note not written yet draws as a dashed node, marking a note worth writing.
+
+### The term note
+
+A `term` keeps flat frontmatter, with `type: term`, `layer: business` and `repos` listing the slugs its pairings name. Its body opens with the definition and the states the entity moves through, then holds two sections, which `scripts/notes.mjs` is the one parser of:
+
+```markdown
+## Pairings
+- billing-api: `Customer`, narrower. Only who has paid at least once. Avoid: `buyer`.
+- web-app · checkout: `User`, broader. Anyone signed up.
+
+## Relations
+- places [[order]]
+- is a [[party]]
+```
+
+- A **pairing line** is ``- <slug>[ · <context>]: `<word>`, <same|narrower|broader>[. <nuance>][. Avoid: `<w>`, `<w>`].`` The degree says how the repository's word relates to the term: `same`, `narrower` or `broader`. The context names one context of a repository, such as a module of a monolith. A term has at least one pairing.
+- A **relation line** is `- <verb> [[<term>]]`. The verb is free, in the domain's words; `is a` and `part of` are reserved for hierarchy. Its target may be a note not written yet.
 
 ### Layers
 
@@ -200,7 +219,7 @@ The note's type decides, so the brain keeps a past only where the past is knowle
 
 A **draft** is a note this machine learned that the team has not yet seen: one file in `.local/drafts/`, named `<name>.md` after the note it proposes. [RECORD.md](RECORD.md) writes it, and [SYNC.md](SYNC.md)'s **Consolidate** turns it into a commit, discards it or keeps it. It holds the note's full text as it would land, by the format above, with two more frontmatter lines, and a third on a `supersede`:
 
-- `target`: the path the note lands at, its home by the note's `repos` line (`notes/repos/billing-api/billing-api-retry-idempotency.md` for one repository, `notes/shared/<name>.md` for several or none).
+- `target`: the path the note lands at, its home by the note's `repos` line (`notes/repos/billing-api/billing-api-retry-idempotency.md` for one repository, `notes/shared/<name>.md` for several or none, and `notes/domain/<name>.md` for a `term`).
 - `action`: `record` for a new note, `update` for a new version of the note at `target`, `supersede` for a new decision replacing another, or `delete` for removing the note at `target`, whose body then holds only the reason.
 - `supersedes`: on a `supersede` only, the name of the decision it replaces.
 

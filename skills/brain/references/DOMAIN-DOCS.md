@@ -8,7 +8,7 @@ A repository **keeps** a glossary when a `GLOSSARY.md` or a `GLOSSARY-MAP.md` si
 
 | Fact | Lives in |
 |---|---|
-| a term, as one repository means it | its `GLOSSARY.md` when it keeps one (under a `GLOSSARY-MAP.md`, its context's, by [CONTEXTS.md](CONTEXTS.md)); else a **term note**, by **A term** |
+| a term, as one repository means it | its `GLOSSARY.md` when it keeps one (under a `GLOSSARY-MAP.md`, its context's, by [CONTEXTS.md](CONTEXTS.md)); else a pairing of a **term note**, by **A term** |
 | a decision that binds one repository | its `docs/adr/` when it keeps one (under a `GLOSSARY-MAP.md`, its context's, or the root's when it spans contexts, by CONTEXTS.md); else a `decision` note, its `repos` naming that repository |
 | an interface between repositories, and the terms that cross it | a `contract` note, its `repos` naming each side, with each side's term where they differ |
 | a decision that binds several repositories | a `decision` note, its `repos` naming each |
@@ -17,32 +17,43 @@ A repository **keeps** a glossary when a `GLOSSARY.md` or a `GLOSSARY-MAP.md` si
 
 ## Read them
 
-A repository's **glossary** is its kept `GLOSSARY.md` (under a `GLOSSARY-MAP.md`, that of each context the work touches) when it is linked; otherwise its term notes and other `business` concepts. Its **ADRs** are its kept `docs/adr/` (each context's, and the root's) when it is linked, and its `decision` notes. For each repository the work touches, list its notes with `node <this file's folder>/../scripts/recall.mjs <brain> --repo <slug> --type concept --type decision`, which lists its `contract` notes too. Read the kept files and each listed note that bears on the work, skipping an explored note that mirrors a kept file you read, and recall the repository's other notes by [RECALL.md](RECALL.md) at the layer the calling skill names. Done when each repository's glossary, ADRs and contract notes are read.
+A repository's **glossary** is its kept `GLOSSARY.md` (under a `GLOSSARY-MAP.md`, that of each context the work touches) when it is linked; otherwise its term notes and other `business` concepts. Its **ADRs** are its kept `docs/adr/` (each context's, and the root's) when it is linked, and its `decision` notes. For each repository the work touches, list its notes with `node <this file's folder>/../scripts/recall.mjs <brain> --repo <slug> --type term --type concept --type decision`, which lists its `contract` notes too. Read the kept files and each listed note that bears on the work, skipping an explored note that mirrors a kept file you read, and recall the repository's other notes by [RECALL.md](RECALL.md) at the layer the calling skill names. Done when each repository's glossary, ADRs and contract notes are read.
 
 As a sub-agent, read the kept files and only the notes your brief's Context block lists; run no script and write nothing. With no brain open, the domain docs are the kept files alone.
 
-Name each repository's code in its own glossary's terms, never by a word the glossary avoids (its `_Avoid_` line, or a term note's `avoid`), and keep the work within the decisions its ADRs and `decision` notes record.
+Name each repository's code in its own glossary's terms, never by a word the glossary avoids (its `_Avoid_` line, or a term note's `avoid` or its pairing's `Avoid:`), and keep the work within the decisions its ADRs and `decision` notes record.
 
 ## A term
 
-- **Be opinionated.** When several words name one concept, pick the best and list the others as avoided.
+- **One meaning.** A term has one meaning in every repository. When two repositories use one word for two things, write two terms, and let each term's pairing name the word.
+- **Name it in English.** Give the term an English name in kebab-case, with no repository prefix: `customer`, not `billing-api-customer`. List the other words for it, in any language, as `aliases`, so a search in those words finds the term.
+- **Give each pairing a degree.** Add one pairing line for each repository, or each context of it, that has a word for the term. Give the line the repository's word and a degree. Use `same` when the word is the term, `narrower` when it covers only part of the term, and `broader` when it covers more than the term.
+- **Be opinionated.** When several words name one concept, pick the best and list the others as avoided: on the pairing line when one repository avoids them, in `avoid` when the domain does.
 - **Keep it tight.** One or two sentences that say what the term is, not what it does.
-- **Only this repository's domain.** Define its own entities and rules (an Invoice, a refund window), and leave general programming concepts such as timeouts or error types to the code, however much it uses them.
+- **Only the business's domain.** Define its own entities and rules (an Invoice, a refund window), and leave general programming concepts such as timeouts or error types to the code, however much it uses them.
 - **Terms only.** An implementation decision is a decision, or part of the spec.
 
-In a kept glossary, write the entry in the shape its other entries take. Otherwise write a **term note**: a `concept` note, `layer: business`, named `<slug>-<term>` with the term in kebab-case, its description and body the definition, its avoided words in `avoid`, and its `repos` naming the repository:
+In a kept glossary, write the entry in the shape its other entries take. Otherwise write a **term note** by FORMAT.md's **The term note**: a `term` note in `notes/domain/`, named for the term, its description and body the definition, its `repos` naming every repository its pairings name:
 
 ```markdown
 ---
-name: billing-api-invoice
-description: An Invoice is a request for payment sent to a customer after delivery
-type: concept
+name: customer
+description: A Customer is a person or company that pays for what the shop delivers
+type: term
 layer: business
-repos: [billing-api]
-avoid: [bill, payment request]
+repos: [billing-api, web-app]
+aliases: [cliente, buyer, shopper]
+avoid: [client]
 ---
 
-A request for payment sent to a customer after delivery.
+A person or company that pays for what the shop delivers. It starts as a visitor and becomes a customer at its first payment.
+
+## Pairings
+- billing-api: `Customer`, narrower. Only who has paid at least once. Avoid: `buyer`.
+- web-app · checkout: `User`, broader. Anyone signed up.
+
+## Relations
+- places [[order]]
 ```
 
 ## A decision

@@ -16,6 +16,7 @@ export const LAYOUT = {
   specs: '.local/specs',
   repoNotesRoot: 'notes/repos',
   sharedNotes: 'notes/shared',
+  domainNotes: 'notes/domain',
   drafts: '.local/drafts',
   repos: 'repos',
 }
@@ -97,10 +98,10 @@ async function tracksOf(fs: Files, specDir: string): Promise<TrackView[]> {
   return tracks
 }
 
-/** The notes and repositories of a brain: every repository's notes, the shared notes, and the cards. */
+/** The notes and repositories of a brain: every repository's notes, the shared notes, the terms, and the cards. */
 async function countNotes(fs: Files, root: string): Promise<{ notes: number; repos: number }> {
   const repoNotes = `${root}/${LAYOUT.repoNotesRoot}`
-  let notes = (await mds(fs, `${root}/${LAYOUT.sharedNotes}`)).length
+  let notes = (await mds(fs, `${root}/${LAYOUT.sharedNotes}`)).length + (await mds(fs, `${root}/${LAYOUT.domainNotes}`)).length
   for (const slug of await dirs(fs, repoNotes)) notes += (await mds(fs, `${repoNotes}/${slug}`)).length
   return { notes, repos: (await mds(fs, `${root}/${LAYOUT.repos}`)).length }
 }

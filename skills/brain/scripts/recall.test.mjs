@@ -131,3 +131,81 @@ test('rejects an unknown layer with a usage error', () => {
   assert.equal(r.status, 2)
   assert.match(r.err, /--layer takes business or application/)
 })
+
+// ---- Terms: the brain's `notes/domain/` over the `api` and `web` repositories of brain()
+
+const term = (name, description, pairings, repos) =>
+  note({ name, description, type: 'term', layer: 'business', repos }, `A definition.\n\n## Pairings\n${pairings.join('\n')}\n`)
+const termBrain = () => {
+  const b = brain()
+  put(join(b, 'notes/domain/customer.md'), term('customer', 'Who buys from the business', [
+    '- api: `Customer`, narrower. Only who has paid. Avoid: `buyer`.',
+    '- web: `Client`, same.',
+  ], '[api, web]'))
+  put(join(b, 'notes/domain/ledger-account.md'), term('ledger-account', 'A book of debits and credits', ['- api: `Account`, same.'], '[api]'))
+  put(join(b, 'notes/domain/user-account.md'), term('user-account', 'A login of a person', ['- web: `Account`, narrower.'], '[web]'))
+  return b
+}
+
+test('--query ranks a term by a pairing word above a note that only repeats the word', () => {
+  const b = termBrain()
+  put(join(b, 'notes/repos/web/web-sdk.md'), note({ name: 'web-sdk', description: 'The sdk', type: 'how-to', layer: 'application', repos: '[web]' }, 'The client library.'))
+  const r = recall(b, '--query', 'Client')
+  assert.equal(paths(section(r.out, 'notes'))[0], 'notes/domain/customer.md')
+})
+
+test('--query ranks a term by a word a pairing avoids above a note that only repeats the word', () => {
+  const b = termBrain()
+  put(join(b, 'notes/repos/web/web-sdk.md'), note({ name: 'web-sdk', description: 'The sdk', type: 'how-to', layer: 'application', repos: '[web]' }, 'The buyer library.'))
+  const r = recall(b, '--query', 'buyer')
+  assert.equal(paths(section(r.out, 'notes'))[0], 'notes/domain/customer.md')
+})
+
+test('--type term --repo lists the terms paired with that repository and no other', () => {
+  const r = recall(termBrain(), '--type', 'term', '--repo', 'api')
+  assert.deepEqual(paths(section(r.out, 'notes (term)')), ['notes/domain/customer.md', 'notes/domain/ledger-account.md'])
+})
+
+test('with --repo, a term line shows that repository\'s word and degree', () => {
+  const r = recall(termBrain(), '--type', 'term', '--repo', 'api')
+  const line = section(r.out, 'notes (term)').find((l) => l.includes('customer.md'))
+  assert.match(line, / · api: Customer \(narrower\) · /)
+  assert.doesNotMatch(line, /Client/)
+})
+
+test('a query word that is the pairing word of two terms prints one homonym line naming each', () => {
+  const r = recall(termBrain(), '--query', 'account')
+  assert.deepEqual(r.out.split('\n').filter((l) => l.startsWith('homonym:')), ['homonym: account → ledger-account (api), user-account (web)'])
+})
+
+test('the homonym line sits before the notes line', () => {
+  const lines = recall(termBrain(), '--query', 'account').out.split('\n')
+  assert.ok(lines.findIndex((l) => l.startsWith('homonym:')) < lines.findIndex((l) => l.startsWith('notes')))
+})
+
+test('a query word that is the pairing word of one term prints no homonym line', () => {
+  const r = recall(termBrain(), '--query', 'customer')
+  assert.doesNotMatch(r.out, /^homonym:/m)
+})
+
+test('--legacy lists a business concept', () => {
+  const b = termBrain()
+  put(join(b, 'notes/repos/api/api-invoice.md'), note({ name: 'api-invoice', description: 'A request for payment', type: 'concept', layer: 'business', repos: '[api]' }))
+  const r = recall(b, '--legacy')
+  assert.match(r.out, /^notes\/repos\/api\/api-invoice\.md · business concept$/m)
+})
+
+test('--legacy lists an explored note whose Sources names a glossary, a glossary map or an ADR, and no other', () => {
+  const b = brain()
+  const explored = (name, sources) => put(join(b, `notes/repos/api/${name}.md`), note({ name, description: 'Mirror', type: 'concept', layer: 'application', explored: 'a1b2c3d' }, `A mirror.\n\nSources: ${sources}`))
+  explored('api-glossary', '`GLOSSARY.md`')
+  explored('api-glossary-map', '`src/a.ts`, `GLOSSARY-MAP.md`')
+  explored('api-adr', '`docs/adr/0001-queues.md`')
+  explored('api-code', '`src/a.ts`')
+  const r = recall(b, '--legacy')
+  assert.deepEqual(r.out.trim().split('\n'), [
+    'notes/repos/api/api-adr.md · sources name a glossary or an ADR',
+    'notes/repos/api/api-glossary-map.md · sources name a glossary or an ADR',
+    'notes/repos/api/api-glossary.md · sources name a glossary or an ADR',
+  ])
+})

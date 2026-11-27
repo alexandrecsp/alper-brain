@@ -20,14 +20,14 @@ test('gives every path of the clusters layout under a .brain root', () => {
   assert.deepEqual(
     {
       root: c.root, brainMd: c.brainMd, gitignore: c.gitignore, repos: c.repos, card: c.card('api'),
-      notes: c.notes, repoNotes: c.repoNotes('api'), sharedNotes: c.sharedNotes, research: c.research,
+      notes: c.notes, repoNotes: c.repoNotes('api'), sharedNotes: c.sharedNotes, domainNotes: c.domainNotes, research: c.research,
       docs: c.docs, repoDocs: c.repoDocs('api'), sharedDocs: c.sharedDocs, prototypes: c.prototypes,
       local: c.local, config: c.config, reposJson: c.reposJson, drafts: c.drafts, specs: c.specs,
       snapshots: c.snapshots('api'), explore: c.explore, locks: c.locks, handoff: c.handoff,
     },
     {
       root, brainMd: `${root}/BRAIN.md`, gitignore: `${root}/.gitignore`, repos: `${root}/repos`, card: `${root}/repos/api.md`,
-      notes: `${root}/notes`, repoNotes: `${root}/notes/repos/api`, sharedNotes: `${root}/notes/shared`, research: `${root}/notes/research`,
+      notes: `${root}/notes`, repoNotes: `${root}/notes/repos/api`, sharedNotes: `${root}/notes/shared`, domainNotes: `${root}/notes/domain`, research: `${root}/notes/research`,
       docs: `${root}/docs`, repoDocs: `${root}/docs/repos/api`, sharedDocs: `${root}/docs/shared`, prototypes: `${root}/docs/prototypes`,
       local: `${root}/.local`, config: `${root}/.local/config.json`, reposJson: `${root}/.local/repos.json`, drafts: `${root}/.local/drafts`,
       specs: `${root}/.local/specs`, snapshots: `${root}/.local/snapshots/api`, explore: `${root}/.local/explore`,
@@ -41,6 +41,14 @@ test('sends a note of one repository to its folder and any other note to notes/s
   assert.deepEqual(
     [noteHome(root, ['api']), noteHome(root, ['api', 'web']), noteHome(root, [])],
     [`${root}/notes/repos/api`, `${root}/notes/shared`, `${root}/notes/shared`],
+  )
+})
+
+test('sends a term to notes/domain/ whatever its repos line, and keeps the repos rule for every other type', () => {
+  const root = '/work/api/.brain'
+  assert.deepEqual(
+    [noteHome(root, ['api'], 'term'), noteHome(root, ['api', 'web'], 'term'), noteHome(root, ['api'], 'concept'), noteHome(root, ['api', 'web'], 'contract')],
+    [`${root}/notes/domain`, `${root}/notes/domain`, `${root}/notes/repos/api`, `${root}/notes/shared`],
   )
 })
 
