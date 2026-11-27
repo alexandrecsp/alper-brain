@@ -1,7 +1,7 @@
 // Reads the brain's notes and drafts by FORMAT.md, so every script agrees on what a note is: recall.mjs ranks them,
 // schema.mjs checks them. parse and noteOf work on text alone;
 // loadBrain reads the brain's folders by the paths layout.mjs gives. placeOf is the one reader of a path's place in the
-// brain's `.brain/` layout.
+// brain's `.brain/` layout; noteOf is the one reader of a note's kind, authored or explored, from its `explored` line.
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathsOf, relativeTo } from './layout.mjs'
@@ -45,13 +45,14 @@ export const listOf = (value) =>
     .map((v) => unquote(String(v).trim()))
     .filter(Boolean)
 
-// Where a path, relative to the brain, sits in it: an authored note, an explored note or a card, with the repository its
-// folder names (null for an authored note in notes/authored/, whose repos line names them). Null for any other path.
+// What a path, relative to the brain, tells of its place in it: the repository its folder names (null in notes/authored/,
+// whose notes name theirs on a repos line) and whether the file is a repository's card. It never tells a note's kind: the
+// `explored` line does. Null for any path that is neither a note's nor a card's.
 export function placeOf(path) {
   const p = path.split('/')
-  if (p[0] === 'notes' && p[1] === 'authored' && p.length === 3) return { kind: 'authored', slug: null }
-  if (p[0] === 'notes' && p[1] === 'exploration' && p.length === 4) return { kind: 'explored', slug: p[2] }
-  if (p[0] === 'repos' && p.length === 3 && p[2] === 'REPO.md') return { kind: 'card', slug: p[1] }
+  if (p[0] === 'notes' && p[1] === 'authored' && p.length === 3) return { slug: null, card: false }
+  if (p[0] === 'notes' && p[1] === 'exploration' && p.length === 4) return { slug: p[2], card: false }
+  if (p[0] === 'repos' && p.length === 3 && p[2] === 'REPO.md') return { slug: p[1], card: true }
   return null
 }
 
@@ -71,7 +72,7 @@ export function noteOf(path, text, { target = path, draft = null } = {}) {
     layer: typeof fm.layer === 'string' ? fm.layer : '',
     aliases: fm.aliases === undefined ? [] : listOf(fm.aliases),
     avoid: fm.avoid === undefined ? [] : listOf(fm.avoid),
-    explored: !!fm.explored || place?.kind === 'explored',
+    explored: !!fm.explored,
     repos: place?.slug ? [place.slug] : listOf(fm.repos),
     superseded: fm.status === 'superseded',
     supersededBy: typeof fm.supersededBy === 'string' && fm.supersededBy ? fm.supersededBy : null,

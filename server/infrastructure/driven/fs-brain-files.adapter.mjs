@@ -40,8 +40,8 @@ const all = (root) => {
   const paths = pathsOf(root)
   const files = {}
   const times = {}
-  walk(paths.specs, 'specs/', files, times)
-  walk(paths.notes, 'notes/', files)
+  walk(paths.specs, `${relativeTo(root, paths.specs)}/`, files, times)
+  walk(paths.notes, `${relativeTo(root, paths.notes)}/`, files)
   let slugs = []
   try {
     slugs = readdirSync(paths.repos, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name)
@@ -64,7 +64,7 @@ const poll = (root, onChange) => {
 const watchRecursively = (root, onChange) => {
   // A brain leaves alone what its `.gitignore` ignores, read afresh since the file may change.
   const shown = [pathsOf(root).drafts, pathsOf(root).specs].map((path) => relativeTo(root, path))
-  const ignored = (name) => watchIgnore(readText(resolve(root, '.gitignore')), shown)(name)
+  const ignored = (name) => watchIgnore(readText(pathsOf(root).gitignore), shown)(name)
   let settle
   let stopPolling
   let watcher

@@ -2,7 +2,7 @@
 // The brain root is the folder holding BRAIN.md: `<repo or host>/.brain/`. An old layout is found by oldLayoutOf only, to be offered
 // MIGRATE.md's layout move; no other script reads its paths.
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
 
 export const fwd = (p) => p.split('\\').join('/')
@@ -42,6 +42,44 @@ export function pathsOf(root) {
   }
 }
 
+// Every path of the clusters layout under a brain root, as pathsOf gives today's: absolute paths with forward slashes.
+export function clustersOf(root) {
+  const at = (...parts) => fwd(join(root, ...parts))
+  return {
+    root: fwd(root),
+    brainMd: at('BRAIN.md'),
+    gitignore: at('.gitignore'),
+    repos: at('repos'),
+    card: (slug) => at('repos', `${slug}.md`),
+    notes: at('notes'),
+    repoNotes: (slug) => at('notes', 'repos', slug),
+    sharedNotes: at('notes', 'shared'),
+    research: at('notes', 'research'),
+    docs: at('docs'),
+    repoDocs: (slug) => at('docs', 'repos', slug),
+    sharedDocs: at('docs', 'shared'),
+    prototypes: at('docs', 'prototypes'),
+    local: at('.local'),
+    config: at('.local', 'config.json'),
+    reposJson: at('.local', 'repos.json'),
+    drafts: at('.local', 'drafts'),
+    specs: at('.local', 'specs'),
+    snapshots: (slug) => at('.local', 'snapshots', slug),
+    explore: at('.local', 'explore'),
+    locks: at('.local', 'locks'),
+    handoff: at('.local', 'handoff'),
+  }
+}
+
+// The folder an authored note belongs in, by its `repos` list: its repository's notes for a list of one slug, else notes/shared/.
+export const noteHome = (root, repos) => {
+  const at = clustersOf(root)
+  return repos.length === 1 ? at.repoNotes(repos[0]) : at.sharedNotes
+}
+
+// The brain root of a folder that is a host or a `.brain/` itself: the `.brain/` folder, with forward slashes. It need not exist.
+export const brainRootOf = (folder) => fwd(basename(folder) === '.brain' ? folder : join(folder, '.brain'))
+
 // The brain a folder holds: its `.brain/` holding BRAIN.md, or the folder itself when it holds BRAIN.md. Null when
 // the folder holds none.
 export function findBrain(folder) {
@@ -76,12 +114,25 @@ export function nameOf(root) {
 // The brain root above a spec folder: `<brain>/specs/NNN-<slug>` sits two levels below it.
 export const brainOfSpec = (specDir) => fwd(dirname(dirname(specDir)))
 
+// The spec folder holding a spec, track, milestone or ticket path: the folder straight under the brain's `specs/`.
+// The last `specs` folder of the path holds the spec, so a `specs` folder above the brain does not count. Null when the path has none.
+export function specFolderOf(path) {
+  const parts = fwd(path).split('/')
+  const specsIndex = parts.findLastIndex((part, i) => part === 'specs' && i + 1 < parts.length)
+  return specsIndex < 0 ? null : parts.slice(0, specsIndex + 2).join('/')
+}
+
 // The old layout a folder holds, if any, as its kind: `embedded` (a `brain/` folder holding BRAIN.md), `local` (a
 // `.brain-local/` folder), or, for a folder holding BRAIN.md at its root, `sdd` (a `.sdd/` folder, the old name of
-// the pipeline's `.brain/`), `legacy` (no `notes/`) or `standalone`. Null for a new-layout brain or no brain.
+// the pipeline's `.brain/`), `legacy` (no `notes/`) or `standalone`. A `.brain/` holding today's layout, by the host or by
+// the `.brain/` itself, is `one-folder`. Null for a clusters brain or no brain.
 export function oldLayoutOf(folder) {
   const has = (...parts) => existsSync(join(folder, ...parts))
-  if (has('.brain', 'BRAIN.md') || basename(folder) === '.brain') return null
+  const root = brainRootOf(folder)
+  const inRoot = (...parts) => existsSync(join(root, ...parts))
+  const cards = () => readdirSync(join(root, 'repos'), { withFileTypes: true }).some((e) => e.isDirectory() && inRoot('repos', e.name, 'REPO.md'))
+  if (inRoot('BRAIN.md') && (inRoot('notes', 'authored') || inRoot('notes', 'exploration') || inRoot('specs') || (inRoot('repos') && cards()))) return 'one-folder'
+  if (inRoot('BRAIN.md') || basename(folder) === '.brain') return null
   if (has('brain', 'BRAIN.md')) return 'embedded'
   if (has('.brain-local', 'BRAIN.md')) return 'local'
   if (!has('BRAIN.md')) return null

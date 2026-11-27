@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
-import { brainOfSpec, findBrain, kindOf, nameOf, oldLayoutOf, pathsOf } from './layout.mjs'
+import { brainOfSpec, clustersOf, findBrain, kindOf, nameOf, noteHome, oldLayoutOf, pathsOf, specFolderOf } from './layout.mjs'
 
 const put = (path, text = '') => { mkdirSync(join(path, '..'), { recursive: true }); writeFileSync(path, text) }
 const folder = () => mkdtempSync(join(tmpdir(), 'brain-layout-')).split('\\').join('/')
@@ -34,6 +34,36 @@ test('gives every path of the layout tree under a .brain root', () => {
       pages: `${root}/pages`, prototypes: `${root}/prototypes`, research: `${root}/research`, specs: `${root}/specs`, explore: `${root}/explore`,
       locks: `${root}/locks`, handoff: `${root}/handoff`,
     },
+  )
+})
+
+test('gives every path of the clusters layout under a .brain root', () => {
+  const root = '/work/api/.brain'
+  const c = clustersOf(root)
+  assert.deepEqual(
+    {
+      root: c.root, brainMd: c.brainMd, gitignore: c.gitignore, repos: c.repos, card: c.card('api'),
+      notes: c.notes, repoNotes: c.repoNotes('api'), sharedNotes: c.sharedNotes, research: c.research,
+      docs: c.docs, repoDocs: c.repoDocs('api'), sharedDocs: c.sharedDocs, prototypes: c.prototypes,
+      local: c.local, config: c.config, reposJson: c.reposJson, drafts: c.drafts, specs: c.specs,
+      snapshots: c.snapshots('api'), explore: c.explore, locks: c.locks, handoff: c.handoff,
+    },
+    {
+      root, brainMd: `${root}/BRAIN.md`, gitignore: `${root}/.gitignore`, repos: `${root}/repos`, card: `${root}/repos/api.md`,
+      notes: `${root}/notes`, repoNotes: `${root}/notes/repos/api`, sharedNotes: `${root}/notes/shared`, research: `${root}/notes/research`,
+      docs: `${root}/docs`, repoDocs: `${root}/docs/repos/api`, sharedDocs: `${root}/docs/shared`, prototypes: `${root}/docs/prototypes`,
+      local: `${root}/.local`, config: `${root}/.local/config.json`, reposJson: `${root}/.local/repos.json`, drafts: `${root}/.local/drafts`,
+      specs: `${root}/.local/specs`, snapshots: `${root}/.local/snapshots/api`, explore: `${root}/.local/explore`,
+      locks: `${root}/.local/locks`, handoff: `${root}/.local/handoff`,
+    },
+  )
+})
+
+test('sends a note of one repository to its folder and any other note to notes/shared/', () => {
+  const root = '/work/api/.brain'
+  assert.deepEqual(
+    [noteHome(root, ['api']), noteHome(root, ['api', 'web']), noteHome(root, [])],
+    [`${root}/notes/repos/api`, `${root}/notes/shared`, `${root}/notes/shared`],
   )
 })
 
@@ -88,6 +118,31 @@ test('gives the brain root two levels above a spec folder', () => {
   assert.equal(brainOfSpec('/work/api/.brain/specs/002-one-brain-folder'), '/work/api/.brain')
 })
 
+const SPEC = '/work/api/.brain/specs/003-x'
+
+test('gives the spec folder of a spec path', () => {
+  assert.equal(specFolderOf(`${SPEC}/spec.md`), SPEC)
+})
+
+test('gives the spec folder of a track path', () => {
+  assert.equal(specFolderOf(`${SPEC}/milestones/api`), SPEC)
+})
+
+test('gives the spec folder of a milestone path', () => {
+  assert.equal(specFolderOf(`${SPEC}/milestones/api/001-m/milestone.md`), SPEC)
+})
+
+test('gives the spec folder of a ticket path', () => {
+  assert.equal(specFolderOf(`${SPEC}/milestones/api/001-m/001-t.md`), SPEC)
+})
+
+test('gives the spec folder of a flat-layout ticket path, and of a Windows path', () => {
+  assert.deepEqual(
+    [specFolderOf(`${SPEC}/milestones/001-m/001-t.md`), specFolderOf('C:\\specs\\app\\.brain\\specs\\003-x\\milestones\\001-m\\001-t.md')],
+    [SPEC, 'C:/specs/app/.brain/specs/003-x'],
+  )
+})
+
 test('detects each old layout by its kind', () => {
   const standalone = folder()
   put(join(standalone, 'BRAIN.md'), '# Brain\n')
@@ -111,10 +166,26 @@ test('detects each old layout by its kind', () => {
   )
 })
 
-test('detects a new-layout brain as none', () => {
+test("detects today's one-folder brain, by the host or by its .brain, from each of its markers", () => {
+  const markers = ['notes/authored/api-retry.md', 'notes/exploration/api/x.md', 'repos/api/REPO.md', 'specs/001-x/spec.md']
+  const brains = markers.map((marker) => {
+    const f = folder()
+    put(join(f, '.brain/BRAIN.md'), '---\nkind: standalone\n---\n')
+    put(join(f, '.brain', marker), 'x\n')
+    return f
+  })
+  assert.deepEqual(
+    [...brains.map(oldLayoutOf), ...brains.map((f) => oldLayoutOf(`${f}/.brain`))],
+    Array(8).fill('one-folder'),
+  )
+})
+
+test('detects a clusters brain as none', () => {
   const f = folder()
   put(join(f, '.brain/BRAIN.md'), '---\nkind: standalone\n---\n')
-  put(join(f, '.brain/notes/authored/api-retry.md'), 'A fact.\n')
+  put(join(f, '.brain/notes/shared/api-retry.md'), 'A fact.\n')
+  put(join(f, '.brain/repos/api.md'), 'The api repository.\n')
+  put(join(f, '.brain/.local/specs/001-x/spec.md'), '# X\n')
   assert.deepEqual([oldLayoutOf(f), oldLayoutOf(`${f}/.brain`), oldLayoutOf(folder())], [null, null, null])
 })
 

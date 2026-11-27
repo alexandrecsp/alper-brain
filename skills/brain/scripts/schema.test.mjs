@@ -77,6 +77,14 @@ test('rejects an explored note in an unregistered folder or without its SHA, and
   assert.match(r.out, /^notes\/exploration\/api\/api-stray\.md: repos belongs on an authored note only/m)
 })
 
+test('rejects an explored line in notes/authored/, since today\'s layout keeps explored notes in their repository\'s folder', () => {
+  const b = brain()
+  put(join(b, 'notes/authored/api-refunds.md'), note({ name: 'api-refunds', description: 'X', type: 'feature', layer: 'business', explored: 'a1b2c3d' }))
+  const r = schema(b, join(b, 'notes/authored/api-refunds.md'))
+  assert.equal(r.status, 1)
+  assert.match(r.out, /^notes\/authored\/api-refunds\.md: explored: belongs on a note in notes\/exploration\/<slug>\/ only$/m)
+})
+
 test('rejects a note outside notes/authored/ and notes/exploration/<slug>/ when named', () => {
   const b = brain()
   put(join(b, 'notes/exploration/api/deep/api-x.md'), note(good))

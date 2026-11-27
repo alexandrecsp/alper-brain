@@ -436,6 +436,18 @@ const builtRepo = (b) => {
 }
 const sl = (p) => p.replace(/\\/g, '/')
 
+test("finds a ticket's spec folder in the flat layout, to digest it and to dispatch its builder", () => {
+  const b = brain()
+  const s = join(b, 'specs/004-invoice-export')
+  put(join(s, 'spec.md'), spec())
+  put(join(s, 'milestones/001-a/milestone.md'), milestone({ n: '001', repo: 'api' }))
+  put(join(s, 'milestones/001-a/001-t.md'), ticket({ n: '001' }))
+  builtRepo(b)
+  const t = join(s, 'milestones/001-a/001-t.md')
+  assert.match(ticketDigest(t, { useGit: false }), /^# Around ticket api\/001: T001/)
+  assert.ok(dispatch(t, 'builder').endsWith(`**Spec:** ${sl(join(s, 'spec.md'))}`))
+})
+
 test('fills each agent its Context block, dispatches a builder, and moves on to the next ticket', () => {
   const b = brain()
   const s = twoTracks(b)

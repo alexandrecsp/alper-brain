@@ -27,10 +27,10 @@ test('parses flat frontmatter, quoted values, CRLF endings and an Obsidian block
   assert.deepEqual(parse('No frontmatter here.'), { fm: {}, body: 'No frontmatter here.' })
 })
 
-test('places every path of the .brain layout, and nothing else', () => {
-  assert.deepEqual(placeOf('notes/authored/api-retry.md'), { kind: 'authored', slug: null })
-  assert.deepEqual(placeOf('repos/api/REPO.md'), { kind: 'card', slug: 'api' })
-  assert.deepEqual(placeOf('notes/exploration/api/api-refunds.md'), { kind: 'explored', slug: 'api' })
+test('places every path of the .brain layout by its repository, and nothing else', () => {
+  assert.deepEqual(placeOf('notes/authored/api-retry.md'), { slug: null, card: false })
+  assert.deepEqual(placeOf('repos/api/REPO.md'), { slug: 'api', card: true })
+  assert.deepEqual(placeOf('notes/exploration/api/api-refunds.md'), { slug: 'api', card: false })
   for (const old of ['notes/drafts/api-x.md', 'shared/invoice-contract.md', 'repos/api/api-retry.md', 'repos/api/explored/api-refunds.md', 'notes/exploration/api/deep/x.md', 'notes/authored/deep/x.md']) assert.equal(placeOf(old), null, old)
 })
 
@@ -47,6 +47,14 @@ test('a note takes its repository from its folder, else from its repos line, and
   const old = noteOf('notes/authored/api-v1.md', note({ name: 'api-v1', type: 'decision', status: 'superseded', supersededBy: 'api-v2' }))
   assert.equal(old.superseded, true)
   assert.equal(old.supersededBy, 'api-v2')
+})
+
+test('a note with an explored line is explored in any folder, and one without it is authored', () => {
+  const inAuthored = noteOf('notes/authored/api-refunds.md', note({ name: 'api-refunds', type: 'feature', layer: 'business', explored: 'a1b2c3d', repos: '[api]' }))
+  assert.equal(inAuthored.explored, true)
+  assert.deepEqual(inAuthored.repos, ['api'])
+  const inExploration = noteOf('notes/exploration/api/api-retry.md', note({ name: 'api-retry', type: 'how-to', layer: 'application' }))
+  assert.equal(inExploration.explored, false)
 })
 
 test('reads the .brain layout: authored and explored notes, never a card or repos.json, and drafts from notes/drafts/', () => {

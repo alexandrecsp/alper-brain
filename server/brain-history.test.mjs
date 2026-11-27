@@ -61,6 +61,25 @@ test("history route returns the timeline's shape for a brain in git", async () =
   })
 })
 
+test('a note is explored by its explored line, whatever its folder', async () => {
+  const b = await brainRepo()
+  b.write('notes/authored/x.md', `---
+type: feature
+layer: business
+explored: a1b2c3d
+repos: [app]
+---
+# Note
+`)
+  b.write('notes/exploration/app/y.md', noteText())
+  b.commit('Records x and y')
+  const { json } = await b.history()
+  assert.deepEqual(json.commits[0].changes.map(({ path, kind }) => ({ path, kind })), [
+    { path: 'notes/authored/x.md', kind: 'explored' },
+    { path: 'notes/exploration/app/y.md', kind: 'authored' },
+  ])
+})
+
 // The actions of the history's last commit's changes.
 const lastActions = async (b) => (await b.history()).json.commits.at(-1).changes.map(({ path, action, from }) => ({ path, action, ...(from ? { from } : {}) }))
 

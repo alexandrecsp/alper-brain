@@ -5,7 +5,7 @@ import { listOf, parse, placeOf } from '../../../skills/brain/scripts/notes.mjs'
 // `repos` through `notes.mjs`.
 export const historyOf = async (history, root) => {
   // A note's file: an authored or explored note, never a repository's card.
-  const isNote = (path) => path.endsWith('.md') && ['authored', 'explored'].includes(placeOf(path)?.kind)
+  const isNote = (path) => path.endsWith('.md') && placeOf(path)?.card === false
   const commits = (await history.log(root))
     .map((c) => ({ ...c, changes: c.changes.filter((x) => isNote(x.path)) }))
     .filter((c) => c.changes.length)
@@ -17,7 +17,7 @@ export const historyOf = async (history, root) => {
       note: path.split('/').at(-1).replace(/\.md$/, ''),
       type: fm.type || 'other',
       layer: fm.layer || null,
-      kind: fm.explored || place?.kind === 'explored' ? 'explored' : 'authored',
+      kind: fm.explored ? 'explored' : 'authored',
       repos: place?.slug ? [place.slug] : listOf(fm.repos),
       superseded: fm.status === 'superseded',
     }

@@ -2,6 +2,9 @@
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+// A name holds no separator: the browser answers a path of several segments with a TypeError.
+const named = (n) => { if (/[/\\]/.test(n)) throw new TypeError(`Name is not allowed: ${n}`); return n }
+
 // `permission` is what the browser answers about the folder: 'granted' or 'prompt'.
 const fileHandle = (path, name) => ({
   kind: 'file', name,
@@ -15,13 +18,13 @@ export const dirHandle = (path, { permission = 'granted' } = {}, name = path) =>
     queryPermission: async () => opts.permission,
     requestPermission: async () => opts.permission,
     async getDirectoryHandle(n, { create } = {}) {
-      const p = join(path, n)
+      const p = join(path, named(n))
       if (create) mkdirSync(p, { recursive: true })
       if (!statSync(p, { throwIfNoEntry: false })?.isDirectory()) throw new Error('NotFoundError')
       return dirHandle(p, opts, n)
     },
     async getFileHandle(n, { create } = {}) {
-      const p = join(path, n)
+      const p = join(path, named(n))
       if (create && !statSync(p, { throwIfNoEntry: false })) writeFileSync(p, '')
       if (!statSync(p, { throwIfNoEntry: false })?.isFile()) throw new Error('NotFoundError')
       return fileHandle(p, n)

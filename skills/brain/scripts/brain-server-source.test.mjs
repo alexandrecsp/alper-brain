@@ -295,3 +295,12 @@ test('a clone unlinked after it was shown shows as unlinked, not as an error', a
   await redrawn
   assert.equal(Clones.view(repo).state, 'unlinked')
 })
+
+test("toData marks a note explored by its explored line, wherever its file sits", () => {
+  const files = new Map(Object.entries({
+    'notes/authored/seen.md': '---\nexplored: abc1234\n---\nSeen at a commit.',
+    'notes/exploration/api/plain.md': '---\ntype: concept\n---\nNo explored line.',
+  }))
+  const data = toData('team', files, new Map())
+  assert.deepEqual(data.notes.map((n) => [n.id, n.kind]), [['seen', 'explored'], ['plain', 'authored']])
+})

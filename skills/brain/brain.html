@@ -367,7 +367,7 @@ const App = (function () {
       ${field('Repos', `<input data-repos value="${esc(backRepo || '')}" placeholder="${esc(repos.slice(0, 2).join(', ') || 'billing-api, web-app')}" class="${INPUT}" ${inputStyle}>`)}
       ${field('Description', `<input data-description placeholder="One line that stands alone" class="${INPUT}" ${inputStyle}>`)}
       ${field('Body', `<textarea data-body rows="6" placeholder="The fact first. A decision or how-to adds **Why:** and **How to apply:** lines." class="${INPUT}" ${inputStyle}></textarea>`)}
-      <div class="flex flex-wrap items-center gap-2"><button class="btn btn-accent text-[12px]" data-draft-save="${esc(id)}">Save the draft</button><span class="faint text-[11.5px]">into ${draftsDir()}/ · /brain sync shares it</span></div>
+      <div class="flex flex-wrap items-center gap-2"><button class="btn btn-accent text-[12px]" data-draft-save="${esc(id)}">Save the draft</button><span class="faint text-[11.5px]">into ${BrainSource.LAYOUT.drafts}/ · /brain sync shares it</span></div>
       <div class="faint pt-1 text-[11.5px]">Or let Claude write it: ${ui.copyBtn(`/brain remember ${id}`)}</div></div>`);
   }
   // reads a form's values and writes the file; a missing value stops it with a toast
@@ -1770,7 +1770,8 @@ const BrainSource = (function () {
         else if (name.endsWith('.md')) { const file = await h.getFile(); out.set(prefix + name, await file.text()); times?.set(prefix + name, file.lastModified); }
       }
     }
-    const sub = async (dir, ...names) => { for (const n of names) dir = await dir.getDirectoryHandle(n); return dir; };
+    // a layout path may hold several segments, which the browser opens one folder at a time
+    const sub = async (dir, ...paths) => { for (const n of paths.flatMap((x) => x.split('/'))) dir = await dir.getDirectoryHandle(n); return dir; };
     const text = async (dir, name) => (await (await dir.getFileHandle(name)).getFile()).text();
     // The folder holding a brain's BRAIN.md: the `.brain/` folder inside the folder picked, or the folder picked itself.
     const rootOf = async (b) => {
@@ -2107,13 +2108,13 @@ const ticketsStatus = (ts) => (!ts.length ? 'draft' : ts.every((t) => t.status =
   : ts.some((t) => t.status === 'doing' || t.status === 'done') ? 'active' : 'ready');
 const WIKI = /\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]/g;
 
-// Where a path sits, as notes.mjs's placeOf reads it: an authored note, an explored note or a card, with the repository
-// its folder names.
+// Where a path sits, as notes.mjs's placeOf reads it: the repository its folder names (null in the authored folder) and
+// whether the file is a card. It never tells a note's kind: the note's `explored` line does.
 function placeOf(path) {
   const p = path.split('/'), L = BrainSource.LAYOUT, dir = p.slice(0, -1).join('/');
-  if (dir === L.authored) return { kind: 'authored', slug: null };
-  if (p.length === 4 && dir === L.exploration(p[2])) return { kind: 'explored', slug: p[2] };
-  if (p.length === 3 && path === L.card(p[1])) return { kind: 'card', slug: p[1] };
+  if (dir === L.authored) return { slug: null, card: false };
+  if (p.length === 4 && dir === L.exploration(p[2])) return { slug: p[2], card: false };
+  if (p.length === 3 && path === L.card(p[1])) return { slug: p[1], card: true };
   return null;
 }
 
@@ -2126,7 +2127,7 @@ function toData(name, files, times = new Map(), { timeline: history } = {}) {
   // repositories: one per card
   let links = {};
   try { links = JSON.parse(read(L.reposJson) || '{}'); } catch {}
-  const repos = paths.filter((p) => placeOf(p)?.kind === 'card').sort().map((p) => {
+  const repos = paths.filter((p) => placeOf(p)?.card).sort().map((p) => {
     const slug = placeOf(p).slug, { fm, body } = front(read(p));
     return { slug, remote: fm.remote, explored: fm.explored || null, summary: body.trim(), linked: !!links[slug], path: links[slug] || null };
   });
@@ -2135,20 +2136,20 @@ function toData(name, files, times = new Map(), { timeline: history } = {}) {
     const { fm, body } = front(read(file));
     const path = draft ? fm.target : file;
     const at = path ? placeOf(path) : null;
-    if (!at || at.kind === 'card') return null;
-    const id = path.split('/').at(-1).replace(/\.md$/, '');
+    if (!at || at.card) return null;
+    const id = path.split('/').at(-1).replace(/\.md$/, ''), kind = fm.explored ? 'explored' : 'authored';
     const repos = at.slug ? [at.slug] : (fm.repos || '').replace(/^\[|\]$/g, '').split(',').map((s) => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
     return {
       id, path, type: fm.type || 'other', layer: fm.layer || null, description: fm.description || '', body: body.trim(),
       // shared: an authored note bearing on several repositories
-      repos, shared: at.kind === 'authored' && repos.length > 1, kind: at.kind, explored: fm.explored || null,
+      repos, shared: kind === 'authored' && repos.length > 1, kind, explored: fm.explored || null,
       links: [...new Set([...body.matchAll(WIKI)].map((x) => x[1].trim()))].filter((l) => l !== id),
       superseded: fm.status === 'superseded', supersededBy: fm.supersededBy || null,
       draft: draft ? fm.action || 'record' : null, supersedes: fm.supersedes || null,
     };
   };
   const notes = new Map();
-  for (const p of paths.filter((p) => ['authored', 'explored'].includes(placeOf(p)?.kind))) { const n = noteOf(p, false); if (n && !notes.has(n.id)) notes.set(n.id, n); }
+  for (const p of paths.filter((p) => placeOf(p)?.card === false)) { const n = noteOf(p, false); if (n && !notes.has(n.id)) notes.set(n.id, n); }
   for (const p of paths.filter((p) => p.startsWith(DRAFTS))) {
     const d = noteOf(p, true); if (!d) continue;
     const own = notes.get(d.id);

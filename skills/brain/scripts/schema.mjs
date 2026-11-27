@@ -83,7 +83,9 @@ function broken(n) {
   const fm = n.fm
   const at = n.target.split('/')
   const place = placeOf(n.target)
-  const where = !place || place.kind === 'card' ? null : place.kind
+  // The note's kind, from its explored line; a note is placed when its path is a note's, which is no card's.
+  const placed = place && !place.card
+  const where = placed ? (n.explored ? 'explored' : 'authored') : null
 
   if (n.draft) {
     if (typeof fm.target !== 'string' || !fm.target) out.push('a draft needs target: the path the note lands at')
@@ -94,7 +96,7 @@ function broken(n) {
   const exploredDir = 'notes/exploration/<slug>/'
   const paths = `notes/authored/<name>.md or ${exploredDir}<name>.md`
   if (!where) out.push(`${n.draft ? 'target' : 'path'} ${n.target} is not ${paths}`)
-  if (where && place.slug && !slugs.includes(place.slug)) out.push(`repository ${place.slug} is not registered: it has no ${cardOf(brain, place.slug)}`)
+  if (placed && place.slug && !slugs.includes(place.slug)) out.push(`repository ${place.slug} is not registered: it has no ${cardOf(brain, place.slug)}`)
 
   const file = at.at(-1).replace(/\.md$/, '')
   if (typeof fm.name !== 'string' || !fm.name) out.push('name is missing')
@@ -125,8 +127,9 @@ function broken(n) {
     }
   } else if (fm.repos !== undefined) out.push('repos belongs on an authored note only: an explored note takes its repository from its folder')
 
-  if (where === 'explored' && !fm.explored) out.push('an explored note needs explored: the short SHA it was read at')
-  if (fm.explored !== undefined && where !== 'explored') out.push(`explored: belongs on a note in ${exploredDir} only`)
+  // Today's layout keeps an explored note in its repository's folder, and an authored note in notes/authored/.
+  if (placed && place.slug && !n.explored) out.push('an explored note needs explored: the short SHA it was read at')
+  if (fm.explored !== undefined && !(placed && place.slug)) out.push(`explored: belongs on a note in ${exploredDir} only`)
 
   if (fm.status !== undefined && fm.status !== 'superseded') out.push(`status is "${fm.status}"; the only status is superseded`)
   if (fm.status === 'superseded') {

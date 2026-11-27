@@ -53,7 +53,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { brainOfSpec, findBrain, pathsOf } from '../../brain/scripts/layout.mjs'
+import { brainOfSpec, findBrain, pathsOf, specFolderOf } from '../../brain/scripts/layout.mjs'
 
 export const DEFAULT_CAP = 5
 /** This plugin's root: sdd.mjs sits in skills/build/scripts/. */
@@ -552,8 +552,8 @@ const changed = (what, sha, root) => {
 export const ticketDigest = (ticketPath, { useGit = true } = {}) => {
   const path = resolve(ticketPath)
   const msDir = resolve(path, '..')
-  const specDir = [resolve(msDir, '..', '..'), resolve(msDir, '..', '..', '..')].find((d) => existsSync(join(d, 'spec.md')))
-  if (!specDir) throw new Error(`No spec.md above ${ticketPath}`)
+  const specDir = specFolderOf(msDir)
+  if (!specDir || !existsSync(join(specDir, 'spec.md'))) throw new Error(`No spec.md above ${ticketPath}`)
   const brain = brainOf(specDir)
   const { layout, tracks } = readTracks(specDir)
   const clones = readRepos(brain)
@@ -726,8 +726,8 @@ export const assembleReview = ({ title, fixed, head, summary, sections }) => {
 const locate = (path) => {
   const p = resolve(path)
   const msDir = /\.md$/i.test(p) ? resolve(p, '..') : p
-  const specDir = [resolve(msDir, '..', '..'), resolve(msDir, '..', '..', '..')].find((d) => existsSync(join(d, 'spec.md')))
-  if (!specDir) throw new Error(`No spec.md above ${path}`)
+  const specDir = specFolderOf(msDir)
+  if (!specDir || !existsSync(join(specDir, 'spec.md'))) throw new Error(`No spec.md above ${path}`)
   const brain = brainOf(specDir)
   const t = readTracks(specDir).tracks.find((x) => x.milestones.some((m) => resolve(m.dir) === msDir))
   if (!t) throw new Error(`${path} is not in a milestone of ${basename(specDir)}`)
@@ -964,7 +964,7 @@ export const dispatch = (path, agent, { writes = [], branch } = {}) => {
     '',
     ...(ticket ? [`**Ticket:** ${slash(ticket)}`] : []),
     `**Milestone:** ${slash(join(m.dir, 'milestone.md'))}`,
-    `**Spec:** ${slash(join(resolve(m.dir, '..', '..', '..'), 'spec.md'))}`,
+    `**Spec:** ${slash(join(specFolderOf(m.dir), 'spec.md'))}`,
   ].join('\n')
 }
 

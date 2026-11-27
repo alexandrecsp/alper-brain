@@ -165,3 +165,11 @@ test('subscribe calls back on every tick until stopped', async () => {
   assert.ok(after >= 2, `ticked ${after} times`)
   assert.equal(ticks, after)
 })
+
+test('files reads a file under a layout path of two segments', async () => {
+  const Moved = new Function('GitRead', `${block}\nreturn BrainSource;`)(GitRead)
+  Moved.LAYOUT.specs = '.local/specs'
+  const { entry } = brain({ '.brain/BRAIN.md': '# Brain\n', '.brain/.local/specs/001-x/spec.md': '# Spec: X\n' })
+  const got = await Moved.folder({ kv: store() }).files(entry)
+  assert.deepEqual([...got.files.keys()], ['.local/specs/001-x/spec.md'])
+})
