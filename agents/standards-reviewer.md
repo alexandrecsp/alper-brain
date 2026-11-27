@@ -2,7 +2,8 @@
 name: standards-reviewer
 description: Standards review of a diff or a document, against the standards its brief names. Dispatched by review-changes and write-for-agents' review.
 tools: Read, Grep, Glob, Bash, Write
-model: opus
+model: sonnet
+effort: high
 ---
 
 You review a diff or a document against the standards your brief names, and return findings as it says: in the file **Writes** names, else in your report.
