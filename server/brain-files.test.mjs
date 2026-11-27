@@ -23,8 +23,8 @@ const brainWith = async (files) => {
 const mtime = (path, name) => Math.floor(statSync(join(path, name)).mtimeMs)
 
 test("file route returns a file's text", async () => {
-  const { port, id } = await brainWith({ 'notes/areas/AREA.md': '# Area\n\nText with ünïcode.\n' })
-  const res = await call(port, { path: `/api/brains/${id}/file?path=${encodeURIComponent('notes/areas/AREA.md')}` })
+  const { port, id } = await brainWith({ 'notes/shared/AREA.md': '# Area\n\nText with ünïcode.\n' })
+  const res = await call(port, { path: `/api/brains/${id}/file?path=${encodeURIComponent('notes/shared/AREA.md')}` })
   assert.deepEqual({ status: res.status, body: res.body }, { status: 200, body: '# Area\n\nText with ünïcode.\n' })
 })
 
@@ -38,16 +38,16 @@ test('put writes the text and creates missing folders', async () => {
   const { port, id, path } = await brainWith({})
   const res = await call(port, {
     method: 'PUT',
-    path: `/api/brains/${id}/file?path=${encodeURIComponent('.brain/specs/002-new/milestones/m/001.md')}`,
+    path: `/api/brains/${id}/file?path=${encodeURIComponent('.brain/.local/specs/002-new/milestones/m/001.md')}`,
     headers: { 'x-brain-token': await tokenOf(port) },
     text: '# New ünï\n',
   })
-  const written = join(path, '.brain/specs/002-new/milestones/m/001.md')
+  const written = join(path, '.brain/.local/specs/002-new/milestones/m/001.md')
   assert.deepEqual({ status: res.status, text: existsSync(written) ? readFileSync(written, 'utf8') : null }, { status: 204, text: '# New ünï\n' })
 })
 
 test('a read of the file route with no path gets 400, not the file map', async () => {
-  const { port, id } = await brainWith({ 'notes/a.md': '# A\n' })
+  const { port, id } = await brainWith({ 'notes/shared/a.md': '# A\n' })
   const statuses = [
     (await call(port, { path: `/api/brains/${id}/file` })).status,
     (await call(port, { path: `/api/brains/${id}/file?path=` })).status,
@@ -73,21 +73,19 @@ test("a path that leaves the brain's folder gets 400", async () => {
   )
 })
 
-test("files route returns a new-layout brain's specs with times, notes, drafts, cards and repos.json", async () => {
+test("files route returns a clusters brain's specs with times, notes, drafts, cards and repos.json", async () => {
   const files = {
     '.brain/BRAIN.md': '# Brain\n',
-    '.brain/specs/001-a/spec.md': '# Spec\n',
-    '.brain/specs/001-a/milestones/m/001.md': '# Ticket\n',
-    '.brain/notes/authored/a.md': '# A\n',
-    '.brain/notes/exploration/app/e.md': '# E\n',
-    '.brain/notes/drafts/idea.md': '# Idea\n',
-    '.brain/repos/app/REPO.md': '# Card\n',
-    '.brain/repos/repos.json': '{"app":"/x"}',
-    '.brain/repos/app/tours/t.md': 'not read',
-    '.brain/repos/app/snapshots/s.md': 'not read',
-    '.brain/research/r.md': 'not read',
-    '.brain/config.json': 'not read',
-    '.brain/notes/image.png': 'not read',
+    '.brain/.local/specs/001-a/spec.md': '# Spec\n',
+    '.brain/.local/specs/001-a/milestones/m/001.md': '# Ticket\n',
+    '.brain/notes/repos/app/a.md': '# A\n',
+    '.brain/notes/shared/s.md': '# S\n',
+    '.brain/.local/drafts/idea.md': '# Idea\n',
+    '.brain/repos/app.md': '# Card\n',
+    '.brain/.local/repos.json': '{"app":"/x"}',
+    '.brain/notes/repos/app/image.png': 'not read',
+    '.brain/.local/config.json': 'not read',
+    '.brain/.local/snapshots/app/s.md': 'not read',
   }
   const { port, id, path } = await brainWith(files)
   const brain = join(path, '.brain')
@@ -96,26 +94,30 @@ test("files route returns a new-layout brain's specs with times, notes, drafts, 
     { files: read, times },
     {
       files: {
-        'specs/001-a/spec.md': '# Spec\n',
-        'specs/001-a/milestones/m/001.md': '# Ticket\n',
-        'notes/authored/a.md': '# A\n',
-        'notes/exploration/app/e.md': '# E\n',
-        'notes/drafts/idea.md': '# Idea\n',
-        'repos/app/REPO.md': '# Card\n',
-        'repos/repos.json': '{"app":"/x"}',
+        '.local/specs/001-a/spec.md': '# Spec\n',
+        '.local/specs/001-a/milestones/m/001.md': '# Ticket\n',
+        'notes/repos/app/a.md': '# A\n',
+        'notes/shared/s.md': '# S\n',
+        '.local/drafts/idea.md': '# Idea\n',
+        'repos/app.md': '# Card\n',
+        '.local/repos.json': '{"app":"/x"}',
       },
-      times: { 'specs/001-a/spec.md': mtime(brain, 'specs/001-a/spec.md'), 'specs/001-a/milestones/m/001.md': mtime(brain, 'specs/001-a/milestones/m/001.md') },
+      times: { '.local/specs/001-a/spec.md': mtime(brain, '.local/specs/001-a/spec.md'), '.local/specs/001-a/milestones/m/001.md': mtime(brain, '.local/specs/001-a/milestones/m/001.md') },
     },
   )
 })
 
-test('files route reads no file of an old layout', async () => {
+test('files route reads no research note, doc or file of an old layout', async () => {
   const { port, id } = await brainWith({
+    '.brain/BRAIN.md': '# Brain\n',
+    '.brain/notes/shared/s.md': '# S\n',
+    '.brain/notes/research/r.md': '# R\n',
+    '.brain/docs/repos/app/d.md': '# D\n',
+    '.brain/docs/prototypes/p.md': '# P\n',
     '.brain/specs/001-a/spec.md': '# Spec\n',
-    'shared/glossary.md': '# Terms\n',
-    'repos/app/notes.md': '# Notes\n',
-    'notes/a.md': '# A\n',
+    '.brain/notes/authored/a.md': '# A\n',
+    '.brain/repos/app/REPO.md': '# Card\n',
   })
   const { files } = JSON.parse((await call(port, { path: `/api/brains/${id}/files` })).body)
-  assert.deepEqual(files, { 'notes/a.md': '# A\n' })
+  assert.deepEqual(files, { 'notes/shared/s.md': '# S\n' })
 })

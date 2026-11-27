@@ -35,18 +35,22 @@ const walk = (dir, prefix, files, times) => {
   }
 }
 
-// A brain's specs with times, its notes and drafts, every card and `repos/repos.json`, as paths relative to the brain.
+// A brain's specs with times, the notes of its repositories and shared ones, its drafts, every card and `.local/repos.json`, as paths
+// relative to the brain. It reads no research note and no doc.
 const all = (root) => {
-  const paths = pathsOf(root)
+  const at = pathsOf(root)
   const files = {}
   const times = {}
-  walk(paths.specs, `${relativeTo(root, paths.specs)}/`, files, times)
-  walk(paths.notes, `${relativeTo(root, paths.notes)}/`, files)
-  let slugs = []
+  const under = (dir, withTimes) => walk(dir, `${relativeTo(root, dir)}/`, files, withTimes ? times : undefined)
+  under(at.specs, true)
+  under(at.repoNotesRoot)
+  under(at.sharedNotes)
+  under(at.drafts)
+  let cards = []
   try {
-    slugs = readdirSync(paths.repos, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name)
+    cards = readdirSync(at.repos, { withFileTypes: true }).filter((e) => e.isFile() && e.name.endsWith('.md')).map((e) => resolve(at.repos, e.name))
   } catch { /* no repos folder holds nothing */ }
-  for (const file of [...slugs.map(paths.card), paths.reposJson]) {
+  for (const file of [...cards, at.reposJson]) {
     const text = readText(file)
     if (text !== null) files[relativeTo(root, file)] = text
   }

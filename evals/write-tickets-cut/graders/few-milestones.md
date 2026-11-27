@@ -1,7 +1,7 @@
 ---
 type: tool_used
 tool: Write
-input_match: 'specs/002-demo-cli/milestones/demo/(00[3-9]|0[1-9]\d)-[^"/]*/milestone\.md'
+input_match: 'specs/002-demo-cli/demo/(00[3-9]|0[1-9]\d)-[^"/]*/milestone\.md'
 min: 0
 max: 0
 arm: both

@@ -2,7 +2,7 @@
 type: regex
 target:
   source: file
-  path: .brain/specs/001-greeting/milestones/demo/001-greeting/002-greet-by-name.md
+  path: .brain/.local/specs/001-greeting/demo/001-greeting/002-greet-by-name.md
 pattern: '\|-{3}\|-{3}\|-{3}\|-{3}\|\r?\n\|[^\n]*[A-Za-z]'
 ---
 

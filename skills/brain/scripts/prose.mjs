@@ -5,7 +5,7 @@
 // card, a spec.md, a milestone.md or a ticket. Every other file is skipped.
 // Run: node prose.mjs <file|folder>...   (prints one <path>:<line> per finding and exits 1, else prints prose: ok)
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
-import { join, basename } from 'node:path'
+import { join, basename, dirname } from 'node:path'
 
 const MAX = { proc: 20, desc: 25 }
 const MAX_SENTENCES = 6
@@ -147,7 +147,8 @@ const shapes = {
 }
 const shapeOf = (path, lines, start) => {
   const name = basename(path)
-  if (name === 'REPO.md') return 'card'
+  // A repository's card is a .md file straight in the brain's repos/ folder.
+  if (name.endsWith('.md') && basename(dirname(path)) === 'repos') return 'card'
   if (name === 'spec.md') return 'spec'
   if (name === 'milestone.md') return 'milestone'
   // A ticket opens on its "# Ticket" heading; a heading further down, such as one in a template's code fence, is not one.

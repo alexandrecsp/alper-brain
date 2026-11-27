@@ -89,3 +89,14 @@ test('skips a file of no shape PROSE.md names, and fails when it finds none', ()
   assert.equal(r.status, 1)
   assert.match(r.out, /^prose: no note, card, spec, milestone or ticket in /)
 })
+
+test('checks a .md file straight in repos/ as a card, and no other .md in a folder of that name', () => {
+  const d = dir()
+  const card = (summary) => `---\nslug: api\nremote: local only\n---\n\n${summary}\n`
+  put(join(d, 'repos/api.md'), card(`${words(26)}.`))
+  const r = prose(join(d, 'repos/api.md'))
+  assert.equal(r.status, 1)
+  assert.deepEqual(findings(r.out).map((f) => f.split(' sentence')[0]), ['6: descriptive'])
+  put(join(d, 'repos/api/README.md'), card(`${words(26)}.`))
+  assert.match(prose(join(d, 'repos/api/README.md')).out, /^prose: no note, card, spec, milestone or ticket in /)
+})

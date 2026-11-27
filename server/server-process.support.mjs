@@ -23,12 +23,12 @@ export const freePort = () => new Promise((resolve) => {
   })
 })
 
-// The `.brain/` folder of a repository, holding the `BRAIN.md` and, when `repos` (slug to clone path) is given, `repos/repos.json`.
+// The `.brain/` folder of a repository, holding the `BRAIN.md` and, when `repos` (slug to clone path) is given, `.local/repos.json`.
 export const tempBrain = (repos) => {
   const path = join(mkdtempSync(join(tmpdir(), 'alper-brain-')), 'work', '.brain')
-  mkdirSync(join(path, 'repos'), { recursive: true })
+  mkdirSync(join(path, '.local'), { recursive: true })
   writeFileSync(join(path, 'BRAIN.md'), '# Brain\n')
-  if (repos) writeFileSync(join(path, 'repos', 'repos.json'), JSON.stringify(repos))
+  if (repos) writeFileSync(join(path, '.local', 'repos.json'), JSON.stringify(repos))
   return path
 }
 

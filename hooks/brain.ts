@@ -1,5 +1,5 @@
 // Reading the active brain for the pane: its notes, cards and drafts, and the specs in flight with their tracks.
-// The layout is skills/brain/references/FORMAT.md's: a brain folder holding notes/, repos/ and specs/, `.brain/` in a repository.
+// The layout is skills/brain/references/FORMAT.md's: a brain folder holding notes/, repos/ and .local/specs/, `.brain/` in a repository.
 // Every read is best effort: a missing or unreadable file counts as empty.
 
 import type { BrainView, MilestoneView, SpecView, TrackView } from '../types'
@@ -13,10 +13,10 @@ export type Files = {
 
 /** The pane's copy of the layout's paths in a brain's folder, relative to it: layout-copies.test.mjs checks it against layout.mjs. */
 export const LAYOUT = {
-  specs: 'specs',
-  authored: 'notes/authored',
-  drafts: 'notes/drafts',
-  explorations: 'notes/exploration',
+  specs: '.local/specs',
+  repoNotesRoot: 'notes/repos',
+  sharedNotes: 'notes/shared',
+  drafts: '.local/drafts',
   repos: 'repos',
 }
 
@@ -78,19 +78,18 @@ async function milestoneOf(fs: Files, dir: string, name: string): Promise<Milest
   }
 }
 
-/** A spec's tracks: a folder per repository, or, in the flat layout, its milestones grouped by their **Repo** line. */
+/** A spec's tracks: a folder per repository straight in its folder, or, in the flat layout, its milestones grouped by their **Repo** line. */
 async function tracksOf(fs: Files, specDir: string): Promise<TrackView[]> {
-  const base = `${specDir}/milestones`
   const tracks: TrackView[] = []
   const flat = new Map<string, MilestoneView[]>()
-  for (const name of await dirs(fs, base)) {
+  for (const name of await dirs(fs, specDir)) {
     if (numbered.test(name)) {
-      const m = await milestoneOf(fs, `${base}/${name}`, name)
-      const repo = field(await fs.read(`${base}/${name}/milestone.md`).catch(() => ''), 'Repo')
+      const m = await milestoneOf(fs, `${specDir}/${name}`, name)
+      const repo = field(await fs.read(`${specDir}/${name}/milestone.md`).catch(() => ''), 'Repo')
       const slug = isNone(repo) ? '—' : repo
       flat.set(slug, [...(flat.get(slug) ?? []), m])
     } else {
-      const ms = await Promise.all((await dirs(fs, `${base}/${name}`)).filter(n => numbered.test(n)).map(n => milestoneOf(fs, `${base}/${name}/${n}`, n)))
+      const ms = await Promise.all((await dirs(fs, `${specDir}/${name}`)).filter(n => numbered.test(n)).map(n => milestoneOf(fs, `${specDir}/${name}/${n}`, n)))
       if (ms.length > 0) tracks.push({ slug: name, milestones: ms })
     }
   }
@@ -98,12 +97,12 @@ async function tracksOf(fs: Files, specDir: string): Promise<TrackView[]> {
   return tracks
 }
 
-/** The notes and repositories of a brain: the authored notes and every repository's exploration notes. */
+/** The notes and repositories of a brain: every repository's notes, the shared notes, and the cards. */
 async function countNotes(fs: Files, root: string): Promise<{ notes: number; repos: number }> {
-  const explorations = `${root}/${LAYOUT.explorations}`
-  let notes = (await mds(fs, `${root}/${LAYOUT.authored}`)).length
-  for (const slug of await dirs(fs, explorations)) notes += (await mds(fs, `${explorations}/${slug}`)).length
-  return { notes, repos: (await dirs(fs, `${root}/${LAYOUT.repos}`)).length }
+  const repoNotes = `${root}/${LAYOUT.repoNotesRoot}`
+  let notes = (await mds(fs, `${root}/${LAYOUT.sharedNotes}`)).length
+  for (const slug of await dirs(fs, repoNotes)) notes += (await mds(fs, `${repoNotes}/${slug}`)).length
+  return { notes, repos: (await mds(fs, `${root}/${LAYOUT.repos}`)).length }
 }
 
 /** Everything the pane shows of the brain at `root`. */

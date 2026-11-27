@@ -1,7 +1,7 @@
 // Reads the brain's notes and drafts by FORMAT.md, so every script agrees on what a note is: recall.mjs ranks them,
 // schema.mjs checks them. parse and noteOf work on text alone;
-// loadBrain reads the brain's folders by the paths layout.mjs gives. placeOf is the one reader of a path's place in the
-// brain's `.brain/` layout; noteOf is the one reader of a note's kind, authored or explored, from its `explored` line.
+// loadBrain reads the brain's folders by the paths layout.mjs's pathsOf gives. placeOf is the one reader of a path's place
+// in the brain's clusters layout; noteOf is the one reader of a note's kind, authored or explored, from its `explored` line.
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathsOf, relativeTo } from './layout.mjs'
@@ -45,14 +45,14 @@ export const listOf = (value) =>
     .map((v) => unquote(String(v).trim()))
     .filter(Boolean)
 
-// What a path, relative to the brain, tells of its place in it: the repository its folder names (null in notes/authored/,
+// What a path, relative to the brain, tells of its place in it: the repository its folder names (null in notes/shared/,
 // whose notes name theirs on a repos line) and whether the file is a repository's card. It never tells a note's kind: the
-// `explored` line does. Null for any path that is neither a note's nor a card's.
+// `explored` line does. Null for any path that is neither a note's nor a card's, a research note's included.
 export function placeOf(path) {
   const p = path.split('/')
-  if (p[0] === 'notes' && p[1] === 'authored' && p.length === 3) return { slug: null, card: false }
-  if (p[0] === 'notes' && p[1] === 'exploration' && p.length === 4) return { slug: p[2], card: false }
-  if (p[0] === 'repos' && p.length === 3 && p[2] === 'REPO.md') return { slug: p[1], card: true }
+  if (p[0] === 'notes' && p[1] === 'repos' && p.length === 4) return { slug: p[2], card: false }
+  if (p[0] === 'notes' && p[1] === 'shared' && p.length === 3) return { slug: null, card: false }
+  if (p[0] === 'repos' && p.length === 2 && p[1].endsWith('.md')) return { slug: p[1].replace(/\.md$/, ''), card: true }
   return null
 }
 
@@ -73,7 +73,7 @@ export function noteOf(path, text, { target = path, draft = null } = {}) {
     aliases: fm.aliases === undefined ? [] : listOf(fm.aliases),
     avoid: fm.avoid === undefined ? [] : listOf(fm.avoid),
     explored: !!fm.explored,
-    repos: place?.slug ? [place.slug] : listOf(fm.repos),
+    repos: place?.slug && fm.explored ? [place.slug] : listOf(fm.repos),
     superseded: fm.status === 'superseded',
     supersededBy: typeof fm.supersededBy === 'string' && fm.supersededBy ? fm.supersededBy : null,
   }
@@ -81,24 +81,27 @@ export function noteOf(path, text, { target = path, draft = null } = {}) {
 
 const list = (dir) => (existsSync(dir) && statSync(dir).isDirectory() ? readdirSync(dir) : [])
 
+// Every .md file under a folder, each path relative to the brain; a folder whose name starts with a dot is left out.
+const mdUnder = (brain, dir) =>
+  list(dir).flatMap((f) => {
+    const path = join(dir, f)
+    if (statSync(path).isDirectory()) return f.startsWith('.') ? [] : mdUnder(brain, path)
+    return f.endsWith('.md') ? [relativeTo(brain, path)] : []
+  })
+
 // A draft from its text: it lands at its `target`, else where it sits, by its `action`, else as a record.
 export function draftOf(path, text) {
   const { fm } = parse(text)
   return noteOf(path, text, { target: typeof fm.target === 'string' && fm.target ? fm.target : path, draft: fm.action || 'record' })
 }
 
-// Every registered repository's slug, every committed note and every draft in the brain, each path relative to the
-// brain.
+// Every registered repository's slug, every committed note (notes/repos/ and notes/shared/, never research) and every
+// draft in the brain, each path relative to the brain.
 export function loadBrain(brain) {
   const at = pathsOf(brain)
-  const rel = (path) => relativeTo(brain, path)
-  const mdIn = (dir) => list(dir).filter((f) => f.endsWith('.md')).map((f) => `${rel(dir)}/${f}`)
-  const slugs = list(at.repos).filter((d) => existsSync(at.card(d)))
-  const paths = [
-    ...mdIn(at.authored),
-    ...slugs.flatMap((s) => mdIn(at.exploration(s))),
-  ]
+  const slugs = list(at.repos).filter((f) => f.endsWith('.md')).map((f) => f.replace(/\.md$/, ''))
+  const paths = [...mdUnder(brain, at.repoNotesRoot), ...mdUnder(brain, at.sharedNotes)]
   const notes = paths.map((path) => noteOf(path, readFileSync(join(brain, path), 'utf8')))
-  const drafts = mdIn(at.drafts).map((path) => draftOf(path, readFileSync(join(brain, path), 'utf8')))
+  const drafts = mdUnder(brain, at.drafts).map((path) => draftOf(path, readFileSync(join(brain, path), 'utf8')))
   return { slugs, notes, drafts }
 }

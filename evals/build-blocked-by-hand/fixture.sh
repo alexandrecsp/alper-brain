@@ -2,7 +2,7 @@
 PHASE=none
 REVIEW=''
 . "$(dirname "$0")/../_fixtures/brain.sh"
-ms=.brain/specs/001-greeting/milestones/demo/001-greeting
+ms=.brain/.local/specs/001-greeting/demo/001-greeting
 rm "$ms/review.md"
 cat > "$ms/002-greet-by-name.md" <<'TICKET'
 # Ticket 002: Greet by name

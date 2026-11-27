@@ -1,4 +1,4 @@
-// The paths a brain's watcher leaves alone: those its `.gitignore` ignores, except the `shown` ones (its drafts and specs, which the page shows).
+// The paths a brain's watcher leaves alone: those its `.gitignore` ignores, except the `shown` ones (its `.local/drafts/` and `.local/specs/`, which the page shows).
 // A path is relative to the brain, spelled with `/`. The matcher reads the common `.gitignore` lines: `#` comments, `!` negation, a
 // trailing `/` for a folder, a leading or inner `/` that anchors a pattern, and `*`, `?` and `**`. The last line that matches wins.
 

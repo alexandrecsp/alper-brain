@@ -1,6 +1,6 @@
 ---
 name: write-spec
-description: Turn the current conversation into a spec saved in the brain's specs/, across one repository or several.
+description: Turn the current conversation into a spec saved in the brain's .local/specs/, across one repository or several.
 disable-model-invocation: true
 metadata:
   type: process
@@ -8,7 +8,7 @@ metadata:
 
 Turn the current conversation and your understanding of the codebase into a spec. This is **synthesis**: the spec states only what the conversation settled. What it left to you (the seams, the pattern choices when it never weighed patterns, the dependencies, the key), you propose and the user confirms before you write. A decision the conversation left open goes under Further Notes as an open question.
 
-The spec lives in the active brain's `specs/` and can change several repositories, each registered in the brain, by [FORMAT.md](../brain/references/FORMAT.md). When no brain is open, say so by FORMAT.md and stop.
+The spec lives in the active brain's `.local/specs/` and can change several repositories, each registered in the brain, by [FORMAT.md](../brain/references/FORMAT.md). When no brain is open, say so by FORMAT.md and stop.
 
 ## Process
 

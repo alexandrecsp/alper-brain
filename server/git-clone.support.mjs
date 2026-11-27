@@ -75,7 +75,7 @@ export const history = (opts) => {
   return c
 }
 
-// A `.brain/` folder whose `repos/repos.json` links `repos` (slug to clone path), listed by a fresh server; resolves with its port and id.
+// A `.brain/` folder whose `.local/repos.json` links `repos` (slug to clone path), listed by a fresh server; resolves with its port and id.
 export const brainLinking = async (repos) => {
   const path = tempBrain(repos)
   const { port } = await start()

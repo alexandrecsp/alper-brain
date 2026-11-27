@@ -7,35 +7,35 @@ The shape of the second brain: the team's notes on every repository, shared, and
 ```
 <repo or host>/.brain/                    ← the brain's root: every brain, of every kind, lives in a `.brain/` folder
 ├── BRAIN.md                              ← what the brain is, how to join, the repositories it covers; its `kind` line names its kind
-├── .gitignore                            ← keeps this machine's paths below out of git, in every kind
-├── config.json                           ← ignored: this machine's limits on the pipeline, by **Settings**
-├── notes/
-│   ├── authored/<name>.md                ← authored notes, each naming its repositories in `repos`
-│   ├── exploration/<slug>/<name>.md      ← the explored notes of the repository `<slug>`
-│   └── drafts/<name>.md                  ← ignored: notes waiting for `sync` to consolidate them, by **Drafts**
-├── repos/
-│   ├── repos.json                        ← ignored: each linked slug's clone path on this machine, by **Repositories**
-│   └── <slug>/
-│       ├── REPO.md                       ← the repository's card
-│       ├── tours/  refactors/  pages/    ← onboarding tours from `brain tour`, reports from `refactor`, and pages from `html` on this repository
-│       └── snapshots/                    ← ignored: the repository's default branch, checked out while a skill reads it
-├── pages/<YYYY-MM-DD-HHmm>-<topic>.html  ← pages from `html` on no single repository
-├── prototypes/<slug>.html                ← logic prototypes from `prototype`, one home even for a prototype across repositories
-├── research/<slug>.md                    ← cited findings from `research`, with `<slug>/<group>.md` beside it when it fans out
-├── specs/NNN-<slug>/…                    ← ignored: work planned or in flight, in one repository or several, by **Specs**
-│   ├── spec.md
-│   └── milestones/<repo-slug>/NNN-<milestone-slug>/   ← one track per repository the spec changes
-│       ├── milestone.md
-│       ├── NNN-<ticket-slug>.md
-│       └── review.md
-├── explore/<slug>/<area>/                ← ignored: the scratch folders `explore`'s scribes write into, only while it runs
-├── locks/                                ← ignored: a repository's claim by `<slug>.json`, while a skill reads it or a build changes it
-└── handoff/                              ← ignored: what a session leaves for the next one on this machine
+├── .gitignore                            ← the one line `.local/`, in every kind
+├── repos/<slug>.md                       ← the repository's card, by **Repositories**; nothing else sits in `repos/`
+├── notes/                                ← what the agent knows
+│   ├── repos/<slug>/<name>.md            ← the authored notes whose `repos` line names the one repository `<slug>`, and its explored notes
+│   ├── shared/<name>.md                  ← the authored notes whose `repos` line names several repositories, or none
+│   └── research/<slug>.md                ← cited findings from `research`, with `<slug>/<group>.md` beside it when it fans out; never read as notes
+├── docs/                                 ← what people read
+│   ├── repos/<slug>/<YYYY-MM-DD-HHmm>-<kind>.html   ← one repository's tour (`tour`), refactor reports (`refactors`), or a page from `html` on it (its topic)
+│   ├── shared/<YYYY-MM-DD-HHmm>-<topic>.html        ← pages from `html` on no single repository
+│   └── prototypes/<slug>.html            ← logic prototypes from `prototype`, one home even for a prototype across repositories
+└── .local/                               ← this machine's own: nothing in it is shared
+    ├── config.json                       ← this machine's limits on the pipeline, by **Settings**
+    ├── repos.json                        ← each linked slug's clone path on this machine, by **Repositories**
+    ├── drafts/<name>.md                  ← notes waiting for `sync` to consolidate them, by **Drafts**
+    ├── specs/NNN-<slug>/…                ← work planned or in flight, in one repository or several, by **Specs**
+    │   ├── spec.md
+    │   └── <repo-slug>/NNN-<milestone-slug>/   ← one track per repository the spec changes
+    │       ├── milestone.md
+    │       ├── NNN-<ticket-slug>.md
+    │       └── review.md
+    ├── snapshots/<slug>/                 ← the repository's default branch, checked out while a skill reads it
+    ├── explore/<slug>/<area>/            ← the scratch folders `explore`'s scribes write into, only while it runs
+    ├── locks/                            ← a repository's claim by `<slug>.json`, while a skill reads it or a build changes it
+    └── handoff/                          ← what a session leaves for the next one on this machine
 ```
 
-The `.gitignore` is `.brain/.gitignore` in every kind, written by [SETUP.md](SETUP.md) and by the layout move; it holds each path marked `ignored` above. The team shares the rest: the notes, the cards, research, tours, refactor reports, pages and prototypes. Only this machine keeps what is marked: what it learns reaches the team only as notes. A local brain's host also ignores the whole `.brain/`, by **Local brain**.
+The `.gitignore` is `.brain/.gitignore` in every kind, the one line `.local/`, written by [SETUP.md](SETUP.md) and by the layout move: a file is shared unless it sits in `.local/`. The team shares the rest: the cards, the notes, research and the docs. Only this machine keeps `.local/`: what it learns reaches the team only as notes. A local brain's host also ignores the whole `.brain/`, by **Local brain**.
 
-`BRAIN.md` holds a `kind` frontmatter line, `standalone`, `embedded` or `local`, so no skill works the kind out; `scripts/schema.mjs` checks it against the git test of **Embedded brain** and **Local brain**. A `standalone` brain is `<repo>/.brain/`, its agent file at the repository's root. The Obsidian vault opens at `.brain/` itself, since Obsidian skips hidden folders.
+`BRAIN.md` holds a `kind` frontmatter line, `standalone`, `embedded` or `local`, so no skill works the kind out; `scripts/schema.mjs` checks it against the git test of **Embedded brain** and **Local brain**. A `standalone` brain is `<repo>/.brain/`, its agent file at the repository's root. The Obsidian vault opens at `.brain/` itself, since Obsidian skips hidden folders, `.local/` with them.
 
 Older brains had other layouts, which [MIGRATE.md](MIGRATE.md)'s **The layout move** lists.
 
@@ -54,7 +54,7 @@ The **active brain** is an open folder's `.brain/` holding `BRAIN.md`, or an ope
 An **embedded brain** lives in the `.brain/` folder of the one repository it covers, its **host**: a project that is a single repository keeps its notes beside its code, with no second clone. Its `BRAIN.md` says `kind: embedded`, and it is embedded when `git -C <brain> rev-parse --show-toplevel` prints a folder other than the brain's own, and that folder is its host. Its layout is the one above, under `<host>/.brain/`, its own `.gitignore` inside it. The rest of this reference holds for it, except:
 
 - **Open with its host.** The user launches Claude in the host, so the brain is open whenever the host is.
-- **One repository.** The brain registers its host and no other repository, so the host is always the working repository: linked by `repos/repos.json` like any repository, and always open. To cover a second repository, move the brain into a repository of its own first, by [EXPORT.md](EXPORT.md).
+- **One repository.** The brain registers its host and no other repository, so the host is always the working repository: linked by `.local/repos.json` like any repository, and always open. To cover a second repository, move the brain into a repository of its own first, by [EXPORT.md](EXPORT.md).
 - **One git.** The brain's commits are the host's, made on whatever branch the host has checked out, so its notes reach the team with the code, through the host's pull requests. Each commit names its paths (`git -C <host> commit -m <message> -- <path>...`), so the host's staged work stays staged, and takes the key [SYNC.md](SYNC.md)'s **Find the keys** settles. [SYNC.md](SYNC.md) neither pulls nor pushes.
 - **The agent file.** A session started in the host loads the host's agent file, so that file points at the brain, by [SETUP.md](SETUP.md)'s step 9, and the brain holds no `CLAUDE.md` of its own.
 
@@ -75,23 +75,23 @@ A repository moves through three states, each building on the one before:
 
 | State | Holds when | Enough for |
 |---|---|---|
-| **registered** | the brain holds `repos/<slug>/REPO.md` | its notes, and specs that name it |
-| **linked** | the brain's `repos/repos.json` names this machine's clone of it | reading its code, by that path |
+| **registered** | the brain holds `repos/<slug>.md` | its notes, and specs that name it |
+| **linked** | the brain's `.local/repos.json` names this machine's clone of it | reading its code, by that path |
 | **open** | that clone is open in this session | changing its code: building, fixing, committing |
 
-`repos/repos.json` maps each linked slug to the clone's absolute path, with forward slashes: `{ "billing-api": "C:/work/acme/billing-api" }`. A clone matches a card when its `git remote get-url origin` names the same repository as the card's `remote` (ignoring a trailing `.git`, and whether it is written as SSH or HTTPS), or, for a `local only` repository, when its folder's name is the slug. `/brain setup` registers a repository, and `/brain link` links the registered ones.
+`.local/repos.json` maps each linked slug to the clone's absolute path, with forward slashes: `{ "billing-api": "C:/work/acme/billing-api" }`. A clone matches a card when its `git remote get-url origin` names the same repository as the card's `remote` (ignoring a trailing `.git`, and whether it is written as SSH or HTTPS), or, for a `local only` repository, when its folder's name is the slug. `/brain setup` registers a repository, and `/brain link` links the registered ones.
 
 Read a linked repository that is not open by its path, even though the user may be asked to allow each read. Before changing one, ask the user to run `/add-dir <path>`, and stop until it is open: running the same command again picks up from there.
 
-A **snapshot** reads a linked repository's default branch, or its clone's current branch when a skill asks for it, without touching its clone's working tree, and inside the brain, so no read asks for permission: `git -C <root> fetch --quiet origin` (then `git -C <root> remote set-head origin --auto` when `origin/HEAD` is missing); when an earlier run left a snapshot, `git -C <root> worktree remove --force <brain>/repos/<slug>/snapshots`; then `git -C <root> worktree add --detach <brain>/repos/<slug>/snapshots <commit>`, the commit being `origin/HEAD` for the default branch, and the clone's `HEAD` for its current branch or a `local only` repository. Either way it holds committed work only. It writes only to the clone's `.git`, so the repository need only be linked. Remove it with `git -C <root> worktree remove --force <snapshot>` once its reads are done.
+A **snapshot** reads a linked repository's default branch, or its clone's current branch when a skill asks for it, without touching its clone's working tree, and inside the brain, so no read asks for permission: `git -C <root> fetch --quiet origin` (then `git -C <root> remote set-head origin --auto` when `origin/HEAD` is missing); when an earlier run left a snapshot, `git -C <root> worktree remove --force <brain>/.local/snapshots/<slug>`; then `git -C <root> worktree add --detach <brain>/.local/snapshots/<slug> <commit>`, the commit being `origin/HEAD` for the default branch, and the clone's `HEAD` for its current branch or a `local only` repository. Either way it holds committed work only. It writes only to the clone's `.git`, so the repository need only be linked. Remove it with `git -C <root> worktree remove --force <snapshot>` once its reads are done.
 
-A skill reads a repository's committed code from its **source**: the clone itself, read **in place**, or a snapshot. Read in place when the clone is open, the branch to read is the one it has checked out, `git -C <root> status --porcelain` lists nothing, and no `locks/<slug>.json` exists; otherwise take a snapshot. Reading in place copies nothing, so it suits an embedded or local brain best, whose host is always open. Its rules:
+A skill reads a repository's committed code from its **source**: the clone itself, read **in place**, or a snapshot. Read in place when the clone is open, the branch to read is the one it has checked out, `git -C <root> status --porcelain` lists nothing, and no `.local/locks/<slug>.json` exists; otherwise take a snapshot. Reading in place copies nothing, so it suits an embedded or local brain best, whose host is always open. Its rules:
 
-- **Claim it first.** Write `locks/<slug>.json` as `{"spec": "<skill>", "since": "<now, in ISO 8601>"}`, `<skill>` being the reading branch (`explore`, `ask` or `tour`), so a build reaching the repository stops at its `held:` line by build's **Locks** instead of checking out a branch under the reads. Tell the user to leave the clone's branch and files as they are until the skill says it is done.
+- **Claim it first.** Write `.local/locks/<slug>.json` as `{"spec": "<skill>", "since": "<now, in ISO 8601>"}`, `<skill>` being the reading branch (`explore`, `ask` or `tour`), so a build reaching the repository stops at its `held:` line by build's **Locks** instead of checking out a branch under the reads. Tell the user to leave the clone's branch and files as they are until the skill says it is done.
 - **Check it after.** Once the reads are done, `git -C <root> rev-parse HEAD` must still print the commit they started at, and the tree must still be clean. When either fails, the reads may mix two states: say so, and offer to run the skill again.
 - **Release it.** Delete the lock file once the check is done, and on every stop before it.
 
-`REPO.md` is the repository's card:
+`repos/<slug>.md` is the repository's card:
 
 ```markdown
 ---
@@ -125,7 +125,7 @@ In an embedded or local brain, it is the host, by **Embedded brain** and **Local
 3. The repository whose clone holds the files the conversation is working on.
 4. The only repository open in this session besides the brain.
 
-Otherwise ask the user, listing the registered repositories. Its root comes from `repos/repos.json` or the open folder; when it has neither, ask the user to run `/brain link`, or `/add-dir <path>`, and stop. Then:
+Otherwise ask the user, listing the registered repositories. Its root comes from `.local/repos.json` or the open folder; when it has neither, ask the user to run `/brain link`, or `/add-dir <path>`, and stop. Then:
 
 - Paths a skill gives relative to a repository (`docs/STRUCTURE.md`, `GLOSSARY.md`, `docs/adr/`, `AGENTS.md`, `CLAUDE.md`) are relative to its root. Read and write its files by absolute path.
 - Run every git command as `git -C <root>`, and every suite or script from the root (`cd <root> && <command>`).
@@ -134,10 +134,10 @@ Otherwise ask the user, listing the registered repositories. Its root comes from
 
 ## Notes
 
-One fact per file. Teammates adding notes at the same time never conflict, and the graph shows one node per fact. A note is one of two kinds:
+One fact per file. Teammates adding notes at the same time never conflict, and the graph shows one node per fact. A note is one of two kinds, told by its `explored` line and never by its folder:
 
-- **Authored**: what a repository cannot tell by looking, such as the reason behind a choice, a trap, or a contract between two repositories. It lives in `notes/authored/`, and its `repos` line names the repositories it bears on. [RECORD.md](RECORD.md) writes it as a draft, and [SYNC.md](SYNC.md)'s **Consolidate** there commits it once the user confirms it.
-- **Explored**: what the code does, written for an outsider who never opens it. It lives in `notes/exploration/<slug>/`, its repository's folder. Only `/brain explore` writes it, by [EXPLORE.md](EXPLORE.md), and its next run rewrites it. Its `explored` line marks it.
+- **Authored**: what a repository cannot tell by looking, such as the reason behind a choice, a trap, or a contract between two repositories. It lives in its **home**: `notes/repos/<slug>/` when its `repos` line names one repository, else `notes/shared/`. Its `repos` line names the repositories it bears on. [RECORD.md](RECORD.md) writes it as a draft, and [SYNC.md](SYNC.md)'s **Consolidate** there commits it once the user confirms it.
+- **Explored**: what the code does, written for an outsider who never opens it. It lives in `notes/repos/<slug>/`, its repository's folder, beside that repository's authored notes. Only `/brain explore` writes it, by [EXPLORE.md](EXPLORE.md), and its next run rewrites it. Its `explored` line marks it.
 
 ```markdown
 ---
@@ -160,7 +160,7 @@ Related: [[invoice-event-contract]]
 - `description`: one line that stands alone. Recall judges relevance from it without opening the note.
 - `type`: one of the types below.
 - `layer`: `business` or `application`, by **Layers**.
-- `repos`: on authored notes only, required, the registered slugs the note bears on, as `[billing-api]` or `[billing-api, web-app]`: one when the fact is about one repository, each one it holds for when it spans several. Recall finds a note for a repository by this line, so add a slug when another repository comes to rely on the fact. An explored note belongs to the repository whose folder holds it.
+- `repos`: on authored notes only, required, the registered slugs the note bears on, as `[billing-api]` or `[billing-api, web-app]`: one when the fact is about one repository, each one it holds for when it spans several. Recall finds a note for a repository by this line, so add a slug when another repository comes to rely on the fact. The note's folder follows the line, so a change to it moves the note, by [SYNC.md](SYNC.md)'s **Consolidate**. An explored note belongs to the repository whose folder holds it.
 - `explored`: on explored notes only, the short SHA of the commit the note was read at.
 - `aliases`: optional, 3 to 6 other words for the note's subject that its name and description leave out: business wording, the symptom a user reports, and the code's English terms. Recall ranks them like the description, so a search in other words still reaches the note. Write one `  - <alias>` line each under `aliases:`, as Obsidian does, or `[a, b]`.
 - `avoid`: on a term note only, optional, the words the domain avoids for the term, in the same list forms as `aliases`. A word on it is challenged wherever it names the term, and recall ranks it like the description.
@@ -198,9 +198,9 @@ The note's type decides, so the brain keeps a past only where the past is knowle
 
 ### Drafts
 
-A **draft** is a note this machine learned that the team has not yet seen: one file in `notes/drafts/`, named `<name>.md` after the note it proposes. [RECORD.md](RECORD.md) writes it, and [SYNC.md](SYNC.md)'s **Consolidate** turns it into a commit, discards it or keeps it. It holds the note's full text as it would land, by the format above, with two more frontmatter lines, and a third on a `supersede`:
+A **draft** is a note this machine learned that the team has not yet seen: one file in `.local/drafts/`, named `<name>.md` after the note it proposes. [RECORD.md](RECORD.md) writes it, and [SYNC.md](SYNC.md)'s **Consolidate** turns it into a commit, discards it or keeps it. It holds the note's full text as it would land, by the format above, with two more frontmatter lines, and a third on a `supersede`:
 
-- `target`: the path the note lands at, such as `notes/authored/billing-retry-idempotency.md`.
+- `target`: the path the note lands at, its home by the note's `repos` line (`notes/repos/billing-api/billing-api-retry-idempotency.md` for one repository, `notes/shared/<name>.md` for several or none).
 - `action`: `record` for a new note, `update` for a new version of the note at `target`, `supersede` for a new decision replacing another, or `delete` for removing the note at `target`, whose body then holds only the reason.
 - `supersedes`: on a `supersede` only, the name of the decision it replaces.
 
@@ -233,7 +233,7 @@ An explored note is **current** while the repository's default branch still poin
 
 ## Settings
 
-`config.json` in the active brain holds this machine's limits on the pipeline, as one JSON object: `{ "parallelAgents": 3 }`. A setting takes its default when it is missing, when it holds a value its row does not allow, or when the file is missing or does not parse as a JSON object; say so when the file does not parse. To set one, write the value its row allows into that key, keeping the other keys and creating the file when it is missing. When the file does not parse, show the user and leave it untouched. When the value asked for is not one its row allows, say what the row allows and write nothing.
+`.local/config.json` in the active brain holds this machine's limits on the pipeline, as one JSON object: `{ "parallelAgents": 3 }`. A setting takes its default when it is missing, when it holds a value its row does not allow, or when the file is missing or does not parse as a JSON object; say so when the file does not parse. To set one, write the value its row allows into that key, keeping the other keys and creating the file when it is missing. When the file does not parse, show the user and leave it untouched. When the value asked for is not one its row allows, say what the row allows and write nothing.
 
 | Setting | Default | Holds |
 |---|---|---|
@@ -241,11 +241,13 @@ An explored note is **current** while the repository's default branch still poin
 
 ## Specs
 
-Specs live in `specs/`, each in a folder `NNN-<slug>/`: `NNN` one past the highest folder number already there (starting at `001`), in one sequence across every repository, and `<slug>` the spec's title in kebab-case. [SPEC-ID.md](../../write-spec/references/SPEC-ID.md) resolves the short forms users type. A spec can change several repositories.
+Specs live in `.local/specs/`, each in a folder `NNN-<slug>/`: `NNN` one past the highest folder number already there (starting at `001`), in one sequence across every repository, and `<slug>` the spec's title in kebab-case. [SPEC-ID.md](../../write-spec/references/SPEC-ID.md) resolves the short forms users type. A spec can change several repositories.
 
-A spec's milestones sit in one **track** per repository it changes: the folder `milestones/<slug>/`, whose name is the repository every milestone in it builds in. A track numbers its milestones `001` upwards, and its tickets `001` upwards across those milestones, and builds and lands them in number order. A number names a milestone or ticket inside its own track; from anywhere else, write `<slug>/NNN`. Tracks wait on each other only at milestones: a ticket's **Depends on** of `003, 004` names tickets of its own track, and a milestone's **Builds after** of `web-app/002` names `web-app`'s milestone `002`. A spec ticketed before **Builds after** may hold `<slug>/NNN` in a ticket's **Depends on**; `build` moves it onto the milestone, by [MIGRATE.md](MIGRATE.md)'s **Builds after**.
+A spec's milestones sit in one **track** per repository it changes: the folder `<slug>/` straight in the spec folder, whose name is the repository every milestone in it builds in. A track numbers its milestones `001` upwards, and its tickets `001` upwards across those milestones, and builds and lands them in number order. A number names a milestone or ticket inside its own track; from anywhere else, write `<slug>/NNN`. Tracks wait on each other only at milestones: a ticket's **Depends on** of `003, 004` names tickets of its own track, and a milestone's **Builds after** of `web-app/002` names `web-app`'s milestone `002`. A spec ticketed before **Builds after** may hold `<slug>/NNN` in a ticket's **Depends on**; `build` moves it onto the milestone, by [MIGRATE.md](MIGRATE.md)'s **Builds after**.
 
-A spec ticketed before tracks has the **flat layout**: its milestones sit straight under `milestones/`, numbered across the spec, and each one's track is the slug on its `**Repo:**` line. In it a milestone's number, and the number of its `sdd/<spec-folder>/M<NNN>` branch, run across the whole spec. Skills read both layouts; `build` alone moves a flat spec into tracks, by [MIGRATE.md](MIGRATE.md)'s **Tracks**, before it builds.
+In a spec folder, a folder whose name starts with three digits is a milestone of the flat layout, and every other folder is a track. A spec is **ticketed** when its folder holds a track or a milestone folder.
+
+A spec ticketed before tracks has the **flat layout**: its milestones sit straight in the spec folder, numbered across the spec, and each one's track is the slug on its `**Repo:**` line. In it a milestone's number, and the number of its `sdd/<spec-folder>/M<NNN>` branch, run across the whole spec. Skills read both layouts; `build` alone moves a flat spec into tracks, by [MIGRATE.md](MIGRATE.md)'s **Tracks**, before it builds.
 
 | Line | In | Holds |
 |---|---|---|

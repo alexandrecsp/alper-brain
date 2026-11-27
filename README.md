@@ -18,29 +18,27 @@ The skills then show up as `/alper-brain:<name>`. Below they are written by thei
 ├── CLAUDE.md                          the agent file, pointing at the brain
 └── .brain/                            the brain: every kind of brain lives in a `.brain/` folder
     ├── BRAIN.md                       what it is, how to join, the repositories it covers, its kind
-    ├── .gitignore                     keeps this machine's files below out of git
-    ├── config.json                    ignored: this machine's limits, such as how many tracks build at once
+    ├── .gitignore                     the one line `.local/`: everything outside it is shared
+    ├── repos/<slug>.md                the repository's card (its remote, commit key pattern and test commands)
     ├── notes/
-    │   ├── authored/                  team notes, each naming the repositories it bears on
-    │   ├── exploration/<slug>/        what a repository's code does, from `/brain explore`
-    │   └── drafts/                    ignored: notes waiting for `/brain sync`
-    ├── repos/
-    │   ├── repos.json                 ignored: where each repository is cloned here
-    │   └── billing-api/
-    │       ├── REPO.md                the repository's card
-    │       ├── tours/  refactors/     onboarding tours and refactor reports
-    │       ├── pages/                 HTML pages from `html` on this repository
-    │       └── snapshots/             ignored: its default branch, checked out while a skill reads it
-    ├── pages/                         HTML pages from `html` on no single repository
-    ├── prototypes/                    logic prototypes, one home even across repositories
-    ├── research/                      cited findings from `research`
-    ├── specs/                         ignored: specs, milestones, tickets and reviews, across repositories
-    └── explore/  locks/  handoff/     ignored: scratch, claims and handoffs of this machine
+    │   ├── repos/<slug>/              the notes about one repository: team notes, and what its code does, from `/brain explore`
+    │   ├── shared/                    team notes across several repositories
+    │   └── research/                  cited findings from `research`
+    ├── docs/
+    │   ├── repos/<slug>/              onboarding tours, refactor reports and HTML pages from `html` on this repository
+    │   ├── shared/                    HTML pages from `html` on no single repository
+    │   └── prototypes/                logic prototypes, one home even across repositories
+    └── .local/                        this machine's own, never shared
+        ├── config.json                this machine's limits, such as how many tracks build at once
+        ├── repos.json                 where each repository is cloned here
+        ├── drafts/                    notes waiting for `/brain sync`
+        ├── specs/                     specs, milestones, tickets and reviews, across repositories
+        └── snapshots/  explore/  locks/  handoff/    default-branch checkouts, scratch, claims and handoffs
 ```
 
-- **Knowledge is shared, work stays local.** The `.brain/.gitignore` keeps this machine's files out of git; everything else is committed and shared by pull and push: the notes, the cards, research, tours, refactor reports and prototypes. Specs and tickets stay on your machine; what they teach reaches the team as notes.
+- **Knowledge is shared, work stays local.** The `.brain/.gitignore` is the one line `.local/`, which keeps this machine's files out of git; everything else is committed and shared by pull and push: the cards, the notes, research and the docs (tours, refactor reports, pages and prototypes). Specs and tickets stay in `.local/` on your machine; what they teach reaches the team as notes.
 - **You work from the brain.** Claude is launched in the folder holding the brain's `.brain/`, so it always knows where the brain is. The repositories the work needs are opened beside it.
-- **Each repository moves through three states.** **Registered**: the brain holds its `REPO.md` card (its remote, commit key pattern and test commands), so its notes and specs work. **Linked**: the brain knows where it is cloned on this machine, so skills can read its code. **Open**: it is open in the session, so skills can change it. Skills ask you to open a repository (`/add-dir <path>`) when they need to change it.
+- **Each repository moves through three states.** **Registered**: the brain holds its `repos/<slug>.md` card (its remote, commit key pattern and test commands), so its notes and specs work. **Linked**: the brain knows where it is cloned on this machine, so skills can read its code. **Open**: it is open in the session, so skills can change it. Skills ask you to open a repository (`/add-dir <path>`) when they need to change it.
 - **Or embed it in a single repository.** A project that is one repository can keep its brain in that repository's `.brain/` folder instead: you launch Claude in the repository, and the notes are committed on your current branch and ship with the code. `/brain export` later moves the brain, history included, into a repository of its own, so it can cover more.
 - **Or keep it local, just for you.** A local brain sits in the repository's `.brain/` folder too, which the repository's git ignores through `.git/info/exclude`. It is a git repository of its own that is never pushed, so every skill works and nothing reaches the repository's history. A skill that finds no brain offers to create one. `/brain export` moves it out when you want to share it.
 - **One brain per knowledge base.** A company, a client, your side projects: each gets its own brain, with its own notes and remote. Nothing crosses between them.
@@ -60,7 +58,7 @@ The skills then show up as `/alper-brain:<name>`. Below they are written by thei
 ```
 /brainstorm  ──────────────  a shared understanding: What, then How
         │
-/write-spec  ─────────────────  .brain/specs/NNN-<slug>/spec.md, naming the repositories it changes
+/write-spec  ─────────────────  .brain/.local/specs/NNN-<slug>/spec.md, naming the repositories it changes
         │
 /write-tickets  ──────────────  one track of milestones per repository, with tickets
         │
@@ -98,7 +96,7 @@ When a brainstorm settles a repository's domain (every feature, and decisions or
 
 ### 2. `/write-spec`
 
-Turns the conversation into `.brain/specs/NNN-<slug>/spec.md` in the brain. Its **Repos** line names the repositories it changes, and specs are numbered in one sequence across all of them. The spec contains only what the conversation settled. Each question left open comes with a recommended answer, for you to settle now or record as open. Before writing, the agent proposes two things for you to confirm:
+Turns the conversation into `.brain/.local/specs/NNN-<slug>/spec.md` in the brain. Its **Repos** line names the repositories it changes, and specs are numbered in one sequence across all of them. The spec contains only what the conversation settled. Each question left open comes with a recommended answer, for you to settle now or record as open. Before writing, the agent proposes two things for you to confirm:
 
 - the **seams** where tests will prove the feature works, as few as possible
 - the **design patterns**, if the brainstorm never weighed them
@@ -111,28 +109,27 @@ When another **in-flight** spec (one not landed yet) changes the same modules, o
 
 Breaks the spec into ordered **milestones**, and each milestone into **tickets**:
 
-- A milestone is an increment that leaves the code working and tested, with a check the builder can run. It builds in **one repository**, since it is built, checked and squashed inside one git history. A spec's milestones sit in one **track** per repository, the folder `milestones/<repo>/`: each track numbers its milestones and tickets from `001`, and builds them in that order. A ticket names one it builds on in its own track by number, and one in another track as `<repo>/NNN`.
+- A milestone is an increment that leaves the code working and tested, with a check the builder can run. It builds in **one repository**, since it is built, checked and squashed inside one git history. A spec's milestones sit in one **track** per repository, the folder `<repo>/` straight in the spec folder: each track numbers its milestones and tickets from `001`, and builds them in that order. A ticket names one it builds on in its own track by number, and one in another track as `<repo>/NNN`.
 - A ticket is a **tracer bullet**: a thin vertical slice through every layer it needs, verifiable at a confirmed seam, and small enough for one agent with a fresh context. Prefactoring tickets come first. Wide mechanical refactors follow `WIDE-REFACTOR.md` so each batch stays green.
 - A **contract change** between repositories follows `CONTRACT-CHANGE.md`: the producer adds the new shape beside the old one, each consumer moves over in its own milestone, then the producer removes the old shape. Every step leaves every repository working, since repositories deploy on their own schedules. Each consumer's move builds beside the producer's, against the shape the spec pins, and a **Lands after** line holds the order they land in; before the move squashes, the build checks its fakes against the producer's code.
 
 You review the breakdown (boundaries, granularity, dependencies) until you approve it. Then it writes:
 
 ```
-.brain/specs/NNN-<slug>/
+.brain/.local/specs/NNN-<slug>/
 ├── spec.md
-└── milestones/
-    └── <repo>/                     ← one track per repository
-        └── NNN-<milestone-slug>/
-            ├── milestone.md        ← Delivers, Done when, Builds after, Lands after, Phase, Squash, Landed, Shape
-            ├── NNN-<ticket-slug>.md   ← Status: todo | doing | blocked | done, Commit: <sha>, Depends on, Notes
-            └── review.md           ← written by review-changes: the findings, and the arbiter's answers to escalations
+└── <repo>/                         ← one track per repository
+    └── NNN-<milestone-slug>/
+        ├── milestone.md            ← Delivers, Done when, Builds after, Lands after, Phase, Squash, Landed, Shape
+        ├── NNN-<ticket-slug>.md    ← Status: todo | doing | blocked | done, Commit: <sha>, Depends on, Notes
+        └── review.md               ← written by review-changes: the findings, and the arbiter's answers to escalations
 ```
 
 ### 4. `/build [spec-id]`
 
 A **spec id** is the spec folder's number (`3` or `s03`), name or path. `/build s03` builds the spec's next **frontier**: each repository's next milestone that is ready. Run it again, after `/clear`, for the next frontier, until the spec has landed. Each call ends by naming the next frontier, so a long spec never outgrows one session's context, and a call cut off partway, by a usage limit or a closed session, resumes where it stopped.
 
-Each track works on one milestone and one ticket at a time, and the tracks run side by side, at most 5 at a time unless `parallelAgents` in the brain's `.brain/config.json` says otherwise. A milestone is ready once the earlier milestones of its track are squashed, and every milestone of another track its **Builds after** names. Tracks wait on each other only at milestones: a ticket depends only on tickets of its own track. The cap limits how many tracks build at once, never the frontier: a milestone waiting for a slot takes the next one free. Each call is one **event loop** in your session, the only place that can start sub-agents:
+Each track works on one milestone and one ticket at a time, and the tracks run side by side, at most 5 at a time unless `parallelAgents` in the brain's `.brain/.local/config.json` says otherwise. A milestone is ready once the earlier milestones of its track are squashed, and every milestone of another track its **Builds after** names. Tracks wait on each other only at milestones: a ticket depends only on tickets of its own track. The cap limits how many tracks build at once, never the frontier: a milestone waiting for a slot takes the next one free. Each call is one **event loop** in your session, the only place that can start sub-agents:
 
 1. It finds each track's repository through the brain's links and asks you, in one message, to open any that is not open and clean any dirty tree, for the base, and its next version, of any that has a [release branch](#release-branches), and for your answers to any escalated finding waiting on you. The **arbiter** decides escalated findings unless your command says you decide them, as in `/build s03 — I decide escalations`. It resumes each milestone from its **Phase** line when an earlier build stopped partway.
 2. It checks out each milestone's own branch, `sdd/<spec-folder>/M<NNN>`, created from that repository's spec branch, `sdd/<spec-folder>/spec`, and starts a fresh **builder sub-agent** in the background for the track's next ticket. The builder builds the ticket with `tdd` (red, then green, at the ticket's seams), commits with `commit`, marks the ticket `done` with its SHA and leaves notes for the next ticket. As each builder reports, the loop starts that track's next ticket at once, so a slow repository never holds the others back.
@@ -159,7 +156,7 @@ A spec that lands on a release branch is on that release only, so at the hand-ov
 
 #### One build per repository
 
-A repository has one working tree, so a `/build` claims each repository it changes in the brain's `.brain/locks/`, and releases the claims when the call ends. A build of another spec that needs a claimed repository stops and asks you whether the first build still runs. `/brain status` shows each claim.
+A repository has one working tree, so a `/build` claims each repository it changes in the brain's `.brain/.local/locks/`, and releases the claims when the call ends. A build of another spec that needs a claimed repository stops and asks you whether the first build still runs. `/brain status` shows each claim.
 
 #### Changing or stopping a spec
 
@@ -210,7 +207,7 @@ Everything about the brain runs through `/brain`, and its first argument picks w
 | `/brain setup` | Clones or creates a brain, then registers a repository in it: its card, its layout, its agent-file section, and its old `.sdd/` moved over. Run it once per brain on each machine, then once per repository. |
 | `/brain link` | Finds this machine's clone of each registered repository and records where it is. Linking opens nothing. |
 | `/brain explore [<repo>]` | Reads a repository's default branch, one scribe sub-agent per area in parallel, and writes what it does as notes a product owner or a newcomer can read without the code: a `feature` note per capability with its rules, `concept` notes for its flows and data, and an overview in its card. Each note is stamped with the commit it was read at. Without a repository, it explores every linked one whose notes are missing or behind. A rerun reads only the areas that changed. |
-| `/brain tour [<repo>]` | Tours one repository for a newcomer who will code in it. It offers `/brain explore` first when the explored notes are behind, then starts from them: one explorer per area in parallel, spending its reads on how the code is built, then traces the two or three journeys that cross the most areas, following them into linked neighbours. Writes the tour to the brain's `.brain/repos/<slug>/tours/`: a context map with the neighbouring repositories, the journeys, a card per area, where things live, the vocabulary and the commands. Then offers to record the terms, decisions and contracts it found undocumented. |
+| `/brain tour [<repo>]` | Tours one repository for a newcomer who will code in it. It offers `/brain explore` first when the explored notes are behind, then starts from them: one explorer per area in parallel, spending its reads on how the code is built, then traces the two or three journeys that cross the most areas, following them into linked neighbours. Writes the tour to the brain's `.brain/docs/repos/<slug>/`, as `<YYYY-MM-DD-HHmm>-tour.html`: a context map with the neighbouring repositories, the journeys, a card per area, where things live, the vocabulary and the commands. Then offers to record the terms, decisions and contracts it found undocumented. |
 | `/brain status` | Every repository (unlinked, linked or open, dirty, unpushed, and whether its explored notes are behind) and every in-flight spec with its state, risks first: blocked or failed builds, specs waiting on a dependency, and contract changes whose consumers the spec leaves out. It also lists landed specs whose PRs have not merged, and the spec that claims each repository. |
 | `/brain ask <question>` | Answers a question that crosses repositories: recalls the notes, sends one explorer per repository in parallel, answers with citations from each, and offers what the notes lacked as new notes. Asking is how an empty brain fills up. |
 | `/brain view` | Opens the brain page: every brain you add, each live on four screens. **Overview** shows what is in flight, a heatmap of every ticket, the specs in dependency waves and what needs you; a spec opens on its own page, its milestones a pipeline with a lane per repository. **Board** is a kanban of specs or milestones, **Notes graph** draws every note and `[[link]]` in a force layout with tunable forces, and **Activity** lists the brain's commits. The document you select, reviews and diagrams included, reads in a panel over the screen. Needs Chrome or Edge. |
@@ -234,10 +231,10 @@ The pipeline uses the brain throughout. Every skill reads a repository's glossar
 | `write-for-agents` | How to write skills, agent definitions, briefs, `CLAUDE.md` and `AGENTS.md`. Used when editing this repo. |
 | `diagnose` | Diagnoses a hard bug or performance regression. It first builds a tight loop that goes red on the bug, then minimises the repro, ranks falsifiable hypotheses, and instruments one variable at a time. It fixes with a regression test at a correct seam, or records that no such seam exists. |
 | `brain` | The hub, behind one command: `setup`, `link`, `explore`, `tour`, `status`, `ask`, `view`, `recall`, `remember` and `sync`. On its own, it reads a repository's notes before work and drafts a note when it learns something the repository doesn't record, for `sync` to consolidate. It syncs only when you ask. |
-| `research` | Researches a question against primary sources in a background sub-agent. Saves the cited findings to the brain's `.brain/research/<slug>.md`. |
-| `prototype` | Builds a throwaway prototype that answers one design question: a shareable HTML demo for logic, or switchable variants for UI, each drafted in parallel by its own designer sub-agent. Keeps a UI prototype on a `prototype/<slug>` branch and a logic one in the brain's `.brain/prototypes/`, and records the verdict in the spec and as a brain decision. |
-| `refactor` | Scans hot spots for deepening and smell refactors, shows them as an HTML report saved to the brain's `.brain/repos/<slug>/refactors/`, and brainstorms the one you pick. A contained refactor goes straight to `/write-tickets` and `/build`; a larger one starts at `/write-spec`. |
-| `html` | Shows any output as a self-contained HTML page in the report theme of the tours and refactor reports: "audit the auth flow, as HTML". Saves it to the brain's `.brain/repos/<slug>/pages/`, or `.brain/pages/` when it covers no single repository, and opens it. |
+| `research` | Researches a question against primary sources in a background sub-agent. Saves the cited findings to the brain's `.brain/notes/research/<slug>.md`. |
+| `prototype` | Builds a throwaway prototype that answers one design question: a shareable HTML demo for logic, or switchable variants for UI, each drafted in parallel by its own designer sub-agent. Keeps a UI prototype on a `prototype/<slug>` branch and a logic one in the brain's `.brain/docs/prototypes/`, and records the verdict in the spec and as a brain decision. |
+| `refactor` | Scans hot spots for deepening and smell refactors, shows them as an HTML report saved to the brain's `.brain/docs/repos/<slug>/`, as `<YYYY-MM-DD-HHmm>-refactors.html`, and brainstorms the one you pick. A contained refactor goes straight to `/write-tickets` and `/build`; a larger one starts at `/write-spec`. |
+| `html` | Shows any output as a self-contained HTML page in the report theme of the tours and refactor reports: "audit the auth flow, as HTML". Saves it to the brain's `.brain/docs/repos/<slug>/`, or `.brain/docs/shared/` when it covers no single repository, and opens it. |
 
 The pipeline skills (`write-spec`, `write-tickets`, `build`), `refactor` and `open-pr` only run when you type their command. The other actions can also be invoked by the agent when it needs them. The skills other skills run as a step (`tdd`, `review-changes`) and the reference skills (`code-design`, `write-for-agents`) stay out of the slash menu: the agent and other skills load them, and you ask for one in words ("review this branch", "build this test-first").
 
@@ -249,7 +246,7 @@ The pipeline skills (`write-spec`, `write-tickets`, `build`), `refactor` and `op
 
 Install alper-brain in place of alper-skills, then run `/brain setup` in a brain with each repository open. Setup moves the repository's `.sdd/` into the brain's: each spec keeps its folder name unless its number is taken (then it is renumbered, and its branches renamed), gains its **Repos** line, its milestones move into that repository's track, and its research, tours and refactor reports come along. The commit key from `.brain/settings.json` moves to the repository's card, and the **Spec workflow** section of its agent file is removed. The dashboard and the graph page are now the one brain page, `/brain view`. The alper-flow mod is replaced by the Agent Watcher pane, opened with `/watcher`: uninstall `alper-flow@alper-mods`.
 
-A spec ticketed before tracks keeps its milestones straight under `milestones/`, each naming its repository on a **Repo** line. The brain page reads it as it is, and the next `/build` on it moves it into tracks first: it renumbers each track's milestones and tickets from `001`, rewrites the **Depends on** lines and renames the milestone branches. A PR branch (`sdd/<spec>/pr-M<NNN>`) keeps its old number. A spec whose tickets depend on another track's tickets, from before **Builds after**, has those waits moved onto its milestones the same way.
+A spec ticketed before tracks keeps its milestones straight in the spec folder, each naming its repository on a **Repo** line. The brain page reads it as it is, and the next `/build` on it moves it into tracks first: it renumbers each track's milestones and tickets from `001`, rewrites the **Depends on** lines and renames the milestone branches. A PR branch (`sdd/<spec>/pr-M<NNN>`) keeps its old number. A spec whose tickets depend on another track's tickets, from before **Builds after**, has those waits moved onto its milestones the same way.
 
 ## Repository layout
 

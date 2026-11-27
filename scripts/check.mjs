@@ -17,7 +17,7 @@ const tests = (dir) =>
 const checks = [
   ['section references', 'node', ['scripts/check-refs.mjs']],
   ['phases', 'node', ['scripts/check-phases.mjs']],
-  ['script tests', 'node', ['--test', ...tests(join(root, 'skills')), ...tests(join(root, 'server'))]],
+  ['script tests', 'node', ['--test', ...tests(join(root, 'skills')), ...tests(join(root, 'server')), ...tests(join(root, 'scripts'))]],
   ['Agent Watcher pane tests', 'claude', ['plugin', 'test', '.']],
 ]
 

@@ -43,7 +43,7 @@ const brainRepo = async ({ host = false } = {}) => {
 
 test("history route returns the timeline's shape for a brain in git", async () => {
   const b = await brainRepo()
-  b.write('notes/authored/x.md', noteText())
+  b.write('notes/repos/app/x.md', noteText())
   const sha = b.commit('Records x')
   const { status, json } = await b.history()
   assert.deepEqual({ status, json }, {
@@ -55,7 +55,7 @@ test("history route returns the timeline's shape for a brain in git", async () =
         date: '2026-11-01T10:00:00Z',
         author: 'Ana',
         title: 'Records x',
-        changes: [{ note: 'x', path: 'notes/authored/x.md', action: 'recorded', type: 'decision', layer: 'business', kind: 'authored', repos: ['app'] }],
+        changes: [{ note: 'x', path: 'notes/repos/app/x.md', action: 'recorded', type: 'decision', layer: 'business', kind: 'authored', repos: ['app'] }],
       }],
     },
   })
@@ -63,7 +63,7 @@ test("history route returns the timeline's shape for a brain in git", async () =
 
 test('a note is explored by its explored line, whatever its folder', async () => {
   const b = await brainRepo()
-  b.write('notes/authored/x.md', `---
+  b.write('notes/repos/app/x.md', `---
 type: feature
 layer: business
 explored: a1b2c3d
@@ -71,12 +71,12 @@ repos: [app]
 ---
 # Note
 `)
-  b.write('notes/exploration/app/y.md', noteText())
+  b.write('notes/shared/y.md', noteText())
   b.commit('Records x and y')
   const { json } = await b.history()
   assert.deepEqual(json.commits[0].changes.map(({ path, kind }) => ({ path, kind })), [
-    { path: 'notes/authored/x.md', kind: 'explored' },
-    { path: 'notes/exploration/app/y.md', kind: 'authored' },
+    { path: 'notes/repos/app/x.md', kind: 'explored' },
+    { path: 'notes/shared/y.md', kind: 'authored' },
   ])
 })
 
@@ -85,55 +85,55 @@ const lastActions = async (b) => (await b.history()).json.commits.at(-1).changes
 
 test('a changed note is updated', async () => {
   const b = await brainRepo()
-  b.write('notes/authored/x.md', noteText())
+  b.write('notes/repos/app/x.md', noteText())
   b.commit('Records x')
-  b.write('notes/authored/x.md', noteText({ layer: 'application' }))
+  b.write('notes/repos/app/x.md', noteText({ layer: 'application' }))
   b.commit('Changes x')
-  assert.deepEqual(await lastActions(b), [{ path: 'notes/authored/x.md', action: 'updated' }])
+  assert.deepEqual(await lastActions(b), [{ path: 'notes/repos/app/x.md', action: 'updated' }])
 })
 
 test('a note set to superseded is superseded', async () => {
   const b = await brainRepo()
-  b.write('notes/authored/x.md', noteText())
+  b.write('notes/repos/app/x.md', noteText())
   b.commit('Records x')
-  b.write('notes/authored/x.md', noteText({ status: 'superseded' }))
+  b.write('notes/repos/app/x.md', noteText({ status: 'superseded' }))
   b.commit('Supersedes x')
-  assert.deepEqual(await lastActions(b), [{ path: 'notes/authored/x.md', action: 'superseded' }])
+  assert.deepEqual(await lastActions(b), [{ path: 'notes/repos/app/x.md', action: 'superseded' }])
 })
 
 test('a removed note is deleted', async () => {
   const b = await brainRepo()
-  b.write('notes/authored/x.md', noteText())
+  b.write('notes/repos/app/x.md', noteText())
   b.commit('Records x')
-  b.remove('notes/authored/x.md')
+  b.remove('notes/repos/app/x.md')
   b.commit('Removes x')
   const { json } = await b.history()
-  assert.deepEqual(json.commits.at(-1).changes, [{ note: 'x', path: 'notes/authored/x.md', action: 'deleted', type: 'decision', layer: 'business', kind: 'authored', repos: ['app'] }])
+  assert.deepEqual(json.commits.at(-1).changes, [{ note: 'x', path: 'notes/repos/app/x.md', action: 'deleted', type: 'decision', layer: 'business', kind: 'authored', repos: ['app'] }])
 })
 
 test('a renamed note is moved and names its old path', async () => {
   const b = await brainRepo()
-  b.write('notes/authored/x.md', noteText())
+  b.write('notes/repos/app/x.md', noteText())
   b.commit('Records x')
-  b.move('notes/authored/x.md', 'notes/authored/y.md')
+  b.move('notes/repos/app/x.md', 'notes/repos/app/y.md')
   b.commit('Renames x')
-  assert.deepEqual(await lastActions(b), [{ path: 'notes/authored/y.md', action: 'moved', from: 'notes/authored/x.md' }])
+  assert.deepEqual(await lastActions(b), [{ path: 'notes/repos/app/y.md', action: 'moved', from: 'notes/repos/app/x.md' }])
 })
 
 test('a brain inside a host repository gets paths relative to the brain', async () => {
   const b = await brainRepo({ host: true })
-  b.write('notes/authored/x.md', noteText())
+  b.write('notes/repos/app/x.md', noteText())
   b.commit('Records x')
   const { json } = await b.history()
-  assert.deepEqual(json.commits.map((c) => c.changes.map((x) => x.path)), [['notes/authored/x.md']])
+  assert.deepEqual(json.commits.map((c) => c.changes.map((x) => x.path)), [['notes/repos/app/x.md']])
 })
 
 test('a commit that changes no note is left out', async () => {
   const b = await brainRepo()
-  b.write('notes/authored/x.md', noteText())
+  b.write('notes/repos/app/x.md', noteText())
   b.commit('Records x')
-  b.write('repos/app/REPO.md', '# Card\n')
-  b.write('specs/001-a/spec.md', '# Spec\n')
+  b.write('repos/app.md', '# Card\n')
+  b.write('.local/specs/001-a/spec.md', '# Spec\n')
   b.commit('Adds a card and a spec')
   const { json } = await b.history()
   assert.deepEqual(json.commits.map((c) => c.title), ['Records x'])
@@ -147,11 +147,41 @@ test('an unknown brain id answers 404', async () => {
 
 test('a note committed later shows in the next answer', async () => {
   const b = await brainRepo()
-  b.write('notes/authored/x.md', noteText())
+  b.write('notes/repos/app/x.md', noteText())
   b.commit('Records x')
   await b.history()
-  b.write('notes/authored/y.md', noteText())
+  b.write('notes/repos/app/y.md', noteText())
   b.commit('Records y')
   const { json } = await b.history()
   assert.deepEqual(json.commits.map((c) => c.title), ['Records x', 'Records y'])
+})
+
+test('a note moved into notes/repos/ by the layout move is moved and names its old path', async () => {
+  const b = await brainRepo()
+  b.write('notes/authored/x.md', noteText())
+  b.commit('Records x')
+  b.move('notes/authored/x.md', 'notes/repos/app/x.md')
+  b.commit('Moves the brain into the clusters layout')
+  assert.deepEqual(await lastActions(b), [{ path: 'notes/repos/app/x.md', action: 'moved', from: 'notes/authored/x.md' }])
+})
+
+test("a note recorded before the layout move keeps its changes from before it", async () => {
+  const b = await brainRepo()
+  b.write('notes/authored/x.md', noteText())
+  b.write('notes/exploration/app/e.md', noteText())
+  b.commit('Records x and e')
+  b.write('notes/authored/x.md', noteText({ layer: 'application' }))
+  b.commit('Changes x')
+  b.move('notes/authored/x.md', 'notes/repos/app/x.md')
+  b.move('notes/exploration/app/e.md', 'notes/repos/app/e.md')
+  b.commit('Moves the brain into the clusters layout')
+  b.write('notes/repos/app/x.md', noteText({ layer: 'business' }))
+  b.commit('Changes x again')
+  const { json } = await b.history()
+  assert.deepEqual(json.commits.map((c) => ({ title: c.title, changes: c.changes.map(({ path, action }) => ({ path, action })) })), [
+    { title: 'Records x and e', changes: [{ path: 'notes/authored/x.md', action: 'recorded' }, { path: 'notes/exploration/app/e.md', action: 'recorded' }] },
+    { title: 'Changes x', changes: [{ path: 'notes/authored/x.md', action: 'updated' }] },
+    { title: 'Moves the brain into the clusters layout', changes: [{ path: 'notes/repos/app/e.md', action: 'moved' }, { path: 'notes/repos/app/x.md', action: 'moved' }] },
+    { title: 'Changes x again', changes: [{ path: 'notes/repos/app/x.md', action: 'updated' }] },
+  ])
 })

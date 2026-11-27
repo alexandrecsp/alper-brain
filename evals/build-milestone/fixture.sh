@@ -5,8 +5,8 @@
 PHASE=none
 REVIEW=''
 . "$(dirname "$0")/../_fixtures/brain.sh"
-spec=.brain/specs/001-greeting
-ms=$spec/milestones/demo/001-greeting
+spec=.brain/.local/specs/001-greeting
+ms=$spec/demo/001-greeting
 rm "$ms/review.md"
 
 sed -i 's/^None$/- `greeting.txt` holds the greeting text; nothing else reads it yet.\n- `test.sh` is the unit suite: each check prints `ok` or exits non-zero./' "$ms/001-print-hello.md"

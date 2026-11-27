@@ -11,23 +11,23 @@ import { fsBrainFiles } from './fs-brain-files.adapter.mjs'
 const brainWith = (gitignore) => {
   const host = mkdtempSync(join(tmpdir(), 'brain-files-'))
   const root = join(host, '.brain')
-  mkdirSync(join(root, 'locks'), { recursive: true })
-  mkdirSync(join(root, 'notes', 'authored'), { recursive: true })
+  mkdirSync(join(root, '.local', 'locks'), { recursive: true })
+  mkdirSync(join(root, 'notes', 'shared'), { recursive: true })
   writeFileSync(join(root, 'BRAIN.md'), '---\nkind: standalone\n---\n')
   writeFileSync(join(root, '.gitignore'), gitignore)
   return { host, root }
 }
 
 test('the watcher reports a change to a note, and none to a file the .gitignore ignores', async () => {
-  const { host, root } = brainWith('locks/\n')
+  const { host, root } = brainWith('.local/\n')
   let calls = 0
   const stop = fsBrainFiles().watch(root, () => { calls++ })
   try {
     await sleep(200)
-    writeFileSync(join(root, 'locks', 'a.lock'), 'x')
+    writeFileSync(join(root, '.local', 'locks', 'a.lock'), 'x')
     await sleep(700)
     const afterIgnored = calls
-    writeFileSync(join(root, 'notes', 'authored', 'a.md'), '# a\n')
+    writeFileSync(join(root, 'notes', 'shared', 'a.md'), '# a\n')
     await sleep(700)
     assert.deepEqual({ afterIgnored, afterNote: calls > 0 }, { afterIgnored: 0, afterNote: true })
   } finally {

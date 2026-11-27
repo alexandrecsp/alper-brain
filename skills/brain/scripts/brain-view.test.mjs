@@ -19,17 +19,23 @@ const element = () => new Proxy({ innerHTML: '', value: '', querySelectorAll: ()
   set: (o, k, v) => { o[k] = v; return true },
 })
 
-// App over a page of stand-in elements, one per id; `shown` gives the elements by id.
-const appOf = () => {
-  const shown = new Map()
-  const document = { getElementById: (id) => { if (!shown.has(id)) shown.set(id, element()); return shown.get(id) }, addEventListener() {}, querySelectorAll: () => [], querySelector: () => element(), documentElement: element() }
+// App over a page of stand-in elements, one per id; `shown` gives the elements by id, `click` the page's click handler. The
+// draft form in the details panel holds `draft`'s values, by field name.
+const appOf = ({ draft = {} } = {}) => {
+  const shown = new Map(), listeners = new Map()
+  const form = { querySelector: (selector) => ({ value: draft[selector.slice('[data-'.length, -1)] ?? '' }) }
+  const document = {
+    getElementById: (id) => { if (!shown.has(id)) shown.set(id, element()); return shown.get(id) },
+    addEventListener: (type, listener) => listeners.set(type, listener),
+    querySelectorAll: () => [], querySelector: (selector) => (selector === '#insp [data-draft]' ? form : element()), documentElement: element(),
+  }
   const window = { addEventListener() {}, dispatchEvent() {}, innerWidth: 1200 }
   const location = { hash: '#/b/team/overview' }
   const names = ['document', 'window', 'location', 'getComputedStyle', 'localStorage']
   const browser = [document, window, location, () => ({ getPropertyValue: () => '' }), { getItem: () => null, setItem() {} }]
   const Theme = new Function(...names, `${section('THE THEME')}\nreturn Theme;`)(...browser)
   const App = new Function('Theme', 'BrainSource', ...names, `${section('THE BRAIN VIEW')}\nreturn App;`)(Theme, BrainSource, ...browser)
-  return { App, shown }
+  return { App, shown, click: (button) => listeners.get('click')({ target: { closest: (selector) => (selector.includes('data-draft-save') ? button : null) } }) }
 }
 
 const DATA = { name: 'team', specs: [], repos: [], notes: [{ id: 'known', links: ['unwritten'], repos: [] }], ghosts: ['unwritten'], timeline: { commits: [] } }
@@ -40,4 +46,24 @@ test('the draft form of a note not written yet renders, naming the layout drafts
   App.state.sel = { kind: 'ghost', id: 'unwritten' }
   App.render()
   assert.match(shown.get('insp').innerHTML, new RegExp(`into ${BrainSource.LAYOUT.drafts}/ ·`))
+})
+
+// The draft the page saves when its form is saved: the path and the text it writes, over an edit that finds no file there.
+const savedDraft = async (draft, repos = [{ slug: 'api' }, { slug: 'web' }]) => {
+  const { App, click } = appOf({ draft })
+  const saved = []
+  App.load('team', { ...DATA, repos }, { edit: async (path, change) => saved.push({ path, text: change(undefined) }) })
+  await click({ dataset: { draftSave: 'unwritten' } })
+  return saved
+}
+const FORM = { type: 'concept', layer: 'application', description: 'One line', body: 'The fact.' }
+
+test("a draft of one repository lands in .local/drafts with its target in that repository's notes", async () => {
+  const [draft] = await savedDraft({ ...FORM, repos: 'api' })
+  assert.deepEqual([draft.path, /^target: (.*)$/m.exec(draft.text)[1]], ['.local/drafts/unwritten.md', 'notes/repos/api/unwritten.md'])
+})
+
+test("a draft of several repositories lands in .local/drafts with its target in the shared notes", async () => {
+  const [draft] = await savedDraft({ ...FORM, repos: 'api, web' })
+  assert.deepEqual([draft.path, /^target: (.*)$/m.exec(draft.text)[1]], ['.local/drafts/unwritten.md', 'notes/shared/unwritten.md'])
 })

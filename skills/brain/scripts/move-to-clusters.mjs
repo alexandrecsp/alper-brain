@@ -5,7 +5,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmdirSync, writeFileSync } from 'node:fs'
 import { basename, dirname, extname, join } from 'node:path'
-import { brainRootOf, clustersOf, fwd, noteHome, pathsOf, relativeTo } from './layout.mjs'
+import { brainRootOf, fwd, noteHome, pathsOf, relativeTo } from './layout.mjs'
 import { listOf, parse } from './notes.mjs'
 import { clonesOf, removeSnapshot } from './remove-snapshots.mjs'
 
@@ -23,7 +23,7 @@ const walk = (dir, rel = '') => readdirSync(join(dir, rel), { withFileTypes: tru
 
 // Where a file of the brain goes, by its path relative to the brain root, as an absolute path; null for a file that stays.
 function destOf(root, rel) {
-  const at = clustersOf(root)
+  const at = pathsOf(root)
   const p = rel.split('/')
   const under = (n) => p.slice(n).join('/')
   if (p[0] === 'notes' && p[1] === 'authored' && p.length > 2) {
@@ -77,7 +77,7 @@ function newTarget(root, fm, moves) {
 
 export function moveToClusters(folder, { dry = false } = {}) {
   const root = brainRootOf(folder)
-  const at = clustersOf(root)
+  const at = pathsOf(root)
   const git = (...a) => spawnSync('git', ['-C', root, ...a], { encoding: 'utf8', windowsHide: true })
   const ls = git('ls-files', '-z')
   const tracked = new Set(ls.status === 0 ? ls.stdout.split('\0').filter(Boolean) : [])
@@ -90,7 +90,7 @@ export function moveToClusters(folder, { dry = false } = {}) {
     else if (rel.startsWith('repos/') && rel.split('/').length >= 3) left.push(rel)
   }
   // A leftover snapshot is a worktree folder of a linked clone, at repos/<slug>/snapshots.
-  const old = pathsOf(root)
+  const old = { repos: join(root, 'repos'), reposJson: join(root, 'repos', 'repos.json'), snapshots: (slug) => join(root, 'repos', slug, 'snapshots') }
   const clones = clonesOf(old.reposJson)
   const snapshots = existsSync(old.repos) ? readdirSync(old.repos, { withFileTypes: true }).filter((e) => e.isDirectory() && existsSync(old.snapshots(e.name))).map((e) => e.name) : []
   const taken = new Set()

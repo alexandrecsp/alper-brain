@@ -4,7 +4,7 @@
 PHASE=none
 REVIEW=''
 . "$(dirname "$0")/../_fixtures/brain.sh"
-ms=.brain/specs/001-greeting/milestones/demo/001-greeting
+ms=.brain/.local/specs/001-greeting/demo/001-greeting
 rm "$ms/review.md"
 
 # Ticket 001 is built: its Notes say what the next ticket needs.
@@ -39,7 +39,7 @@ None
 Left empty; the agent that builds this ticket fills it.
 TICKET
 
-cat >> .brain/specs/001-greeting/spec.md <<'SPEC'
+cat >> .brain/.local/specs/001-greeting/spec.md <<'SPEC'
 2. As a user, I want the demo to greet me by name, so that the greeting feels personal.
 3. As a maintainer, I want the greeting text kept in one file, so that changing it needs no code change.
 

@@ -3,7 +3,7 @@
 PHASE=none
 REVIEW=''
 . "$(dirname "$0")/../_fixtures/brain.sh"
-spec2=".brain/specs/002-demo-cli"
+spec2=".brain/.local/specs/002-demo-cli"
 mkdir -p "$spec2"
 cat > "$spec2/spec.md" <<'EOF'
 # Demo command line

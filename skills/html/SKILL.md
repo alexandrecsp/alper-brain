@@ -14,7 +14,7 @@ The page lives in the brain, by [FORMAT.md](../brain/references/FORMAT.md); when
 
 1. **Do the work.** When the user asks for work and its page together ("audit the auth flow, as HTML"), do the work first, by whatever skill it calls for: the page shows a result. Done when every fact the page will show is in hand, each with its **source**: a file, a command's output, a note, a URL.
 
-2. **Place it.** A page on one linked repository goes to `repos/<slug>/pages/<YYYY-MM-DD-HHmm>-<topic>.html`, its slug as `repos/repos.json` names it; any other page to `pages/<YYYY-MM-DD-HHmm>-<topic>.html`, `<topic>` the subject in at most five kebab-case words. Done when you can name the path.
+2. **Place it.** A page on one linked repository goes to `docs/repos/<slug>/<YYYY-MM-DD-HHmm>-<topic>.html`, its slug as `.local/repos.json` names it; any other page to `docs/shared/<YYYY-MM-DD-HHmm>-<topic>.html`, `<topic>` the subject in at most five kebab-case words. Done when you can name the path.
 
 3. **Lay it out.** Fill the theme's scaffold, its **Report name** the subject in a few words, by the content's shape:
 

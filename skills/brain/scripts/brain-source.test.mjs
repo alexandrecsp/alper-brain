@@ -29,20 +29,20 @@ test('lists the brains its store keeps, as handles', async () => {
 // A brain in its `.brain/` folder, and files beside it, in its host folder, that the page leaves out.
 const BRAIN = {
   '.brain/BRAIN.md': '# Brain\n',
-  '.brain/specs/001-x/spec.md': '# Spec: X\n',
-  '.brain/specs/001-x/milestones/api/001-first/milestone.md': '# Milestone 001: First\n',
-  '.brain/specs/001-x/sketch.png': 'not markdown',
-  '.brain/notes/authored/rule.md': '---\ntype: rule\n---\nA rule.',
-  '.brain/notes/drafts/d.md': '---\ntarget: notes/authored/d.md\n---\nA draft.',
-  '.brain/notes/exploration/api/e.md': '---\nexplored: abc1234\n---\nAn explored note.',
-  '.brain/notes/other.txt': 'not markdown',
-  '.brain/repos/api/REPO.md': '---\nremote: git@h:o/api.git\n---\nThe api.',
-  '.brain/repos/api/tours/t.md': 'a tour, not read',
-  '.brain/repos/repos.json': '{"api":"/work/api"}',
+  '.brain/.local/specs/001-x/spec.md': '# Spec: X\n',
+  '.brain/.local/specs/001-x/api/001-first/milestone.md': '# Milestone 001: First\n',
+  '.brain/.local/specs/001-x/sketch.png': 'not markdown',
+  '.brain/notes/shared/rule.md': '---\ntype: rule\n---\nA rule.',
+  '.brain/.local/drafts/d.md': '---\ntarget: notes/shared/d.md\n---\nA draft.',
+  '.brain/notes/repos/api/e.md': '---\nexplored: abc1234\n---\nAn explored note.',
+  '.brain/notes/research/r.md': 'a research note, not read',
+  '.brain/notes/shared/other.txt': 'not markdown',
+  '.brain/repos/api.md': '---\nremote: git@h:o/api.git\n---\nThe api.',
+  '.brain/.local/repos.json': '{"api":"/work/api"}',
   'README.md': 'outside the brain',
   'src/code.md': 'outside the brain',
 }
-const FILES = ['specs/001-x/spec.md', 'specs/001-x/milestones/api/001-first/milestone.md', 'notes/authored/rule.md', 'notes/drafts/d.md', 'notes/exploration/api/e.md', 'repos/api/REPO.md', 'repos/repos.json']
+const FILES = ['.local/specs/001-x/spec.md', '.local/specs/001-x/api/001-first/milestone.md', 'notes/shared/rule.md', '.local/drafts/d.md', 'notes/repos/api/e.md', 'repos/api.md', '.local/repos.json']
 const brain = (files = BRAIN, opts) => {
   const root = mkdtempSync(join(tmpdir(), 'brain-source-'))
   for (const [p, text] of Object.entries(files)) { mkdirSync(dirname(join(root, p)), { recursive: true }); writeFileSync(join(root, p), text) }
@@ -57,7 +57,7 @@ test("files reads a brain's specs, notes, drafts and cards, keyed relative to .b
     {
       status: 'ok',
       files: Object.fromEntries(FILES.map((p) => [p, BRAIN[`.brain/${p}`]])),
-      times: Object.fromEntries(FILES.filter((p) => p.startsWith('specs/')).map((p) => [p, Math.floor(statSync(join(root, '.brain', p)).mtimeMs)])),
+      times: Object.fromEntries(FILES.filter((p) => p.startsWith('.local/specs/')).map((p) => [p, Math.floor(statSync(join(root, '.brain', p)).mtimeMs)])),
     },
   )
 })
@@ -75,23 +75,23 @@ test('files reads a folder that holds BRAIN.md itself as the brain', async () =>
   assert.deepEqual([got.status, [...got.files.keys()].sort()], ['ok', [...FILES].sort()])
 })
 
-test('edit creates a draft under .brain/notes/drafts', async () => {
+test('edit creates a draft under .brain/.local/drafts', async () => {
   const { root, entry } = brain()
-  await BrainSource.folder({ kv: store() }).edit(entry, 'notes/drafts/new.md', () => 'a draft')
-  assert.equal(readFileSync(join(root, '.brain/notes/drafts/new.md'), 'utf8'), 'a draft')
+  await BrainSource.folder({ kv: store() }).edit(entry, '.local/drafts/new.md', () => 'a draft')
+  assert.equal(readFileSync(join(root, '.brain/.local/drafts/new.md'), 'utf8'), 'a draft')
 })
 
 test('files reports a folder that is not readable or holds no BRAIN.md', async () => {
   const source = BrainSource.folder({ kv: store() })
   const locked = await source.files(brain(BRAIN, { permission: 'prompt' }).entry)
-  const bare = await source.files(brain({ '.brain/notes/authored/rule.md': 'x' }).entry)
+  const bare = await source.files(brain({ '.brain/notes/shared/rule.md': 'x' }).entry)
   assert.deepEqual([locked, bare].map((r) => [r.status, r.files.size, r.times.size]), [['denied', 0, 0], ['missing', 0, 0]])
 })
 
 test('edit applies its change to the file as it is on disk now, not as last read', async () => {
   const { root, entry } = brain()
   const source = BrainSource.folder({ kv: store() })
-  const path = 'specs/001-x/spec.md', onDisk = join(root, '.brain', path)
+  const path = '.local/specs/001-x/spec.md', onDisk = join(root, '.brain', path)
   await source.files(entry)
   writeFileSync(onDisk, BRAIN['.brain/' + path] + 'written by a build\n')
   await source.edit(entry, path, (old) => old + 'mine\n')
@@ -101,13 +101,13 @@ test('edit applies its change to the file as it is on disk now, not as last read
 test('edit creates a file that is missing, with its folders', async () => {
   const { root, entry } = brain({ '.brain/BRAIN.md': '# Brain\n' })
   let seen = 'unset'
-  await BrainSource.folder({ kv: store() }).edit(entry, 'notes/drafts/new.md', (old) => { seen = old; return 'a draft' })
-  assert.deepEqual([seen, readFileSync(join(root, '.brain/notes/drafts/new.md'), 'utf8')], [undefined, 'a draft'])
+  await BrainSource.folder({ kv: store() }).edit(entry, '.local/drafts/new.md', (old) => { seen = old; return 'a draft' })
+  assert.deepEqual([seen, readFileSync(join(root, '.brain/.local/drafts/new.md'), 'utf8')], [undefined, 'a draft'])
 })
 
 test('edit refuses when write access is not granted', async () => {
   const { root, entry } = brain(BRAIN, { permission: 'prompt' })
-  const path = 'specs/001-x/spec.md'
+  const path = '.local/specs/001-x/spec.md'
   await assert.rejects(BrainSource.folder({ kv: store() }).edit(entry, path, () => 'changed'), /not allowed to write/)
   assert.equal(readFileSync(join(root, '.brain', path), 'utf8'), BRAIN['.brain/' + path])
 })

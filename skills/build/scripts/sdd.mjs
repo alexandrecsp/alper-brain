@@ -41,7 +41,7 @@
 //     LAND.md's **Land a track**: rebase, follow each squash, full suite, fast-forward the base, record the landing.
 //     Exits 1 with `stopped: <why>` when it cannot; --fold first folds a fixer's commits into the track's last squash.
 //   node sdd.mjs lock <spec-id|spec-folder> [--brain <brain>] [--take]
-//     Build's **Locks**: claims each repository the spec still changes in the brain's locks/<slug>.json. Exits 1 with a
+//     Build's **Locks**: claims each repository the spec still changes in the brain's .local/locks/<slug>.json. Exits 1 with a
 //     `held:` line per repository another spec's build holds, unless --take. `unlock` releases this spec's claims.
 //   node sdd.mjs merged <spec-id|spec-folder> --track <slug> [--brain <brain>] [--commit <sha>] [--realign]
 //     open-pr's **Follow the merge**: once origin/<base> (as last fetched) holds the track's last landing, or the
@@ -53,7 +53,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { brainOfSpec, findBrain, pathsOf, specFolderOf } from '../../brain/scripts/layout.mjs'
+import { brainOfSpec, findBrain, fwd, oldLayoutOf, pathsOf, specFolderOf } from '../../brain/scripts/layout.mjs'
 
 export const DEFAULT_CAP = 5
 /** This plugin's root: sdd.mjs sits in skills/build/scripts/. */
@@ -148,17 +148,27 @@ export const resumeStep = (phase, ticketsDone) => {
 // --- reading a spec folder ------------------------------------------------------------------------------------
 
 const read = (p) => readFileSync(p, 'utf8')
-const dirs = (p) => (existsSync(p) ? readdirSync(p).filter((n) => statSync(join(p, n)).isDirectory()).sort() : [])
+const dirs = (p) => (existsSync(p) ? readdirSync(p).filter((n) => !n.startsWith('.') && statSync(join(p, n)).isDirectory()).sort() : [])
 const numbered = (n) => /^\d{3}/.test(n)
 
 /** The brain root a folder names: the `.brain/` it holds or is, else the folder itself. */
 const rootOf = (folder) => resolve(findBrain(folder) ?? folder)
-/** The brain root above a spec folder: two levels up. */
-const brainOf = (specDir) => resolve(brainOfSpec(specDir))
+// The clusters layout is the one sdd.mjs reads. A brain still in the one-folder layout, as the one a build is moving
+// off it, keeps working by its own paths until its move: oneFolder, brainOf, oneFolderPaths and readTracks hold that, and go
+// with it. docs/STRUCTURE.md records this as the one exception to layout.mjs being the one home of the brain's paths.
+const oneFolder = (brain) => oldLayoutOf(rootOf(brain)) === 'one-folder'
+/** The brain root above a spec folder: three levels up from `.local/specs/<spec>`, two from a one-folder brain's `specs/<spec>`. */
+const brainOf = (specDir) =>
+  resolve(basename(dirname(dirname(specDir))) === '.local' ? brainOfSpec(specDir) : dirname(dirname(specDir)))
+/** The paths sdd.mjs reads in a one-folder brain, under the keys of pathsOf: layout.mjs holds the clusters paths only. */
+const oneFolderPaths = (root) => {
+  const at = (...parts) => fwd(join(root, ...parts))
+  return { notes: at('notes'), specs: at('specs'), config: at('config.json'), reposJson: at('repos', 'repos.json'), locks: at('locks'), card: (slug) => at('repos', slug, 'REPO.md') }
+}
 /** Every path of a brain, by layout.mjs: the folder given is the brain's root or the folder holding it. */
-const pathsFor = (brain) => pathsOf(rootOf(brain))
+const pathsFor = (brain) => (oneFolder(brain) ? oneFolderPaths(rootOf(brain)) : pathsOf(rootOf(brain)))
 
-/** The spec folder a spec id names under the brain's specs/, by SPEC-ID.md. */
+/** The spec folder a spec id names under the brain's `.local/specs/` (a one-folder brain's `specs/`), by SPEC-ID.md. */
 export const resolveSpec = (arg, brain) => {
   const asPath = resolve(arg)
   if (existsSync(join(asPath, 'spec.md'))) return asPath
@@ -205,9 +215,13 @@ const readMilestone = (dir, track) => {
   }
 }
 
-/** Every milestone of a spec folder, in tracks: [{ slug, milestones }], with the layout it was read in. */
+/**
+ * Every milestone of a spec folder, in tracks: [{ slug, milestones }], with the layout it was read in. The folders
+ * straight in the spec folder are its milestones when they start with three digits (flat), else its tracks; a
+ * one-folder brain's spec holds them under `milestones/`.
+ */
 export const readTracks = (specDir) => {
-  const root = join(specDir, 'milestones')
+  const root = existsSync(join(specDir, 'milestones')) ? join(specDir, 'milestones') : specDir
   const flat = dirs(root).filter(numbered)
   if (flat.length) {
     const ms = flat.map((n) => readMilestone(join(root, n), null))
@@ -251,7 +265,7 @@ export const readCap = (brain) => {
   return Number.isInteger(v) && v > 0 ? { cap: v } : { cap: DEFAULT_CAP, problem: `parallelAgents ${JSON.stringify(v)} is not a positive whole number` }
 }
 
-// The clones the brain registers, by slug: its repos/repos.json.
+// The clones the brain registers, by slug: its .local/repos.json.
 const readRepos = (brain) => {
   const path = pathsFor(brain).reposJson
   if (!existsSync(path)) return {}
@@ -856,7 +870,7 @@ export const verify = (path, { commits = [], brainHead, branch: onBranch } = {})
 
 export const AGENTS = ['builder', 'fixer', 'arbiter', 'standards-reviewer', 'spec-reviewer']
 
-/** The brain's authored `contract` notes whose `repos` line names the slug: [{ path, repos }]. */
+/** The brain's shared and draft `contract` notes (a one-folder brain's, all its notes) whose `repos` line names the slug: [{ path, repos }]. */
 const contractNotes = (brain, slug) => {
   const out = []
   const walk = (dir) => {
@@ -870,7 +884,8 @@ const contractNotes = (brain, slug) => {
       }
     }
   }
-  walk(pathsFor(brain).notes)
+  const at = pathsFor(brain)
+  for (const dir of oneFolder(brain) ? [at.notes] : [at.sharedNotes, at.drafts]) walk(dir)
   return out.sort((a, b) => a.path.localeCompare(b.path))
 }
 

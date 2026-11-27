@@ -308,7 +308,7 @@ const App = (function () {
 
   // ============================================================ actions
   // The page writes only what the plugin's files already define: an escalated finding's Answer line (build's step 7),
-  // a draft note in notes/drafts/ and a spec's Abandoned line (under its Key line, by
+  // a draft note in .local/drafts/ and a spec's Abandoned line (under its Key line, by
   // write-spec's IN-FLIGHT.md). Each write re-reads the file from disk first, so it keeps what a running build wrote
   // since the page last read it. Everything else is a command to copy into Claude Code.
   const FINDING_LINE = /^\s*(?:[-*]\s+|#{1,4}\s+)?(?:\*\*)?(?:ST|SP|CN)\d+\b/;
@@ -330,9 +330,10 @@ const App = (function () {
     if (key) return md.slice(0, key.index + key[0].length) + '\n\n' + line + md.slice(key.index + key[0].length);
     const h = /^# .*$/m.exec(md); return h ? md.slice(0, h.index + h[0].length) + '\n\n' + line + md.slice(h.index + h[0].length) : line + '\n\n' + md;
   };
-  // A draft lands in notes/authored/ with its repos line.
+  // A draft names the note's home as its target, by layout.mjs's noteHome rule: its repository's notes for a repos line of
+  // one slug, else the shared notes.
   const draftNote = ({ name, type, layer, description, repos, body }) =>
-    `---\nname: ${name}\ndescription: ${description}\ntype: ${type}\nlayer: ${layer}\nrepos: [${repos.join(', ')}]\ntarget: notes/authored/${name}.md\naction: record\n---\n\n${body.trim()}\n`;
+    `---\nname: ${name}\ndescription: ${description}\ntype: ${type}\nlayer: ${layer}\nrepos: [${repos.join(', ')}]\ntarget: ${repos.length === 1 ? BrainSource.LAYOUT.repoNotes(repos[0]) : BrainSource.LAYOUT.sharedNotes}/${name}.md\naction: record\n---\n\n${body.trim()}\n`;
   async function save(path, change, done) {
     try { await S.io.edit(path, change); toast(done); } catch (e) { toast('Not saved: ' + (e.message || e)); }
   }
@@ -1752,8 +1753,8 @@ const BrainSource = (function () {
   // The paths of a brain in its `.brain/` folder, relative to it: a copy of layout.mjs's pathsOf, which
   // skills/brain/scripts/layout-copies.test.mjs checks.
   const LAYOUT = {
-    specs: 'specs', notes: 'notes', authored: 'notes/authored', drafts: 'notes/drafts', exploration: (slug) => `notes/exploration/${slug}`,
-    repos: 'repos', reposJson: 'repos/repos.json', card: (slug) => `repos/${slug}/REPO.md`,
+    specs: '.local/specs', repoNotesRoot: 'notes/repos', repoNotes: (slug) => `notes/repos/${slug}`, sharedNotes: 'notes/shared', drafts: '.local/drafts',
+    repos: 'repos', reposJson: '.local/repos.json', card: (slug) => `repos/${slug}.md`,
   };
   // the key a clone is kept under: its path, or its slug when the brain links no path
   const cloneKey = (r) => (r.path || 'slug:' + r.slug).toLowerCase();
@@ -1784,18 +1785,22 @@ const BrainSource = (function () {
       return d.getFileHandle(parts.at(-1), { create });
     };
 
-    // A brain's specs with times, its notes (drafts and exploration among them), every repository's card and
-    // repos.json, keyed relative to the brain. The folder source has no history, so it gives no timeline.
+    // A brain's specs with times, the notes of its repositories and shared ones, its drafts, every repository's card and
+    // repos.json, keyed relative to the brain: the files the server source reads. The folder source has no history, so it
+    // gives no timeline.
     async function readFiles(dir) {
       const files = new Map(), times = new Map();
-      try { await walk(await sub(dir, LAYOUT.specs), LAYOUT.specs + '/', files, times); } catch {}
-      try { await walk(await sub(dir, LAYOUT.notes), LAYOUT.notes + '/', files); } catch {}
+      const under = async (path, withTimes) => { try { await walk(await sub(dir, path), path + '/', files, withTimes ? times : undefined); } catch {} };
+      await under(LAYOUT.specs, true);
+      await under(LAYOUT.repoNotesRoot);
+      await under(LAYOUT.sharedNotes);
+      await under(LAYOUT.drafts);
       try {
-        for await (const [slug, h] of (await sub(dir, LAYOUT.repos)).entries()) {
-          if (h.kind === 'directory') { try { files.set(LAYOUT.card(slug), await text(h, 'REPO.md')); } catch {} }
+        for await (const [name, h] of (await sub(dir, LAYOUT.repos)).entries()) {
+          if (h.kind === 'file' && name.endsWith('.md')) files.set(`${LAYOUT.repos}/${name}`, await (await h.getFile()).text());
         }
       } catch {}
-      try { files.set(LAYOUT.reposJson, await text(await sub(dir, LAYOUT.repos), 'repos.json')); } catch {}
+      try { const parts = LAYOUT.reposJson.split('/'); files.set(LAYOUT.reposJson, await text(await sub(dir, ...parts.slice(0, -1)), parts.at(-1))); } catch {}
       return { files, times };
     }
 
@@ -1805,7 +1810,7 @@ const BrainSource = (function () {
       async brains() { try { return (await kv.get('brains')) || []; } catch { return []; } },
 
       // One brain's files and its status: 'ok', 'denied' (read permission not granted) or 'missing' (no BRAIN.md at its
-      // root or in its .brain/). A brain's files are its specs, notes (drafts and exploration among them), cards and
+      // root or in its .brain/). A brain's files are its specs, the notes of its repositories and shared ones, its drafts, cards and
       // repos.json, keyed relative to the folder holding BRAIN.md. Files and times are Maps by path, and times holds the
       // specs' files only.
       async files(b) {
@@ -2108,13 +2113,13 @@ const ticketsStatus = (ts) => (!ts.length ? 'draft' : ts.every((t) => t.status =
   : ts.some((t) => t.status === 'doing' || t.status === 'done') ? 'active' : 'ready');
 const WIKI = /\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]/g;
 
-// Where a path sits, as notes.mjs's placeOf reads it: the repository its folder names (null in the authored folder) and
+// Where a path sits, as notes.mjs's placeOf reads it: the repository its folder names (null in the shared notes' folder) and
 // whether the file is a card. It never tells a note's kind: the note's `explored` line does.
 function placeOf(path) {
   const p = path.split('/'), L = BrainSource.LAYOUT, dir = p.slice(0, -1).join('/');
-  if (dir === L.authored) return { slug: null, card: false };
-  if (p.length === 4 && dir === L.exploration(p[2])) return { slug: p[2], card: false };
-  if (p.length === 3 && path === L.card(p[1])) return { slug: p[1], card: true };
+  if (p.length === 4 && dir === L.repoNotes(p[2])) return { slug: p[2], card: false };
+  if (dir === L.sharedNotes) return { slug: null, card: false };
+  if (path === L.card(p[1]?.slice(0, -3))) return { slug: p[1].slice(0, -3), card: true };
   return null;
 }
 
@@ -2138,7 +2143,7 @@ function toData(name, files, times = new Map(), { timeline: history } = {}) {
     const at = path ? placeOf(path) : null;
     if (!at || at.card) return null;
     const id = path.split('/').at(-1).replace(/\.md$/, ''), kind = fm.explored ? 'explored' : 'authored';
-    const repos = at.slug ? [at.slug] : (fm.repos || '').replace(/^\[|\]$/g, '').split(',').map((s) => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+    const repos = at.slug && fm.explored ? [at.slug] : (fm.repos || '').replace(/^\[|\]$/g, '').split(',').map((s) => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
     return {
       id, path, type: fm.type || 'other', layer: fm.layer || null, description: fm.description || '', body: body.trim(),
       // shared: an authored note bearing on several repositories
@@ -2163,8 +2168,8 @@ function toData(name, files, times = new Map(), { timeline: history } = {}) {
   const shaped = (t) => ({ commits: t.commits.map((c) => ({ ...c, changes: Array.isArray(c.changes) ? c.changes : [] })) });
   if (history?.commits?.length) timeline = shaped(history);
 
-  // specs: <specs>/<spec>/spec.md, and its milestones in one track per repository (milestones/<slug>/NNN-*/), or,
-  // ticketed before tracks, straight under milestones/ with a Repo line each (the flat layout)
+  // specs: <specs>/<spec>/spec.md, and its milestones in one track per repository (<slug>/NNN-*/), or, ticketed before
+  // tracks, a milestone folder straight in the spec's folder with a Repo line each (the flat layout)
   const byDir = new Map();
   for (const p of paths.filter((p) => p.startsWith(SPECS))) {
     const parts = p.slice(SPECS.length).split('/');
@@ -2186,11 +2191,10 @@ function toData(name, files, times = new Map(), { timeline: history } = {}) {
     };
     const ms = new Map();
     for (const parts of byDir.get(dir)) {
-      if (parts[1] !== 'milestones') continue;
-      const flat = parts.length === 4 && numOf(parts[2]), tracked = parts.length === 5 && !numOf(parts[2]) && numOf(parts[3]);
+      const flat = parts.length === 3 && numOf(parts[1]), tracked = parts.length === 4 && !numOf(parts[1]) && numOf(parts[2]);
       if (!flat && !tracked) continue;
-      const mdir = flat ? parts[2] : parts[3], file = parts.at(-1), key = flat ? mdir : `${parts[2]}/${mdir}`;
-      if (!ms.has(key)) ms.set(key, { track: flat ? null : parts[2], mdir, base: `${SPECS}${dir}/milestones/${key}`, tickets: [] });
+      const mdir = flat ? parts[1] : parts[2], file = parts.at(-1), key = flat ? mdir : `${parts[1]}/${mdir}`;
+      if (!ms.has(key)) ms.set(key, { track: flat ? null : parts[1], mdir, base: `${SPECS}${dir}/${key}`, tickets: [] });
       if (numOf(file)) ms.get(key).tickets.push(file);
     }
     for (const mm of [...ms.values()].sort((a, b) => (a.track || '').localeCompare(b.track || '') || a.mdir.localeCompare(b.mdir))) {

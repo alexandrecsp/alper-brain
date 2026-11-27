@@ -19,8 +19,8 @@ const wired = () => {
 
 test('a written file reads back, and a file never written reads as null', () => {
   const { read, write } = wired()
-  write('b1', 'notes/a.md', '# A\n')
-  assert.deepEqual({ written: read('b1', 'notes/a.md'), missing: read('b1', 'notes/b.md') }, { written: '# A\n', missing: null })
+  write('b1', 'notes/shared/a.md', '# A\n')
+  assert.deepEqual({ written: read('b1', 'notes/shared/a.md'), missing: read('b1', 'notes/shared/b.md') }, { written: '# A\n', missing: null })
 })
 
 test('a path outside the brain, or a brain that is not listed, is refused', () => {
@@ -30,7 +30,7 @@ test('a path outside the brain, or a brain that is not listed, is refused', () =
       () => read('b1', '../other/a.md'),
       () => write('b1', '/etc/passwd', 'x'),
       () => write('b1', undefined, 'x'),
-      () => read('nope', 'notes/a.md'),
+      () => read('nope', 'notes/shared/a.md'),
     ].map((call) => { try { call() } catch (e) { return e.constructor } }),
     [PathOutsideBrainError, PathOutsideBrainError, PathOutsideBrainError, UnknownBrainError],
   )

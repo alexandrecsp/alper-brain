@@ -1,6 +1,7 @@
 // The one home of the brain's paths, so a layout change is one edit: pathsOf gives every path of a brain by its root.
 // The brain root is the folder holding BRAIN.md: `<repo or host>/.brain/`. An old layout is found by oldLayoutOf only, to be offered
-// MIGRATE.md's layout move; no other script reads its paths.
+// MIGRATE.md's layout move; only the layout move's scripts, build's sdd.mjs (STRUCTURE.md names its exception) and the
+// note history's service read an old layout's paths.
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
@@ -13,38 +14,6 @@ export const relativeTo = (root, path) => fwd(relative(root, path))
 // Every path of the layout tree under a brain root, as absolute paths with forward slashes.
 export function pathsOf(root) {
   const at = (...parts) => fwd(join(root, ...parts))
-  const repoDir = (slug) => at('repos', slug)
-  return {
-    root: fwd(root),
-    brainMd: at('BRAIN.md'),
-    gitignore: at('.gitignore'),
-    config: at('config.json'),
-    notes: at('notes'),
-    authored: at('notes', 'authored'),
-    explorations: at('notes', 'exploration'),
-    exploration: (slug) => at('notes', 'exploration', slug),
-    drafts: at('notes', 'drafts'),
-    repos: at('repos'),
-    reposJson: at('repos', 'repos.json'),
-    repoDir,
-    card: (slug) => `${repoDir(slug)}/REPO.md`,
-    tours: (slug) => `${repoDir(slug)}/tours`,
-    refactors: (slug) => `${repoDir(slug)}/refactors`,
-    repoPages: (slug) => `${repoDir(slug)}/pages`,
-    snapshots: (slug) => `${repoDir(slug)}/snapshots`,
-    pages: at('pages'),
-    prototypes: at('prototypes'),
-    research: at('research'),
-    specs: at('specs'),
-    explore: at('explore'),
-    locks: at('locks'),
-    handoff: at('handoff'),
-  }
-}
-
-// Every path of the clusters layout under a brain root, as pathsOf gives today's: absolute paths with forward slashes.
-export function clustersOf(root) {
-  const at = (...parts) => fwd(join(root, ...parts))
   return {
     root: fwd(root),
     brainMd: at('BRAIN.md'),
@@ -52,6 +21,7 @@ export function clustersOf(root) {
     repos: at('repos'),
     card: (slug) => at('repos', `${slug}.md`),
     notes: at('notes'),
+    repoNotesRoot: at('notes', 'repos'),
     repoNotes: (slug) => at('notes', 'repos', slug),
     sharedNotes: at('notes', 'shared'),
     research: at('notes', 'research'),
@@ -73,7 +43,7 @@ export function clustersOf(root) {
 
 // The folder an authored note belongs in, by its `repos` list: its repository's notes for a list of one slug, else notes/shared/.
 export const noteHome = (root, repos) => {
-  const at = clustersOf(root)
+  const at = pathsOf(root)
   return repos.length === 1 ? at.repoNotes(repos[0]) : at.sharedNotes
 }
 
@@ -111,10 +81,10 @@ export function nameOf(root) {
   return segment || basename(basename(root) === '.brain' ? dirname(root) : root)
 }
 
-// The brain root above a spec folder: `<brain>/specs/NNN-<slug>` sits two levels below it.
-export const brainOfSpec = (specDir) => fwd(dirname(dirname(specDir)))
+// The brain root above a spec folder: `<brain>/.local/specs/NNN-<slug>` sits three levels below it.
+export const brainOfSpec = (specDir) => fwd(dirname(dirname(dirname(specDir))))
 
-// The spec folder holding a spec, track, milestone or ticket path: the folder straight under the brain's `specs/`.
+// The spec folder holding a spec, track, milestone or ticket path: the folder straight under the brain's `.local/specs/`.
 // The last `specs` folder of the path holds the spec, so a `specs` folder above the brain does not count. Null when the path has none.
 export function specFolderOf(path) {
   const parts = fwd(path).split('/')
@@ -124,7 +94,7 @@ export function specFolderOf(path) {
 
 // The old layout a folder holds, if any, as its kind: `embedded` (a `brain/` folder holding BRAIN.md), `local` (a
 // `.brain-local/` folder), or, for a folder holding BRAIN.md at its root, `sdd` (a `.sdd/` folder, the old name of
-// the pipeline's `.brain/`), `legacy` (no `notes/`) or `standalone`. A `.brain/` holding today's layout, by the host or by
+// the pipeline's `.brain/`), `legacy` (no `notes/`) or `standalone`. A `.brain/` holding the layout before the clusters, by the host or by
 // the `.brain/` itself, is `one-folder`. Null for a clusters brain or no brain.
 export function oldLayoutOf(folder) {
   const has = (...parts) => existsSync(join(folder, ...parts))

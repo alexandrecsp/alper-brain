@@ -9,7 +9,7 @@ import { readRemoteUrl } from './read-remote-url.use-case.mjs'
 const urlFor = (links) =>
   readRemoteUrl({
     brainList: inMemoryBrainList([{ id: 'b1', name: 'work', path: '/brain' }]),
-    brainFiles: inMemoryBrainFiles({ '/brain': { 'repos/repos.json': JSON.stringify(links) } }),
+    brainFiles: inMemoryBrainFiles({ '/brain': { '.local/repos.json': JSON.stringify(links) } }),
     gitClone: inMemoryGitClone({ '/clones/app': { remoteUrl: async () => 'git@h:app.git' } }),
   })('b1', 'app')
 

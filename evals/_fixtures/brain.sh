@@ -12,16 +12,16 @@ git config --global init.defaultBranch main
 git config --global core.autocrlf false
 
 workspace="$(pwd -W 2>/dev/null || pwd)"
-spec=".brain/specs/001-greeting"
-ms="$spec/milestones/demo/001-greeting"
+spec=".brain/.local/specs/001-greeting"
+ms="$spec/demo/001-greeting"
 
-# The brain: the workspace's `.brain/`, its `.gitignore` keeping this machine's files out of git.
-mkdir -p .brain/repos/demo .brain/notes/authored
+# The brain: the workspace's `.brain/`, in the clusters layout, its `.gitignore` the one line `.local/`.
+mkdir -p .brain/repos .brain/notes/shared
 printf -- '---\nkind: standalone\n---\n\n# Second brain\n\nEval brain.\n\n## Repositories\n\n- demo: prints a greeting\n' > .brain/BRAIN.md
-printf 'config.json\nnotes/drafts/\nrepos/repos.json\nrepos/*/snapshots/\nspecs/\nexplore/\nlocks/\nhandoff/\n' > .brain/.gitignore
+printf '.local/\n' > .brain/.gitignore
 printf 'clones/\n' > .gitignore
-: > .brain/notes/authored/.gitkeep
-cat > .brain/repos/demo/REPO.md <<'EOF'
+: > .brain/notes/shared/.gitkeep
+cat > .brain/repos/demo.md <<'EOF'
 ---
 slug: demo
 remote: local only
@@ -50,9 +50,9 @@ fixed_sha="$(git rev-parse sdd/001-greeting/spec)"
 git checkout -q sdd/001-greeting/M001
 cd ../..
 
-# This machine's pipeline work.
+# This machine's pipeline work, in `.local/`.
 mkdir -p "$ms"
-printf '{ "demo": "%s/clones/demo" }\n' "$workspace" > .brain/repos/repos.json
+printf '{ "demo": "%s/clones/demo" }\n' "$workspace" > .brain/.local/repos.json
 cat > "$spec/spec.md" <<'EOF'
 # Greeting
 

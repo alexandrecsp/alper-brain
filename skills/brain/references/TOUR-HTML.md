@@ -53,7 +53,7 @@ A table with one row per change from the reports, grouped by area: **To change**
 
 ## Run and test
 
-The commands from the manifests and the repository's `REPO.md` card, each in a `<pre>` block under a one-line label: install, run, the unit suite, the e2e suite, and one area's tests.
+The commands from the manifests and the repository's card (`repos/<slug>.md`), each in a `<pre>` block under a one-line label: install, run, the unit suite, the e2e suite, and one area's tests.
 
 ## Voice
 

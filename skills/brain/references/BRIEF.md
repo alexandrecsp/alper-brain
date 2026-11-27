@@ -13,7 +13,7 @@ Fill every line; write `none` where one does not apply.
 - **Brain:** <brain's absolute path>
 - **Works in:** <slug> at <root> (<open | linked | snapshot>), <changes it | reads it>
 - **Also reads:** <slug> at <root> (<linked | open>), one entry per other repository the task reads, or none
-- **Card:** <brain>/repos/<slug>/REPO.md
+- **Card:** <brain>/repos/<slug>.md
 - **Docs:** <absolute paths: docs/STRUCTURE.md, the glossary or GLOSSARY-MAP.md, docs/adr/, and the plugin reference files the task needs>
 - **Notes:** <absolute paths of the brain notes bearing on the task>, or none
 - **Spec:** <absolute path of the spec.md, milestone.md or ticket the task serves>, or none

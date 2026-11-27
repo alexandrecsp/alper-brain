@@ -1,5 +1,5 @@
 // Run: node --test skills/brain/scripts/layout-copies.test.mjs
-// The places that keep a copy of layout.mjs's paths, since they cannot import it, checked against layout.mjs.
+// The places that keep a copy of layout.mjs's clusters paths, since they cannot import it, checked against layout.mjs.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'

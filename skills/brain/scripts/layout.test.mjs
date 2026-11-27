@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
-import { brainOfSpec, clustersOf, findBrain, kindOf, nameOf, noteHome, oldLayoutOf, pathsOf, specFolderOf } from './layout.mjs'
+import { brainOfSpec, findBrain, kindOf, nameOf, noteHome, oldLayoutOf, pathsOf, specFolderOf } from './layout.mjs'
 
 const put = (path, text = '') => { mkdirSync(join(path, '..'), { recursive: true }); writeFileSync(path, text) }
 const folder = () => mkdtempSync(join(tmpdir(), 'brain-layout-')).split('\\').join('/')
@@ -14,32 +14,9 @@ const git = (cwd, ...args) => {
   assert.equal(r.status, 0, r.stderr)
 }
 
-test('gives every path of the layout tree under a .brain root', () => {
-  const root = '/work/api/.brain'
-  const p = pathsOf(root)
-  assert.deepEqual(
-    {
-      brainMd: p.brainMd, gitignore: p.gitignore, config: p.config,
-      notes: p.notes, authored: p.authored, exploration: p.exploration('api'), drafts: p.drafts,
-      repos: p.repos, reposJson: p.reposJson, repoDir: p.repoDir('api'), card: p.card('api'),
-      tours: p.tours('api'), refactors: p.refactors('api'), repoPages: p.repoPages('api'), snapshots: p.snapshots('api'),
-      pages: p.pages, prototypes: p.prototypes, research: p.research, specs: p.specs, explore: p.explore,
-      locks: p.locks, handoff: p.handoff,
-    },
-    {
-      brainMd: `${root}/BRAIN.md`, gitignore: `${root}/.gitignore`, config: `${root}/config.json`,
-      notes: `${root}/notes`, authored: `${root}/notes/authored`, exploration: `${root}/notes/exploration/api`, drafts: `${root}/notes/drafts`,
-      repos: `${root}/repos`, reposJson: `${root}/repos/repos.json`, repoDir: `${root}/repos/api`, card: `${root}/repos/api/REPO.md`,
-      tours: `${root}/repos/api/tours`, refactors: `${root}/repos/api/refactors`, repoPages: `${root}/repos/api/pages`, snapshots: `${root}/repos/api/snapshots`,
-      pages: `${root}/pages`, prototypes: `${root}/prototypes`, research: `${root}/research`, specs: `${root}/specs`, explore: `${root}/explore`,
-      locks: `${root}/locks`, handoff: `${root}/handoff`,
-    },
-  )
-})
-
 test('gives every path of the clusters layout under a .brain root', () => {
   const root = '/work/api/.brain'
-  const c = clustersOf(root)
+  const c = pathsOf(root)
   assert.deepEqual(
     {
       root: c.root, brainMd: c.brainMd, gitignore: c.gitignore, repos: c.repos, card: c.card('api'),
@@ -114,8 +91,8 @@ test('names a brain without a remote after the folder holding .brain', () => {
   assert.equal(nameOf(`${f}/.brain`), basename(f))
 })
 
-test('gives the brain root two levels above a spec folder', () => {
-  assert.equal(brainOfSpec('/work/api/.brain/specs/002-one-brain-folder'), '/work/api/.brain')
+test('gives the brain root three levels above a spec folder', () => {
+  assert.equal(brainOfSpec('/work/api/.brain/.local/specs/002-one-brain-folder'), '/work/api/.brain')
 })
 
 const SPEC = '/work/api/.brain/specs/003-x'
@@ -189,7 +166,12 @@ test('detects a clusters brain as none', () => {
   assert.deepEqual([oldLayoutOf(f), oldLayoutOf(`${f}/.brain`), oldLayoutOf(folder())], [null, null, null])
 })
 
-test('gives the .brain paths for a root of any name', () => {
+test('gives the clusters paths for a root of any name', () => {
   const p = pathsOf('/work/api')
-  assert.deepEqual([p.specs, p.config, p.reposJson, p.card('api'), p.drafts], ['/work/api/specs', '/work/api/config.json', '/work/api/repos/repos.json', '/work/api/repos/api/REPO.md', '/work/api/notes/drafts'])
+  assert.deepEqual([p.specs, p.config, p.reposJson, p.card('api'), p.drafts], ['/work/api/.local/specs', '/work/api/.local/config.json', '/work/api/.local/repos.json', '/work/api/repos/api.md', '/work/api/.local/drafts'])
+})
+
+test('holds no key of the one-folder layout', () => {
+  const removed = ['authored', 'explorations', 'exploration', 'repoDir', 'tours', 'refactors', 'repoPages', 'pages']
+  assert.deepEqual(removed.filter((key) => key in pathsOf('/work/api/.brain')), [])
 })

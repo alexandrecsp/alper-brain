@@ -25,7 +25,7 @@ Commit in the **working repository**, by [FORMAT.md](../brain/references/FORMAT.
 
 1. **Find the key**, by the first rule that gives one:
    1. The changes are the brain's notes: no key, except for the notes [SYNC.md](../brain/references/SYNC.md)'s **Consolidate** commits, which take the key its **Find the keys** asks for, per repository.
-   2. The repository's card, `repos/<slug>/REPO.md` in the brain, holds a `null` `commitKeyPattern`: no key.
+   2. The repository's card, `repos/<slug>.md` in the brain, holds a `null` `commitKeyPattern`: no key.
    3. A spec folder, from a `[spec-id]` argument by [SPEC-ID.md](../write-spec/references/SPEC-ID.md) or the one this conversation works in: its `spec.md` **Key** line's one key, or its entry for the repository's slug. `None` means no key.
    4. Ask the user for a key, or none.
 

@@ -11,7 +11,7 @@ import { join } from 'node:path'
 
 const dir = process.argv[2]
 if (!dir) { console.error('usage: node measure.mjs <compare-output-folder>'); process.exit(1) }
-const ms = 'ws/.brain/specs/001-greeting/milestones/demo/001-greeting'
+const ms = 'ws/.brain/.local/specs/001-greeting/demo/001-greeting'
 const tickets = ['002-greet-by-name', '003-shout', '004-missing-greeting']
 const sh = (cmd, cwd) => spawnSync('bash', ['-c', cmd], { cwd, encoding: 'utf8' })
 const read = (p) => (existsSync(p) ? readFileSync(p, 'utf8') : '')

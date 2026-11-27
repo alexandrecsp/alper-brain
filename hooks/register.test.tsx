@@ -102,25 +102,25 @@ const TICKET = (status: string) => `# T
 const B = 'C:/work/acme-brain'
 const BRAIN = filesOf({
   [`${B}/BRAIN.md`]: '# acme',
-  [`${B}/notes/authored/retry-keys.md`]: 'x',
-  [`${B}/repos/api/REPO.md`]: 'x',
-  [`${B}/repos/web/REPO.md`]: 'x',
-  [`${B}/notes/exploration/api/billing.md`]: 'x',
-  [`${B}/notes/drafts/idea.md`]: 'x',
-  [`${B}/specs/001-old/spec.md`]: '# Old\n\n**Landed:** api@abc1234\n',
-  [`${B}/specs/002-gone/spec.md`]: '# Gone\n\n**Abandoned:** not needed\n',
-  [`${B}/specs/003-v2/spec.md`]: '# Billing v2\n\n**Repos:** api, web\n',
-  [`${B}/specs/003-v2/milestones/api/001-expand/milestone.md`]: MS('none', 'abc', 'def1234'),
-  [`${B}/specs/003-v2/milestones/api/001-expand/001-add.md`]: TICKET('done'),
-  [`${B}/specs/003-v2/milestones/api/002-contract/milestone.md`]: MS('review'),
-  [`${B}/specs/003-v2/milestones/api/002-contract/002-drop.md`]: TICKET('done'),
-  [`${B}/specs/003-v2/milestones/web/001-migrate/milestone.md`]: MS('ask'),
-  [`${B}/specs/003-v2/milestones/web/001-migrate/001-use.md`]: TICKET('done'),
-  [`${B}/specs/003-v2/milestones/web/001-migrate/002-ui.md`]: TICKET('doing'),
+  [`${B}/notes/shared/retry-keys.md`]: 'x',
+  [`${B}/repos/api.md`]: 'x',
+  [`${B}/repos/web.md`]: 'x',
+  [`${B}/notes/repos/api/billing.md`]: 'x',
+  [`${B}/.local/drafts/idea.md`]: 'x',
+  [`${B}/.local/specs/001-old/spec.md`]: '# Old\n\n**Landed:** api@abc1234\n',
+  [`${B}/.local/specs/002-gone/spec.md`]: '# Gone\n\n**Abandoned:** not needed\n',
+  [`${B}/.local/specs/003-v2/spec.md`]: '# Billing v2\n\n**Repos:** api, web\n',
+  [`${B}/.local/specs/003-v2/api/001-expand/milestone.md`]: MS('none', 'abc', 'def1234'),
+  [`${B}/.local/specs/003-v2/api/001-expand/001-add.md`]: TICKET('done'),
+  [`${B}/.local/specs/003-v2/api/002-contract/milestone.md`]: MS('review'),
+  [`${B}/.local/specs/003-v2/api/002-contract/002-drop.md`]: TICKET('done'),
+  [`${B}/.local/specs/003-v2/web/001-migrate/milestone.md`]: MS('ask'),
+  [`${B}/.local/specs/003-v2/web/001-migrate/001-use.md`]: TICKET('done'),
+  [`${B}/.local/specs/003-v2/web/001-migrate/002-ui.md`]: TICKET('doing'),
 })
 
 test('the brain is found from a folder inside it, or from the path of its BRAIN.md', async () => {
-  expect(await findBrain(BRAIN, `${B}/notes/authored`)).toBe(B)
+  expect(await findBrain(BRAIN, `${B}/notes/shared`)).toBe(B)
   expect(await findBrain(BRAIN, 'C:/elsewhere')).toBe(undefined)
   expect(await brainOfPath(BRAIN, 'C:\\work\\acme-brain\\BRAIN.md')).toBe(B)
   expect(await brainOfPath(BRAIN, 'C:/work/api/src/main.ts')).toBe(undefined)
@@ -145,18 +145,19 @@ test('the brain counts its notes and specs, and reads each track of a spec in fl
 const H = 'C:/work/acme'
 const NEW = filesOf({
   [`${H}/.brain/BRAIN.md`]: '# acme',
-  [`${H}/.brain/notes/authored/retry-keys.md`]: 'x',
-  [`${H}/.brain/notes/authored/idempotency.md`]: 'x',
-  [`${H}/.brain/notes/exploration/api/billing.md`]: 'x',
-  [`${H}/.brain/notes/exploration/web/.gitkeep`]: '',
-  [`${H}/.brain/notes/drafts/idea.md`]: 'x',
-  [`${H}/.brain/repos/api/REPO.md`]: 'x',
-  [`${H}/.brain/repos/web/REPO.md`]: 'x',
-  [`${H}/.brain/repos/repos.json`]: '{}',
-  [`${H}/.brain/specs/001-old/spec.md`]: '# Old\n\n**Landed:** api@abc1234\n',
-  [`${H}/.brain/specs/002-v2/spec.md`]: '# Billing v2\n\n**Repos:** api\n',
-  [`${H}/.brain/specs/002-v2/milestones/api/001-expand/milestone.md`]: MS('review'),
-  [`${H}/.brain/specs/002-v2/milestones/api/001-expand/001-add.md`]: TICKET('done'),
+  [`${H}/.brain/notes/shared/retry-keys.md`]: 'x',
+  [`${H}/.brain/notes/shared/idempotency.md`]: 'x',
+  [`${H}/.brain/notes/repos/api/billing.md`]: 'x',
+  [`${H}/.brain/notes/repos/web/.gitkeep`]: '',
+  [`${H}/.brain/notes/research/pricing.md`]: 'a research note, not counted',
+  [`${H}/.brain/.local/drafts/idea.md`]: 'x',
+  [`${H}/.brain/repos/api.md`]: 'x',
+  [`${H}/.brain/repos/web.md`]: 'x',
+  [`${H}/.brain/.local/repos.json`]: '{}',
+  [`${H}/.brain/.local/specs/001-old/spec.md`]: '# Old\n\n**Landed:** api@abc1234\n',
+  [`${H}/.brain/.local/specs/002-v2/spec.md`]: '# Billing v2\n\n**Repos:** api\n',
+  [`${H}/.brain/.local/specs/002-v2/api/001-expand/milestone.md`]: MS('review'),
+  [`${H}/.brain/.local/specs/002-v2/api/001-expand/001-add.md`]: TICKET('done'),
   [`${H}/src/main.ts`]: 'x',
 })
 

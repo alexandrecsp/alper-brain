@@ -8,7 +8,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { KINDS, kindOf, pathsOf, relativeTo } from './layout.mjs'
+import { KINDS, pathsOf, kindOf, noteHome, relativeTo } from './layout.mjs'
 import { TYPES, LAYERS, cardOf, draftOf, loadBrain, noteOf, placeOf } from './notes.mjs'
 
 const ACTIONS = new Set(['record', 'update', 'supersede', 'delete'])
@@ -93,8 +93,8 @@ function broken(n) {
     if (fm.action === 'supersede' && !(typeof fm.supersedes === 'string' && fm.supersedes)) out.push('a supersede draft needs supersedes: the decision it replaces')
     if (fm.action === 'delete') return out
   }
-  const exploredDir = 'notes/exploration/<slug>/'
-  const paths = `notes/authored/<name>.md or ${exploredDir}<name>.md`
+  const repoNotesDir = 'notes/repos/<slug>/'
+  const paths = `${repoNotesDir}<name>.md or notes/shared/<name>.md`
   if (!where) out.push(`${n.draft ? 'target' : 'path'} ${n.target} is not ${paths}`)
   if (placed && place.slug && !slugs.includes(place.slug)) out.push(`repository ${place.slug} is not registered: it has no ${cardOf(brain, place.slug)}`)
 
@@ -109,9 +109,9 @@ function broken(n) {
   if (typeof fm.description !== 'string' || !fm.description.trim()) out.push('description is missing')
   if (!TYPES.has(fm.type)) out.push(`type is ${fm.type ? `"${fm.type}"` : 'missing'}; it is one of ${[...TYPES].join(', ')}`)
   if (!LAYERS.has(fm.layer)) out.push(`layer is ${fm.layer ? `"${fm.layer}"` : 'missing'}; it is business or application`)
-  if (fm.type === 'contract' && where === 'explored') out.push('a contract is an authored note, in notes/authored/')
+  if (fm.type === 'contract' && where === 'explored') out.push('a contract is an authored note')
   if (fm.type === 'contract' && LAYERS.has(fm.layer) && fm.layer !== 'application') out.push('a contract is always application')
-  if (fm.type === 'feature' && where && where !== 'explored') out.push(`a feature is an explored note only, in ${exploredDir}`)
+  if (fm.type === 'feature' && where && where !== 'explored') out.push(`a feature is an explored note only, in ${repoNotesDir}`)
   if (fm.type === 'feature' && LAYERS.has(fm.layer) && fm.layer !== 'business') out.push('a feature is always business')
   // An explored decision mirrors one of the repository's ADRs, and takes that decision's layer.
   if (where === 'explored' && fm.type !== 'decision' && LAYERS.has(fm.layer) && fm.layer !== 'business') out.push('an explored note is business, unless it is a decision')
@@ -127,9 +127,12 @@ function broken(n) {
     }
   } else if (fm.repos !== undefined) out.push('repos belongs on an authored note only: an explored note takes its repository from its folder')
 
-  // Today's layout keeps an explored note in its repository's folder, and an authored note in notes/authored/.
-  if (placed && place.slug && !n.explored) out.push('an explored note needs explored: the short SHA it was read at')
-  if (fm.explored !== undefined && !(placed && place.slug)) out.push(`explored: belongs on a note in ${exploredDir} only`)
+  // An explored note sits in its repository's folder; an authored note sits at the noteHome of its repos line.
+  if (placed && n.explored && !place.slug) out.push(`an explored note belongs in ${repoNotesDir}, its repository's folder`)
+  if (where === 'authored' && isList(fm.repos) && n.repos.length) {
+    const home = relativeTo(brain, noteHome(brain, n.repos))
+    if (at.slice(0, -1).join('/') !== home) out.push(`an authored note on ${n.repos.join(', ')} belongs in ${home}/`)
+  }
 
   if (fm.status !== undefined && fm.status !== 'superseded') out.push(`status is "${fm.status}"; the only status is superseded`)
   if (fm.status === 'superseded') {

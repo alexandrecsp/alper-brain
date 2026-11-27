@@ -183,7 +183,7 @@ test('merge-base of two unrelated histories returns null', async () => {
   assert.deepEqual({ status, json }, { status: 200, json: { sha: null } })
 })
 
-test("refs of a clone named in a new-layout brain's repos.json are the clone's own", async () => {
+test("refs of a clone named in a clusters brain's .local/repos.json are the clone's own", async () => {
   const c = history()
   const { status, json } = await read(await brainLinking({ app: c.root }), 'app', 'refs')
   assert.deepEqual({ status, head: json.head }, { status: 200, head: { branch: 'sdd/001-x/spec', sha: c.git('rev-parse', 'HEAD') } })

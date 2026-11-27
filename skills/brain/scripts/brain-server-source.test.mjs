@@ -36,15 +36,15 @@ const dataOf = (name, { files, times, ...rest }) => toData(name, files, times, r
 // A brain on disk, its folder holding BRAIN.md: the files the page reads, and files beside them that it leaves out.
 const BRAIN = {
   'BRAIN.md': '# Brain\n',
-  'specs/001-x/spec.md': '# Spec: X\n\n**Status:** doing\n',
-  'specs/001-x/milestones/api/001-first/milestone.md': '# Milestone 001: First\n',
-  'specs/001-x/sketch.png': 'not markdown',
-  'notes/authored/rule.md': '---\ntype: rule\n---\nA rule.',
-  'notes/drafts/d.md': '---\ntarget: notes/authored/d.md\nrepos: [api]\n---\nA draft.',
-  'notes/exploration/api/e.md': '---\nexplored: abc1234\n---\nAn explored note.',
-  'notes/other.txt': 'not markdown',
-  'repos/api/REPO.md': '---\nremote: git@h:o/api.git\n---\nThe api.',
-  'repos/repos.json': '{"api":"/work/api"}',
+  '.local/specs/001-x/spec.md': '# Spec: X\n\n**Status:** doing\n',
+  '.local/specs/001-x/api/001-first/milestone.md': '# Milestone 001: First\n',
+  '.local/specs/001-x/sketch.png': 'not markdown',
+  'notes/shared/rule.md': '---\ntype: rule\n---\nA rule.',
+  '.local/drafts/d.md': '---\ntarget: notes/shared/d.md\nrepos: [api]\n---\nA draft.',
+  'notes/repos/api/e.md': '---\nexplored: abc1234\n---\nAn explored note.',
+  'notes/shared/other.txt': 'not markdown',
+  'repos/api.md': '---\nremote: git@h:o/api.git\n---\nThe api.',
+  '.local/repos.json': '{"api":"/work/api"}',
   'README.md': 'outside the set',
   'elsewhere/e.md': 'outside the set',
 }
@@ -82,16 +82,41 @@ test('toData gives the same data from the server source as from the folder sourc
 
 test("toData reads a brain's specs, notes, drafts, cards and repos.json", () => {
   const files = new Map(Object.entries({
-    'specs/001-x/spec.md': '# Spec: X\n\n**Status:** doing\n',
-    'notes/authored/rule.md': '---\ntype: rule\n---\nA rule.',
-    'notes/drafts/d.md': '---\ntarget: notes/authored/d.md\nrepos: [api]\n---\nA draft.',
-    'repos/api/REPO.md': '---\nremote: git@h:o/api.git\n---\nThe api.',
-    'repos/repos.json': '{"api":"/work/api"}',
+    '.local/specs/001-x/spec.md': '# Spec: X\n\n**Status:** doing\n',
+    'notes/shared/rule.md': '---\ntype: rule\n---\nA rule.',
+    'notes/repos/api/e.md': '---\nexplored: abc1234\n---\nAn explored note.',
+    '.local/drafts/d.md': '---\ntarget: notes/repos/api/d.md\nrepos: [api]\n---\nA draft.',
+    'repos/api.md': '---\nremote: git@h:o/api.git\n---\nThe api.',
+    '.local/repos.json': '{"api":"/work/api"}',
   }))
   const data = toData('team', files, new Map())
   assert.deepEqual(
-    { specs: data.specs.map((s) => [s.id, s.path]), notes: data.notes.map((n) => [n.id, n.path, n.draft]), repos: data.repos.map((r) => [r.slug, r.path]) },
-    { specs: [['001-x', 'specs/001-x/spec.md']], notes: [['rule', 'notes/authored/rule.md', null], ['d', 'notes/authored/d.md', 'record']], repos: [['api', '/work/api']] },
+    { specs: data.specs.map((s) => [s.id, s.path]), notes: data.notes.map((n) => [n.id, n.path, n.kind, n.repos, n.draft]), repos: data.repos.map((r) => [r.slug, r.path]) },
+    {
+      specs: [['001-x', '.local/specs/001-x/spec.md']],
+      notes: [['rule', 'notes/shared/rule.md', 'authored', [], null], ['e', 'notes/repos/api/e.md', 'explored', ['api'], null], ['d', 'notes/repos/api/d.md', 'authored', ['api'], 'record']],
+      repos: [['api', '/work/api']],
+    },
+  )
+})
+
+test("toData reads a spec's tracks and flat milestones straight in its folder", () => {
+  const spec = '.local/specs/001-x'
+  const files = new Map(Object.entries({
+    [spec + '/spec.md']: '# Spec: X\n',
+    [spec + '/api/001-first/milestone.md']: '# Milestone 001: First\n',
+    [spec + '/api/001-first/001-add.md']: '# Ticket 001: Add\n\n**Status:** done\n',
+    [spec + '/api/001-first/review.md']: 'A review.',
+    [spec + '/002-second/milestone.md']: '# Milestone 002: Second\n\n**Repo:** web\n',
+    [spec + '/002-second/001-use.md']: '# Ticket 001: Use\n\n**Status:** doing\n',
+  }))
+  const [x] = toData('team', files, new Map()).specs
+  assert.deepEqual(
+    x.milestones.map((m) => [m.id, m.path, m.reviewPath, m.tickets.map((t) => [t.id, t.path, t.status])]),
+    [
+      ['web/002', spec + '/002-second/milestone.md', null, [['web/001', spec + '/002-second/001-use.md', 'doing']]],
+      ['api/001', spec + '/api/001-first/milestone.md', spec + '/api/001-first/review.md', [['api/001', spec + '/api/001-first/001-add.md', 'done']]],
+    ],
   )
 })
 
@@ -104,7 +129,7 @@ const committed = (title) => (root) => {
 }
 
 test("the server source's timeline is the history route's commits", async () => {
-  const { port, source, entry } = await served(BRAIN, undefined, committed('Records rule'))
+  const { port, source, entry } = await served({ ...BRAIN, 'notes/repos/api/rule.md': '---\ntype: rule\nexplored: abc1234\n---\nA rule.' }, undefined, committed('Records rule'))
   const route = JSON.parse((await call(port, { path: `/api/brains/${entry.id}/history` })).body)
   const { timeline } = dataOf('team', await source.files(entry))
   assert.deepEqual({ titles: timeline.commits.map((c) => c.title), commits: timeline.commits }, { titles: ['Records rule'], commits: route.commits })
@@ -132,18 +157,18 @@ const nextCall = (ms = 5000) => {
 }
 
 test('a file changed on disk reaches subscribe as a change event', async () => {
-  const { source, entry, root } = await served({ ...BRAIN, 'notes/a.md': '# A\n' })
+  const { source, entry, root } = await served({ ...BRAIN, 'notes/shared/a.md': '# A\n' })
   const next = nextCall()
   const stop = source.subscribe(next.tell)
   await new Promise((r) => setTimeout(r, 300))
-  writeFileSync(join(root, 'notes/a.md'), '# A, changed\n')
+  writeFileSync(join(root, 'notes/shared/a.md'), '# A, changed\n')
   const [event] = await next.arrived
   stop()
-  assert.deepEqual(event, { brain: entry.id, changed: { 'notes/a.md': '# A, changed\n' }, times: {} })
+  assert.deepEqual(event, { brain: entry.id, changed: { 'notes/shared/a.md': '# A, changed\n' }, times: {} })
 })
 
 test('a change event makes the server source fetch the history again', async () => {
-  const { url, token, entry, root } = await served({ ...BRAIN, 'notes/a.md': '# A\n' })
+  const { url, token, entry, root } = await served({ ...BRAIN, 'notes/shared/a.md': '# A\n' })
   const requests = []
   const counting = (...args) => { requests.push(String(args[0])); return fetch(...args) }
   const source = BrainSource.server({ base: new URL(url).origin, token, fetch: counting, EventSource })
@@ -153,14 +178,14 @@ test('a change event makes the server source fetch the history again', async () 
   const next = nextCall()
   const stop = source.subscribe(next.tell)
   await new Promise((r) => setTimeout(r, 300))
-  writeFileSync(join(root, 'notes/a.md'), '# A, changed\n')
+  writeFileSync(join(root, 'notes/shared/a.md'), '# A, changed\n')
   await next.arrived
   stop()
   assert.deepEqual([afterFiles, asked()], [1, 2])
 })
 
 test('a change reaches the page with no request made while it waits after it subscribes', async () => {
-  const { url, token, entry, root } = await served({ ...BRAIN, 'notes/a.md': '# A\n' })
+  const { url, token, entry, root } = await served({ ...BRAIN, 'notes/shared/a.md': '# A\n' })
   const requests = []
   const counting = (...args) => { requests.push(String(args[0])); return fetch(...args) }
   const source = BrainSource.server({ base: new URL(url).origin, token, fetch: counting, EventSource })
@@ -168,7 +193,7 @@ test('a change reaches the page with no request made while it waits after it sub
   const stop = source.subscribe(next.tell)
   await new Promise((r) => setTimeout(r, 2500))
   const whileWaiting = [...requests]
-  writeFileSync(join(root, 'notes/a.md'), '# A, changed\n')
+  writeFileSync(join(root, 'notes/shared/a.md'), '# A, changed\n')
   const [event] = await next.arrived
   stop()
   assert.deepEqual([whileWaiting, event.brain], [[], entry.id])
@@ -176,7 +201,7 @@ test('a change reaches the page with no request made while it waits after it sub
 
 test('edit applies its change to the file as it is on disk now, not as last read', async () => {
   const { source, entry, root } = await served()
-  const path = 'specs/001-x/spec.md'
+  const path = '.local/specs/001-x/spec.md'
   await source.files(entry)
   writeFileSync(join(root, path), BRAIN[path] + 'written by a build\n')
   await source.edit(entry, path, (old) => old + 'mine\n')
@@ -185,7 +210,7 @@ test('edit applies its change to the file as it is on disk now, not as last read
 
 test('edit writes through the server with no prompt, and a wrong token leaves the file as it was', async () => {
   const { url, source, entry, root } = await served()
-  const path = 'notes/authored/rule.md'
+  const path = 'notes/shared/rule.md'
   const stranger = BrainSource.server({ base: new URL(url).origin, token: 'not this start\'s token', fetch, EventSource })
   await assert.rejects(stranger.edit(entry, path, () => 'changed'), /did not write/)
   const afterWrong = readFileSync(join(root, path), 'utf8')
@@ -220,7 +245,7 @@ const shownOf = async (source, brain, repo, mode) => {
 }
 
 // A brain on a fresh server that links the clones `repos` (slug to path), and the page's server source over it.
-const linking = (repos) => served({ ...BRAIN, 'repos/repos.json': JSON.stringify(repos) })
+const linking = (repos) => served({ ...BRAIN, '.local/repos.json': JSON.stringify(repos) })
 
 // The same clone read by Clones in each source: over the server's repo objects, and over GitRead on the folder.
 const bothViews = async (mode) => {
@@ -287,7 +312,7 @@ test('a clone unlinked after it was shown shows as unlinked, not as an error', a
   let redrawn = new Promise((resolve) => { window.dispatchEvent = resolve })
   Clones.watch([{ repo, spec: '001-x', base: null, mode: 'simple', days: 30 }])
   await redrawn
-  writeFileSync(join(root, 'repos/repos.json'), '{}')
+  writeFileSync(join(root, '.local/repos.json'), '{}')
   const refs = new URL(`/api/brains/${entry.id}/repos/app/refs`, url)
   for (let i = 0; i < 100 && (await fetch(refs)).status !== 404; i++) await new Promise((r) => setTimeout(r, 50))
   redrawn = new Promise((resolve) => { window.dispatchEvent = resolve })
@@ -298,8 +323,8 @@ test('a clone unlinked after it was shown shows as unlinked, not as an error', a
 
 test("toData marks a note explored by its explored line, wherever its file sits", () => {
   const files = new Map(Object.entries({
-    'notes/authored/seen.md': '---\nexplored: abc1234\n---\nSeen at a commit.',
-    'notes/exploration/api/plain.md': '---\ntype: concept\n---\nNo explored line.',
+    'notes/shared/seen.md': '---\nexplored: abc1234\n---\nSeen at a commit.',
+    'notes/repos/api/plain.md': '---\ntype: concept\n---\nNo explored line.',
   }))
   const data = toData('team', files, new Map())
   assert.deepEqual(data.notes.map((n) => [n.id, n.kind]), [['seen', 'explored'], ['plain', 'authored']])

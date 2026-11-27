@@ -4,7 +4,7 @@
 // query (over each note's name, aliases, avoid words, description and body), and always lists every contract on those
 // repositories, since a contract must never be ranked out. Several --query phrasings are each ranked, then fused
 // by reciprocal rank. A superseded decision gives way to the decision that replaced it.
-// Drafts in notes/drafts/ are listed beside the notes, marked as drafts.
+// Drafts in .local/drafts/ are listed beside the notes, marked as drafts.
 // Run: node recall.mjs <brain> [--repo <slug>]... [--layer business|application] [--type <type>]...
 //                              [--query "<words>"]... [--top <n>]
 //      node recall.mjs <brain> --legacy   (lists the notes FORMAT.md's types and layers do not yet describe)

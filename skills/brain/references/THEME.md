@@ -65,7 +65,7 @@ In what you add to the scaffold, surfaces, text and borders take the tokens, nev
 
 A hero panel, `panel p-6 sm:p-8`. Inside, in order:
 
-- **Eyebrow**: in `.eyebrow`, the date, and for a report in a repository's folder (`repos/<slug>/…`) the repo name and its **stamp**: the branch `git -C <root> branch --show-current` names, `git -C <root> rev-parse --short HEAD`, and `uncommitted changes` when `git -C <root> status --porcelain` lists any, `<root>` being that repository's root by [FORMAT.md](FORMAT.md).
+- **Eyebrow**: in `.eyebrow`, the date, and for a report in a repository's folder (`docs/repos/<slug>/…`) the repo name and its **stamp**: the branch `git -C <root> branch --show-current` names, `git -C <root> rev-parse --short HEAD`, and `uncommitted changes` when `git -C <root> status --porcelain` lists any, `<root>` being that repository's root by [FORMAT.md](FORMAT.md).
 - **Headline**: `h text-3xl`, with one `.muted` line under it.
 - **Stat tiles**: a `dl` grid of `panel-2 px-4 py-3` tiles, label in `.eyebrow`, value `h text-2xl tabular-nums`; a tile that counts a coloured class takes that colour on its value (`style="color:var(--green)"`).
 - **Rows**: below a `border-t` divider (`border-color:var(--line)`), the report's own rows, each under an `.eyebrow` label.
