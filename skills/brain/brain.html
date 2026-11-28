@@ -616,6 +616,10 @@ const App = (function () {
 // a `deg`, its number of links. The sliders' values are `DEFAULTS`' keys.
 const ForceLayout = (function () {
   const DEFAULTS = { center: 0.5, repel: 10, link: 0.5, dist: 60 };
+  // the Forces panel both graphs show: each slider's key, label, min, max and step
+  const SLIDERS = [['center', 'Center force', 0, 1, 0.01], ['repel', 'Repel force', 0, 20, 0.1], ['link', 'Link force', 0, 1, 0.01], ['dist', 'Link distance', 20, 400, 1]];
+  // the panel's sliders, each set to F's value
+  const slidersOf = (F) => SLIDERS.map(([k, l, min, max, step]) => `<label>${l}<b data-fv="${k}">${F[k]}</b><input type="range" data-force="${k}" min="${min}" max="${max}" step="${step}" value="${F[k]}"></label>`).join('');
   const simulation = (d3, nodes, links) => d3.forceSimulation(nodes)
     .force('link', d3.forceLink(links).id((d) => d.id))
     .force('charge', d3.forceManyBody().distanceMax(900))
@@ -629,7 +633,7 @@ const ForceLayout = (function () {
     sim.force('charge').strength(-F.repel * 12);
     sim.force('x').strength(F.center * 0.1); sim.force('y').strength(F.center * 0.1);
   };
-  return { DEFAULTS, simulation, tune };
+  return { DEFAULTS, SLIDERS, slidersOf, simulation, tune };
 })();
 </script>
 
@@ -1186,7 +1190,6 @@ App.register('overview', {
 (function () {
   const ACCENT = 'var(--accent)', GREY = 'var(--muted)', GHOST = 'var(--muted)';
   const F = { cross: true, ghosts: true, labels: true, by: 'repo', ...ForceLayout.DEFAULTS };
-  const FORCES = [['center', 'Center force', 0, 1, 0.01], ['repel', 'Repel force', 0, 20, 0.1], ['link', 'Link force', 0, 1, 0.01], ['dist', 'Link distance', 20, 400, 1]];
   // the toggles and forces are this viewer's preference, kept across visits
   const KEY = 'brain.notes-graph';
   try { const s = JSON.parse(localStorage.getItem(KEY) || '{}'); for (const k in F) if (k in s) F[k] = s[k]; } catch {}
@@ -1233,7 +1236,7 @@ App.register('overview', {
         <span class="mono faint text-[11px]" data-stats></span>
       </div>
       <div class="panel np-legend"></div>
-      <div class="panel np-forces"><div class="eyebrow">Forces</div>${FORCES.map(([k, l, min, max, step]) => `<label>${l}<b data-fv="${k}"></b><input type="range" data-force="${k}" min="${min}" max="${max}" step="${step}" value="${F[k]}"></label>`).join('')}</div>
+      <div class="panel np-forces"><div class="eyebrow">Forces</div>${ForceLayout.slidersOf(F)}</div>
       <div class="np-hint">Click a node to focus it and see details. Drag to move, scroll to zoom, click empty space to reset.</div>`;
     svg = d3.select(root).insert('svg', ':first-child');
     zg = svg.append('g');
@@ -1525,8 +1528,9 @@ App.register('overview', {
 // ============================================================ THE DOMAIN SCREEN
 // The Domain screen: the brain's canonical terms as a graph, read from the server's domain route. A term is a node; a
 // relation is an edge labelled with its verb; a decision is a node linked to the terms it binds. Selecting a node opens its
-// inspector at the side of the graph. The nodes settle by the Notes graph's forces (ForceLayout). The route is read again
-// whenever the brain's data is, so each change event the server sends shows here. Over file:/// there is no route to read.
+// inspector at the side of the graph. The graph moves as the Notes graph does: its nodes settle live by the same forces
+// (ForceLayout), drag, and pan and zoom. The route is read again whenever the brain's data is, so each change event the
+// server sends shows here. Over file:/// there is no route to read.
 (function () {
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -1558,32 +1562,117 @@ App.register('overview', {
     return { nodes, edges, links, byId };
   };
 
-  // the nodes laid out on a ring, then settled by the forces
-  const layout = (graph) => {
-    graph.nodes.forEach((d, i) => { const a = (2 * Math.PI * i) / graph.nodes.length; d.x = 160 * Math.cos(a); d.y = 160 * Math.sin(a); });
+  // A domain map is small and labels its edges with their verbs, so its nodes start wider apart than the Notes graph's. The
+  // Forces panel tunes them, as the Notes graph's does, and they are this viewer's preference, kept across visits.
+  const FORCES = { ...ForceLayout.DEFAULTS, repel: 18, dist: 150 };
+  const KEY = 'brain.domain-graph';
+  try { const s = JSON.parse(localStorage.getItem(KEY) || '{}'); for (const k in FORCES) if (typeof s[k] === 'number') FORCES[k] = s[k]; } catch {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(FORCES)); } catch {} };
+
+  // The graph's live layout, as the Notes graph's: a new graph starts on a ring and settles mostly off screen, then plays the
+  // rest out live; a graph read again keeps each node where it was and barely moves. The simulation outlives each redraw,
+  // which only rebinds it to the new markup (see mount).
+  const layout = (graph, prev) => {
+    graph.nodes.forEach((d, i) => {
+      const p = prev && prev.get(d.id);
+      if (p) [d.x, d.y] = p;
+      else { const a = (2 * Math.PI * i) / graph.nodes.length; d.x = 160 * Math.cos(a); d.y = 160 * Math.sin(a); }
+    });
     const sim = ForceLayout.simulation(d3, graph.nodes, [...graph.edges, ...graph.links].map((e) => ({ source: e.source, target: e.target })));
-    ForceLayout.tune(sim, ForceLayout.DEFAULTS);
-    for (let i = 0; i < 300; i++) sim.tick();
+    ForceLayout.tune(sim, FORCES);
+    for (let i = 0; i < (prev ? 0 : 160); i++) sim.tick();
+    sim.alpha(prev ? 0.05 : 0.3).restart();
+    return sim;
+  };
+
+  // each node's neighbours, by the relations and decision links
+  const neighboursOf = (graph) => {
+    const nbr = new Map(graph.nodes.map((d) => [d.id, new Set([d.id])]));
+    [...graph.edges, ...graph.links].forEach((e) => { nbr.get(e.source).add(e.target); nbr.get(e.target).add(e.source); });
+    return nbr;
   };
 
   const svgOf = (graph) => {
-    const xs = graph.nodes.map((d) => d.x), ys = graph.nodes.map((d) => d.y), pad = 70;
-    const x0 = Math.min(...xs) - pad, y0 = Math.min(...ys) - pad;
     const edges = graph.edges.map((e) => {
       const a = graph.byId.get(e.source), b = graph.byId.get(e.target);
-      return `<g data-edge="${esc(e.key)}"><line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke-opacity="0.5" style="stroke:var(--muted)"/><text x="${(a.x + b.x) / 2}" y="${(a.y + b.y) / 2}" text-anchor="middle" font-size="10" style="fill:var(--muted)">${esc(e.verb)}</text></g>`;
+      return `<g data-edge="${esc(e.key)}"><line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke-opacity="0.5" style="stroke:var(--muted)"/><text x="${(a.x + b.x) / 2}" y="${(a.y + b.y) / 2}" text-anchor="middle" font-size="10" class="dm-lbl" style="fill:var(--muted)">${esc(e.verb)}</text></g>`;
     });
     const links = graph.links.map((l) => {
       const a = graph.byId.get(l.source), b = graph.byId.get(l.target);
       return `<line data-link="${esc(l.key)}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke-opacity="0.4" stroke-dasharray="3 3" style="stroke:var(--s-active)"/>`;
     });
     const shape = (d) => (d.kind === 'decision' ? `<rect x="${-d.r}" y="${-d.r}" width="${2 * d.r}" height="${2 * d.r}" style="fill:var(--s-active)"/>` : `<circle r="${d.r}" ${d.kind === 'ghost' ? 'fill-opacity="0.4" stroke-dasharray="2 2.5"' : ''} style="fill:var(--accent)"/>`);
-    const nodes = graph.nodes.map((d) => `<g data-node="${esc(d.id)}" transform="translate(${d.x},${d.y})" style="cursor:pointer">${shape(d)}<text y="${d.r + 13}" text-anchor="middle" font-size="11" ${d.kind === 'ghost' ? 'font-style="italic"' : ''} style="fill:var(--text)">${esc(d.name)}</text></g>`);
-    return `<svg viewBox="${x0} ${y0} ${Math.max(...xs) + pad - x0} ${Math.max(...ys) + pad - y0}" width="100%" height="100%">${links.join('')}${edges.join('')}${nodes.join('')}</svg>`;
+    const ring = (d) => (d.id === sel ? `<circle r="${d.r + 4}" fill="none" stroke-width="2" style="stroke:var(--accent)"/>` : '');
+    const nodes = graph.nodes.map((d) => `<g data-node="${esc(d.id)}" transform="translate(${d.x},${d.y})" style="cursor:pointer">${ring(d)}${shape(d)}<text y="${d.r + 13}" text-anchor="middle" font-size="11" class="dm-lbl" ${d.kind === 'ghost' ? 'font-style="italic"' : ''} style="fill:var(--text)">${esc(d.name)}</text></g>`);
+    return `<svg data-graph width="100%" height="100%"><g data-zoom>${links.join('')}${edges.join('')}${nodes.join('')}</g></svg>`;
   };
 
-  // the node selected, by its data-node value, and the last answer drawn: the brain's data it was read for, its map and its graph; `reads` numbers the reads, so a slow answer never draws over a newer one
-  let sel = null, built = null, reads = 0;
+  // the node selected, by its data-node value, and the last answer drawn: the brain's data it was read for, its map, its
+  // graph and its running simulation; `view` is the zoom kept across redraws (null until the first fit); `reads` numbers the
+  // reads, so a slow answer never draws over a newer one
+  let sel = null, built = null, reads = 0, view = null;
+
+  const CSS = `
+    .dm-graph { position:relative; flex:1; min-width:0; overflow:hidden; background-image:radial-gradient(color-mix(in srgb, var(--cool) 10%, transparent) 1px, transparent 1px); background-size:26px 26px; }
+    .dm-graph svg { display:block; width:100%; height:100%; cursor:grab; } .dm-graph svg:active { cursor:grabbing; }
+    .dm-lbl { pointer-events:none; paint-order:stroke; stroke:var(--bg); stroke-width:2.5px; stroke-linejoin:round; }
+    .dm-bar { position:absolute; top:14px; left:14px; display:flex; gap:10px; align-items:center; }
+    .dm-hint { position:absolute; left:18px; bottom:14px; color:var(--faint); font-size:11px; pointer-events:none; }
+    .dm-forces { position:absolute; right:14px; bottom:14px; width:220px; padding:10px 12px 12px; }
+    .dm-forces label { display:block; margin-top:9px; color:var(--muted); font-size:12px; }
+    .dm-forces label b { float:right; font-weight:400; color:var(--faint); font-family:ui-monospace, monospace; font-size:11px; }
+    .dm-forces input { display:block; width:100%; margin-top:4px; accent-color:var(--accent-2); }
+  `;
+
+  // Binds the drawn markup to the graph: each node follows its simulated point, drags as in the Notes graph, and the whole
+  // graph pans and zooms. Hovering a node, or selecting one, dims every node it is not linked to.
+  const mount = (el) => {
+    const { graph, sim, nbr } = built;
+    const svg = d3.select(el).select('svg[data-graph]'), zg = svg.select('g[data-zoom]');
+    const at = (id) => graph.byId.get(id);
+    const nodeSel = zg.selectAll('[data-node]').datum(function () { return at(this.getAttribute('data-node')); });
+    const edgeSel = zg.selectAll('[data-edge]').datum(function () { return graph.edges.find((e) => e.key === this.getAttribute('data-edge')); });
+    const linkSel = zg.selectAll('[data-link]').datum(function () { return graph.links.find((l) => l.key === this.getAttribute('data-link')); });
+
+    const tick = () => {
+      nodeSel.attr('transform', (d) => `translate(${d.x},${d.y})`);
+      edgeSel.select('line').attr('x1', (e) => at(e.source).x).attr('y1', (e) => at(e.source).y).attr('x2', (e) => at(e.target).x).attr('y2', (e) => at(e.target).y);
+      edgeSel.select('text').attr('x', (e) => (at(e.source).x + at(e.target).x) / 2).attr('y', (e) => (at(e.source).y + at(e.target).y) / 2);
+      linkSel.attr('x1', (l) => at(l.source).x).attr('y1', (l) => at(l.source).y).attr('x2', (l) => at(l.target).x).attr('y2', (l) => at(l.target).y);
+    };
+    sim.on('tick', tick);
+
+    const focus = (id) => {
+      const near = id && nbr.get(id);
+      nodeSel.attr('opacity', (d) => (!near || near.has(d.id) ? 1 : 0.15));
+      edgeSel.attr('opacity', (e) => (!near || e.source === id || e.target === id ? 1 : 0.08));
+      linkSel.attr('opacity', (l) => (!near || l.source === id || l.target === id ? 1 : 0.08));
+    };
+    nodeSel.on('mouseenter', (e, d) => focus(d.id)).on('mouseleave', () => focus(sel));
+    focus(sel);
+
+    nodeSel.call(d3.drag()
+      .on('start', (e, d) => { if (!e.active) sim.alphaTarget(0.25).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
+      .on('end', (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = d.fy = null; }));
+
+    const zoom = d3.zoom().scaleExtent([0.2, 4]).on('zoom', (e) => { view = e.transform; zg.attr('transform', e.transform); });
+    svg.call(zoom).on('dblclick.zoom', null);
+    const fit = (animate) => {
+      // the drawn size, or a default while the screen is not laid out yet
+      const n = svg.node(), size = (v, d) => (typeof v === 'number' && v > 0 ? v : d), w = size(n && n.clientWidth, 800), h = size(n && n.clientHeight, 600), pad = 60;
+      const xs = graph.nodes.map((d) => d.x), ys = graph.nodes.map((d) => d.y);
+      const x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
+      const k = Math.min(w / (x1 - x0), h / (y1 - y0), 2) * 0.92;
+      const t = d3.zoomIdentity.translate(w / 2 - ((x0 + x1) / 2) * k, h / 2 - ((y0 + y1) / 2) * k).scale(k);
+      (animate ? svg.transition().duration(500) : svg).call(zoom.transform, t);
+    };
+    if (view) svg.call(zoom.transform, view); else fit(false);
+    tick();
+    return { fit };
+  };
+
+  let mounted = null;
 
   // a pairing as a chip in its repository's colour, with its nuance beside it
   const pairingOf = (p, ctx) => {
@@ -1615,12 +1704,22 @@ App.register('overview', {
   const draw = (el, ctx) => {
     const { map, graph } = built;
     if (!graph.nodes.length) { el.innerHTML = '<div class="mx-auto max-w-[900px] p-5"><div class="text-[22px]">Domain</div><div class="muted mt-2">This brain holds no term yet. A <span class="mono">term</span> note in <span class="mono">notes/domain/</span> draws here.</div></div>'; return; }
-    el.innerHTML = `<div style="position:absolute;inset:0;display:flex"><div style="flex:1;min-width:0">${svgOf(graph)}</div><aside data-inspector class="panel" style="width:340px;flex:none;overflow:auto;margin:12px">${inspectorOf(map, ctx)}</aside></div>`;
+    el.innerHTML = `<style>${CSS}</style><div style="position:absolute;inset:0;display:flex"><div class="dm-graph">${svgOf(graph)}<div class="dm-bar"><button class="btn text-[12px]" data-fit>Fit</button><span class="mono faint text-[11px]">${map.terms.length} terms</span></div><div class="dm-hint">Click a node to see details. Drag to move, scroll to zoom, click empty space to reset.</div><div class="panel dm-forces"><div class="eyebrow">Forces</div>${ForceLayout.slidersOf(FORCES)}</div></div><aside data-inspector class="panel" style="width:340px;flex:none;overflow:auto;margin:12px">${inspectorOf(map, ctx)}</aside></div>`;
+    mounted = mount(el);
     el.onclick = (e) => {
       const t = e.target.closest('[data-node],[data-pick]');
-      if (!t) return;
-      sel = t.dataset.node ?? t.dataset.pick;
-      draw(el, ctx);
+      if (t) { sel = t.dataset.node ?? t.dataset.pick; draw(el, ctx); return; }
+      if (e.target.closest('[data-fit]')) { mounted.fit(true); return; }
+      // a click on the graph's empty space clears the selection; a pan's release is no click, since d3's zoom swallows it
+      if (sel && e.target.closest('svg[data-graph]')) { sel = null; draw(el, ctx); }
+    };
+    // a slider retunes its force and reheats the simulation, so the graph moves to its new balance
+    el.oninput = (e) => {
+      const k = e.target.dataset && e.target.dataset.force;
+      if (!k) return;
+      FORCES[k] = +e.target.value; save();
+      ForceLayout.tune(built.sim, FORCES); built.sim.alpha(0.5).restart();
+      el.querySelectorAll(`[data-fv="${k}"]`).forEach((b) => { b.textContent = FORCES[k]; });
     };
   };
 
@@ -1646,9 +1745,12 @@ App.register('overview', {
         }
         if (asked !== reads) return;
         const graph = graphOf(map);
-        layout(graph);
-        if (built && built.brain !== ctx.brain) sel = null;
-        built = { brain: ctx.brain, D: ctx.D, map, graph };
+        // the same brain read again keeps its nodes where they were, and its zoom; another brain starts afresh
+        const same = built && built.brain === ctx.brain;
+        if (built) built.sim.stop();
+        if (!same) { sel = null; view = null; }
+        const sim = layout(graph, same ? new Map(built.graph.nodes.map((d) => [d.id, [d.x, d.y]])) : null);
+        built = { brain: ctx.brain, D: ctx.D, map, graph, sim, nbr: neighboursOf(graph) };
       }
       draw(el, ctx);
     },

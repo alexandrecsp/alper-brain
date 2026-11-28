@@ -30,10 +30,10 @@ const DATA = { name: 'team', specs: [], repos: [{ slug: 'billing-api' }, { slug:
 const chain = () => new Proxy(function () {}, { get: (o, k) => (k === 'then' ? undefined : chain()), apply: () => chain() })
 
 // The page on the Domain screen, its route answering `map` (or what `fetch` answers); `fetched` lists the paths asked.
-const pageOf = ({ viaServer = true, map = MAP, hash = '#/b/team/domain' } = {}) => {
+const pageOf = ({ viaServer = true, map = MAP, hash = '#/b/team/domain', d3 = chain() } = {}) => {
   const fetched = []
   const fetch = async (path) => { fetched.push(path); if (fetch.fail) throw new Error('the server is gone'); return { ok: true, json: async () => map } }
-  const page = appOf({ hash, domain: { fetch, viaServer, d3: chain() } })
+  const page = appOf({ hash, domain: { fetch, viaServer, d3 } })
   const settle = () => new Promise((resolve) => setImmediate(resolve))
   return { ...page, fetch, fetched, settle, screen: () => page.shown.get('screen').innerHTML }
 }
@@ -130,6 +130,47 @@ test('a route that cannot be read leaves a message in place of the graph', async
   page.App.load('team', DATA, { edit: async () => {} })
   await page.settle()
   assert.deepEqual([/could not read the domain map/.test(page.screen()), page.screen().includes('<svg')], [true, false])
+})
+
+// d3 that logs each call as [name, first argument], and gives back something that takes any call as d3 does.
+const recorder = (log) => {
+  const make = (name) => new Proxy(function () {}, { get: (o, k) => (k === 'then' ? undefined : make(k)), apply: (o, self, args) => { log.push([name, args[0]]); return make(name) } })
+  return make('d3')
+}
+const calledWith = (log, name, arg) => log.some(([n, a]) => n === name && (arg === undefined || a === arg))
+
+test('the graph moves like the Notes graph: its nodes drag, it zooms, and the layout settles live', async () => {
+  const log = []
+  const page = pageOf({ d3: recorder(log) })
+  page.App.load('team', DATA, { edit: async () => {} })
+  await page.settle()
+  assert.deepEqual(
+    { drag: calledWith(log, 'drag'), zoom: calledWith(log, 'zoom'), ticks: calledWith(log, 'on', 'tick'), live: calledWith(log, 'restart') },
+    { drag: true, zoom: true, ticks: true, live: true },
+  )
+})
+
+test("the screen offers the Notes graph's four force sliders, and moving one retunes and reheats the layout", async () => {
+  const log = []
+  const page = pageOf({ d3: recorder(log) })
+  page.App.load('team', DATA, { edit: async () => {} })
+  await page.settle()
+  const sliders = all(page.screen(), /data-force="([^"]+)"/g)
+  log.length = 0
+  page.shown.get('screen').oninput({ target: { dataset: { force: 'repel' }, value: '5' } })
+  assert.deepEqual(
+    { sliders, repel: calledWith(log, 'strength', -60), reheated: calledWith(log, 'restart') },
+    { sliders: ['center', 'repel', 'link', 'dist'], repel: true, reheated: true },
+  )
+})
+
+test('selecting a node keeps the running layout, with no new simulation', async () => {
+  const log = []
+  const page = pageOf({ d3: recorder(log) })
+  page.App.load('team', DATA, { edit: async () => {} })
+  await page.settle()
+  page.shown.get('screen').onclick({ target: { closest: () => ({ dataset: { node: 'term|customer' } }) } })
+  assert.equal(log.filter(([n]) => n === 'forceSimulation').length, 1)
 })
 
 test('a brain with no term yet says so and draws no graph', async () => {
