@@ -334,8 +334,10 @@ const App = (function () {
   // A draft names the note's home as its target, by layout.mjs's noteHome rule: the domain notes for a term, else its
   // repository's notes for a repos line of one slug, else the shared notes.
   const homeOf = (type, repos) => (type === 'term' ? BrainSource.LAYOUT.domainNotes : repos.length === 1 ? BrainSource.LAYOUT.repoNotes(repos[0]) : BrainSource.LAYOUT.sharedNotes);
+  // Only a decision and a how-to store a layer line: every other type's layer is worked out from its type (notes.mjs's layerOf).
+  const STORES_LAYER = ['decision', 'how-to'];
   const draftNote = ({ name, type, layer, description, repos, body }) =>
-    `---\nname: ${name}\ndescription: ${description}\ntype: ${type}\nlayer: ${layer}\nrepos: [${repos.join(', ')}]\ntarget: ${homeOf(type, repos)}/${name}.md\naction: record\n---\n\n${body.trim()}\n`;
+    `---\nname: ${name}\ndescription: ${description}\ntype: ${type}\n${STORES_LAYER.includes(type) ? `layer: ${layer}\n` : ''}repos: [${repos.join(', ')}]\ntarget: ${homeOf(type, repos)}/${name}.md\naction: record\n---\n\n${body.trim()}\n`;
   async function save(path, change, done) {
     try { await S.io.edit(path, change); toast(done); } catch (e) { toast('Not saved: ' + (e.message || e)); }
   }
@@ -366,10 +368,10 @@ const App = (function () {
     const repos = S.D.repos.map((r) => r.slug), opt = (v, l = v) => `<option value="${esc(v)}">${esc(l)}</option>`, sel = (attr, opts) => `<select ${attr} class="${INPUT}" ${inputStyle}>${opts}</select>`;
     const backRepo = S.D.notes.find((x) => x.links.includes(id))?.repos[0];
     return sec('Draft it here', `<div class="space-y-2.5" data-draft="${esc(id)}">
-      <div class="grid grid-cols-2 gap-2">${field('Type', sel('data-type', ['concept', 'term', 'decision', 'how-to', 'contract'].map((t) => opt(t)).join('')))}${field('Layer', sel('data-layer', opt('application') + opt('business')))}</div>
+      <div class="grid grid-cols-2 gap-2">${field('Type', sel('data-type', ['concept', 'term', 'decision', 'how-to', 'contract'].map((t) => opt(t)).join('')))}<div data-layer-field class="hidden">${field('Layer', sel('data-layer', opt('application') + opt('business')))}</div></div>
       ${field('Repos', `<input data-repos value="${esc(backRepo || '')}" placeholder="${esc(repos.slice(0, 2).join(', ') || 'billing-api, web-app')}" class="${INPUT}" ${inputStyle}>`)}
       ${field('Description', `<input data-description placeholder="One line that stands alone" class="${INPUT}" ${inputStyle}>`)}
-      ${field('Body', `<textarea data-body rows="6" placeholder="The fact first. A decision or how-to adds **Why:** and **How to apply:** lines. A term adds a ## Pairings line per repository, then ## Relations." class="${INPUT}" ${inputStyle}></textarea>`)}
+      ${field('Body', `<textarea data-body rows="6" placeholder="The fact first. A decision or how-to adds **Why:** and **How to apply:** lines. A term adds a ## Pairings line per repository. Any note can name its links under ## Relations." class="${INPUT}" ${inputStyle}></textarea>`)}
       <div class="flex flex-wrap items-center gap-2"><button class="btn btn-accent text-[12px]" data-draft-save="${esc(id)}">Save the draft</button><span class="faint text-[11.5px]">into ${BrainSource.LAYOUT.drafts}/ · /brain sync shares it</span></div>
       <div class="faint pt-1 text-[11.5px]">Or let Claude write it: ${ui.copyBtn(`/brain remember ${id}`)}</div></div>`);
   }
@@ -591,6 +593,11 @@ const App = (function () {
     if (typing) return;
     if (e.key === 'Escape' && S.sel) { S.sel = null; render(); }
     if ((e.key === 'e' || e.key === 'E') && !e.ctrlKey && !e.metaKey && !e.altKey && S.sel) toggleExpand();
+  });
+  // the draft form asks for a layer only for a type that stores one
+  document.addEventListener('change', (e) => {
+    const form = e.target.closest('[data-draft]');
+    if (form && e.target.matches('[data-type]')) form.querySelector('[data-layer-field]').classList.toggle('hidden', !STORES_LAYER.includes(e.target.value));
   });
   $('q').addEventListener('input', (e) => { S.q = e.target.value.trim().toLowerCase(); render(); });
   window.addEventListener('app-select', () => render());
@@ -1196,7 +1203,7 @@ App.register('overview', {
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(F)); } catch {} };
   let built = null, root, svg, zg, zoom, sim, cur;
   let nodes = [], links = [], repos = [], nbr = new Map(), typeCol = null, typeCount = new Map(), crossCount = 0;
-  let linkSel, nodeSel, labSel, coSel, byDeg = [], nodeById = new Map(), hover = null;
+  let linkSel, nodeSel, labSel, coSel, verbLayer, verbSel, byDeg = [], nodeById = new Map(), hover = null;
   // every node is a circle centred on its point, of radius h
   const circ = (g, h) => g.append('circle').attr('r', h);
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1269,15 +1276,17 @@ App.register('overview', {
     nodes = []; links = []; nbr = new Map();
     D.notes.forEach((n) => { const d = { id: n.id, kind: 'note', cluster: clusterOf(n), n, deg: 0 }; byId.set(d.id, d); nodes.push(d); });
     D.ghosts.forEach((g) => { const d = { id: g, kind: 'ghost', votes: {}, deg: 0 }; byId.set(g, d); nodes.push(d); });
-    const seen = new Set(), pairs = [];
+    // one edge per linked pair; it carries the verb of each relation of its notes, with the note that holds it
+    const pairs = new Map();
     D.notes.forEach((n) => n.links.forEach((l) => {
       const a = byId.get(n.id), b = byId.get(l); if (!b || a === b) return;
-      const k = [a.id, b.id].sort().join('|'); if (seen.has(k)) return; seen.add(k); pairs.push([a, b]);
-      if (b.kind === 'ghost') b.votes[a.cluster] = (b.votes[a.cluster] || 0) + 1;
+      const k = [a.id, b.id].sort().join('|');
+      if (!pairs.has(k)) { pairs.set(k, { a, b, verbs: [] }); if (b.kind === 'ghost') b.votes[a.cluster] = (b.votes[a.cluster] || 0) + 1; }
+      n.relations.filter((r) => r.target === l).forEach((r) => pairs.get(k).verbs.push({ from: n.id, verb: r.verb }));
     }));
     nodes.filter((d) => d.kind === 'ghost').forEach((d) => { d.cluster = Object.entries(d.votes).sort((x, y) => y[1] - x[1])[0]?.[0] || 'shared'; });
     crossCount = 0;
-    pairs.forEach(([a, b]) => { a.deg++; b.deg++; const kind = a.cluster === b.cluster ? 'intra' : 'cross'; if (kind === 'cross') crossCount++; links.push({ source: a.id, target: b.id, kind }); });
+    pairs.forEach(({ a, b, verbs }) => { a.deg++; b.deg++; const kind = a.cluster === b.cluster ? 'intra' : 'cross'; if (kind === 'cross') crossCount++; links.push({ source: a.id, target: b.id, kind, verbs }); });
     nodes.forEach((d) => { d.r = d.kind === 'ghost' ? Math.min(8, 4 + Math.sqrt(d.deg) * 0.8) : Math.min(11, 3.5 + Math.sqrt(d.deg) * 1.7); });
 
     // the legend's repositories, largest first
@@ -1325,6 +1334,7 @@ App.register('overview', {
     labSel = zg.append('g').style('pointer-events', 'none').selectAll('text').data(nodes).join('text').attr('class', 'np-lbl').attr('text-anchor', 'middle')
       .attr('font-style', (d) => (d.kind === 'ghost' ? 'italic' : null))
       .text((d) => d.label);
+    verbLayer = zg.append('g').style('pointer-events', 'none');
 
     draw(); if (!prev.size) fit(false);
   }
@@ -1340,8 +1350,21 @@ App.register('overview', {
   function draw() {
     linkSel.attr('x1', (l) => l.source.x).attr('y1', (l) => l.source.y).attr('x2', (l) => l.target.x).attr('y2', (l) => l.target.y);
     nodeSel.attr('transform', (d) => `translate(${d.x},${d.y})`);
+    placeVerbs();
     placeLater();
   }
+
+  // An edge shows the verbs of its relations only while one of its two notes is in focus (hovered or selected), each written
+  // from the note that holds the relation: "billing issues invoice", whichever of the two is in focus.
+  const verbsOf = (focus) => (focus ? links.filter((l) => linkOn(l) && (l.source.id === focus || l.target.id === focus) && l.verbs.length) : [])
+    .map((l) => ({ key: l.source.id + '|' + l.target.id, link: l, text: l.verbs.map((v) => `${nodeById.get(v.from).label} ${v.verb} ${(v.from === l.source.id ? l.target : l.source).label}`).join(' · ') }));
+  const placeVerbs = () => {
+    if (!verbSel) return;
+    const k = d3.zoomTransform(svg.node()).k;
+    verbSel.attr('x', (v) => (v.link.source.x + v.link.target.x) / 2).attr('y', (v) => (v.link.source.y + v.link.target.y) / 2)
+      .attr('font-size', 10.5 / k).attr('stroke-width', 2.5 / k);
+  };
+  const linkOn = (l) => !((l.kind === 'cross' && !F.cross) || (!F.ghosts && (l.source.kind === 'ghost' || l.target.kind === 'ghost')));
 
   function selId() { const s = cur.sel; return s && (s.kind === 'note' || s.kind === 'ghost') ? s.id : null; }
 
@@ -1358,7 +1381,7 @@ App.register('overview', {
     nodeSel.select('.dot').style('fill', fillOf);
     nodeSel.select('.ring').style('display', (d) => (d.id === sel || d.id === hover || (match && match(d)) ? null : 'none'))
       .style('stroke', (d) => (d.id === sel ? ACCENT : d.id === hover ? 'var(--text)' : 'var(--accent-2)'));
-    linkSel.style('display', (l) => ((l.kind === 'cross' && !F.cross) || (!F.ghosts && (l.source.kind === 'ghost' || l.target.kind === 'ghost')) ? 'none' : null))
+    linkSel.style('display', (l) => (linkOn(l) ? null : 'none'))
       .style('stroke', (l) => (focus && (l.source.id === focus || l.target.id === focus) ? 'var(--accent-2)' : 'var(--muted)'))
       .attr('stroke-opacity', (l) => {
         let o = l.kind === 'intra' ? 0.3 : 0.2;
@@ -1366,6 +1389,9 @@ App.register('overview', {
         if (focus) o = l.source.id === focus || l.target.id === focus ? 0.9 : 0.03;
         return o;
       });
+    verbSel = verbLayer.selectAll('text.np-verb').data(verbsOf(focus), (v) => v.key).join('text').attr('class', 'np-verb np-lbl')
+      .attr('text-anchor', 'middle').attr('dy', '-0.3em').style('fill', 'var(--text)').text((v) => v.text);
+    placeVerbs();
     root.querySelectorAll('[data-tg]').forEach((b) => b.classList.toggle('on', F[b.dataset.tg]));
     root.querySelectorAll('[data-fv]').forEach((b) => { b.textContent = F[b.dataset.fv]; });
     root.querySelectorAll('[data-cb]').forEach((b) => b.classList.toggle('on', F.by === b.dataset.cb));
@@ -2356,6 +2382,17 @@ function front(t) {
   if (m) for (const l of m[1].split(/\r?\n/)) { const kv = /^([\w-]+):\s*(.*)$/.exec(l); if (kv) fm[kv[1]] = kv[2].trim().replace(/^["']|["']$/g, ''); }
   return { fm, body: m ? t.slice(m[0].length) : t };
 }
+// The page cannot import notes.mjs: these two are copies of its layerOf and its `## Relations` reading, which note-copies.test.mjs
+// holds to it. A note's layer worked out from its type: the stored line for a decision and a how-to, else business for a feature, a
+// term and every explored note, application for a contract and an authored concept.
+function layerOf(type, explored, stored) {
+  if (type === 'decision' || type === 'how-to') return stored ?? '';
+  if (type === 'feature' || type === 'term' || explored) return 'business';
+  if (type === 'contract' || type === 'concept') return 'application';
+  return stored ?? '';
+}
+// The `- <verb> [[<term>]]` lines of a body's `## Relations` section, as { verb, target }.
+const relationsOf = (body) => section(body, 'Relations').split('\n').map((l) => /^-\s+(.+?)\s+\[\[([^\]|#]+)\]\]\s*$/.exec(l.trim())).filter(Boolean).map((m) => ({ verb: m[1], target: m[2].trim() }));
 
 // /build's closing steps after a milestone's last ticket, from milestone.md's Phase line; a Squash commit ends them.
 // step 7 writes decide when the arbiter decides the escalations, and ask when the user does, stopping the track.
@@ -2401,7 +2438,7 @@ function toData(name, files, times = new Map(), { timeline: history } = {}) {
     const id = path.split('/').at(-1).replace(/\.md$/, ''), kind = fm.explored ? 'explored' : 'authored';
     const repos = at.slug && fm.explored ? [at.slug] : (fm.repos || '').replace(/^\[|\]$/g, '').split(',').map((s) => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
     return {
-      id, path, type: fm.type || 'other', layer: fm.layer || null, description: fm.description || '', body: body.trim(),
+      id, path, type: fm.type || 'other', layer: layerOf(fm.type, !!fm.explored, fm.layer || ''), relations: relationsOf(body), description: fm.description || '', body: body.trim(),
       // shared: an authored note bearing on several repositories
       repos, shared: kind === 'authored' && repos.length > 1, kind, explored: fm.explored || null,
       links: [...new Set([...body.matchAll(WIKI)].map((x) => x[1].trim()))].filter((l) => l !== id),

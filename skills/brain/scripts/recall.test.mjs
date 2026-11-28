@@ -28,9 +28,9 @@ const brain = () => {
     'Finance approves every large refund.')
   authored('web-dark-mode', { description: 'The web app follows the system theme', type: 'decision', layer: 'application', repos: '[web]' },
     'The theme follows the operating system.')
-  authored('invoice-event-contract', { description: 'The invoice event api emits and web reads', type: 'contract', layer: 'application', repos: '[api, web]' },
+  authored('invoice-event-contract', { description: 'The invoice event api emits and web reads', type: 'contract', repos: '[api, web]' },
     'An unrelated body about schemas.')
-  put(join(b, 'notes/repos/api/api-invoices.md'), note({ name: 'api-invoices', description: 'Customers receive an invoice per charge', type: 'feature', layer: 'business', explored: 'a1b2c3d' }))
+  put(join(b, 'notes/repos/api/api-invoices.md'), note({ name: 'api-invoices', description: 'Customers receive an invoice per charge', type: 'feature', explored: 'a1b2c3d' }))
   put(join(b, '.local/drafts/api-retry-window.md'), note({ name: 'api-retry-window', description: 'Retries stop after a day', type: 'how-to', layer: 'application', repos: '[api]', target: 'notes/repos/api/api-retry-window.md', action: 'record' }))
   put(join(b, 'notes/research/api-market.md'), note({ name: 'api-market', description: 'Payment providers compared', type: 'concept', layer: 'business' }))
   return b
@@ -76,6 +76,15 @@ test('--layer keeps that layer and a note with no layer yet, while a contract is
   assert.equal(r.status, 0, r.err)
   assert.deepEqual(paths(section(r.out, 'contracts on api')), ['notes/shared/invoice-event-contract.md'])
   assert.deepEqual(paths(section(r.out, 'notes (business)')), ['notes/repos/api/api-invoices.md', 'notes/repos/api/api-refund-limit.md', 'notes/repos/api/api-unlayered.md'])
+})
+
+test('--layer works the layer out from the type, so a feature with no layer line is business and an authored concept is not', () => {
+  const b = brain()
+  put(join(b, 'notes/repos/api/api-quotes.md'), note({ name: 'api-quotes', description: 'Customers get a quote', type: 'feature', repos: '[api]' }))
+  put(join(b, 'notes/repos/api/api-queue.md'), note({ name: 'api-queue', description: 'A queue runs the jobs', type: 'concept', repos: '[api]' }))
+  const r = recall(b, '--repo', 'api', '--layer', 'business')
+  assert.equal(r.status, 0, r.err)
+  assert.deepEqual(paths(section(r.out, 'notes (business)')), ['notes/repos/api/api-invoices.md', 'notes/repos/api/api-quotes.md', 'notes/repos/api/api-refund-limit.md'])
 })
 
 test('--query ranks the matching notes best first and leaves out the ones it does not match', () => {
@@ -124,6 +133,21 @@ test('--legacy lists the notes whose type or layer FORMAT.md does not describe',
   const r = recall(b, '--legacy')
   assert.equal(r.status, 0)
   assert.equal(r.out.trim(), 'notes/repos/api/api-gotcha.md · type gotcha, layer missing')
+})
+
+test('--legacy lists a stored layer line that repeats its type, and passes over a decision with its line', () => {
+  const b = brain()
+  put(join(b, 'notes/repos/api/api-quotes.md'), note({ name: 'api-quotes', description: 'Customers get a quote', type: 'feature', layer: 'business', repos: '[api]' }))
+  const r = recall(b, '--legacy')
+  assert.equal(r.out.trim(), 'notes/repos/api/api-quotes.md · layer line repeats its type')
+})
+
+test('--legacy reports layer missing on a how-to, and not on a feature', () => {
+  const b = brain()
+  put(join(b, 'notes/repos/api/api-quotes.md'), note({ name: 'api-quotes', description: 'Customers get a quote', type: 'feature', repos: '[api]' }))
+  put(join(b, 'notes/repos/api/api-unlayered.md'), note({ name: 'api-unlayered', description: 'Not migrated yet', type: 'how-to', repos: '[api]' }))
+  const r = recall(b, '--legacy')
+  assert.equal(r.out.trim(), 'notes/repos/api/api-unlayered.md · layer missing')
 })
 
 test('rejects an unknown layer with a usage error', () => {
@@ -197,11 +221,11 @@ test('--legacy lists a business concept', () => {
 
 test('--legacy leaves out an explored business concept, but lists one with an avoid line', () => {
   const b = brain()
-  put(join(b, 'notes/repos/api/api-retry-job.md'), note({ name: 'api-retry-job', description: 'A nightly job retries charges', type: 'concept', layer: 'business', explored: 'a1b2c3d' }))
+  put(join(b, 'notes/repos/api/api-retry-job.md'), note({ name: 'api-retry-job', description: 'A nightly job retries charges', type: 'concept', explored: 'a1b2c3d' }))
   put(join(b, 'notes/repos/api/api-invoice.md'), note({ name: 'api-invoice', description: 'A request for payment', type: 'concept', layer: 'business', explored: 'a1b2c3d', avoid: '[statement]' }))
   const r = recall(b, '--legacy')
   assert.doesNotMatch(r.out, /api-retry-job/)
-  assert.match(r.out, /^notes\/repos\/api\/api-invoice\.md · business concept$/m)
+  assert.match(r.out, /^notes\/repos\/api\/api-invoice\.md · business concept, layer line repeats its type$/m)
 })
 
 test('--legacy lists an explored note whose Sources names a glossary, a glossary map or an ADR, and no other', () => {

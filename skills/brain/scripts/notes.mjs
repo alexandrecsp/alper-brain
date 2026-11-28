@@ -8,6 +8,8 @@ import { pathsOf, relativeTo } from './layout.mjs'
 
 export const TYPES = new Set(['feature', 'concept', 'decision', 'how-to', 'contract', 'term'])
 export const LAYERS = new Set(['business', 'application'])
+// The types whose layer the type leaves open: they store the line, and every other type's layer is worked out by layerOf.
+export const STORES_LAYER = new Set(['decision', 'how-to'])
 
 // Frontmatter is flat `key: value` lines. A key with no value followed by `  - item` lines holds that list, as
 // Obsidian writes `aliases` (and a term's `avoid`); an inline `[a, b]` stays a string until listOf reads it.
@@ -75,6 +77,16 @@ function pairingOf(line) {
   }
 }
 
+// A note's layer, worked out from its type: the stored line for a decision and a how-to, explored or not; otherwise business for a
+// feature, a term and every explored note, and application for a contract and an authored concept. It takes bare values, since
+// the history service reads an old commit's text without a whole note.
+export function layerOf(type, explored, stored) {
+  if (STORES_LAYER.has(type)) return stored ?? ''
+  if (type === 'feature' || type === 'term' || explored) return 'business'
+  if (type === 'contract' || type === 'concept') return 'application'
+  return stored ?? ''
+}
+
 // A relation line, `- <verb> [[<term>]]`, as { verb, target }, or null.
 function relationOf(line) {
   const m = /^-\s+(.+?)\s+\[\[([^\]|#]+)\]\]\s*$/.exec(line)
@@ -96,15 +108,11 @@ export function placeOf(path) {
 // A repository's card, relative to the brain.
 export const cardOf = (brain, slug) => relativeTo(brain, pathsOf(brain).card(slug))
 
-// A term's pairings, the lines of its `## Pairings` section that do not parse, and its relations: the one parser of both sections.
-const termPartsOf = (body) => {
+// A term's pairings and the lines of its `## Pairings` section that do not parse: the one parser of that section.
+const pairingsOf = (body) => {
   const lines = sectionOf(body, 'Pairings')
   const pairings = lines.map(pairingOf)
-  return {
-    pairings: pairings.filter(Boolean),
-    badPairings: lines.filter((_, i) => !pairings[i]),
-    relations: sectionOf(body, 'Relations').map(relationOf).filter(Boolean),
-  }
+  return { pairings: pairings.filter(Boolean), badPairings: lines.filter((_, i) => !pairings[i]) }
 }
 
 // One note from its text. `path` is where the file is, `target` where the note lands (a draft's target), and
@@ -117,14 +125,15 @@ export function noteOf(path, text, { target = path, draft = null } = {}) {
     name: typeof fm.name === 'string' && fm.name ? fm.name : path.split('/').at(-1).replace(/\.md$/, ''),
     description: typeof fm.description === 'string' ? fm.description : '',
     type: typeof fm.type === 'string' ? fm.type : '',
-    layer: typeof fm.layer === 'string' ? fm.layer : '',
+    layer: layerOf(fm.type, !!fm.explored, typeof fm.layer === 'string' ? fm.layer : ''),
     aliases: fm.aliases === undefined ? [] : listOf(fm.aliases),
     avoid: fm.avoid === undefined ? [] : listOf(fm.avoid),
     explored: !!fm.explored,
     repos: place?.slug && fm.explored ? [place.slug] : listOf(fm.repos),
     superseded: fm.status === 'superseded',
     supersededBy: typeof fm.supersededBy === 'string' && fm.supersededBy ? fm.supersededBy : null,
-    ...(fm.type === 'term' ? termPartsOf(body) : { pairings: [], badPairings: [], relations: [] }),
+    ...(fm.type === 'term' ? pairingsOf(body) : { pairings: [], badPairings: [] }),
+    relations: sectionOf(body, 'Relations').map(relationOf).filter(Boolean),
   }
 }
 

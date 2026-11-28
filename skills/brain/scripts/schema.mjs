@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { KINDS, pathsOf, kindOf, noteHome, relativeTo } from './layout.mjs'
-import { TYPES, LAYERS, cardOf, draftOf, loadBrain, noteOf, placeOf } from './notes.mjs'
+import { TYPES, LAYERS, STORES_LAYER, cardOf, draftOf, layerOf, loadBrain, noteOf, placeOf } from './notes.mjs'
 
 const ACTIONS = new Set(['record', 'update', 'supersede', 'delete'])
 const DEGREES = new Set(['same', 'narrower', 'broader'])
@@ -55,8 +55,17 @@ function warned(n) {
   if (!n.explored && n.repos.length === 1 && typeof n.fm.name === 'string' && n.fm.type !== 'term' && !n.fm.name.startsWith(`${n.repos[0]}-`)) {
     out.push(`name ${n.fm.name} does not start with ${n.repos[0]}-, the repository its repos names`)
   }
-  // An explored concept is business, by the finding below; only an authored one is an old term.
-  if (n.type === 'concept' && n.layer === 'business' && !n.explored) out.push('a business concept is a term: write it as a term note in notes/domain/')
+  // An explored concept is business; only an authored one is an old term.
+  const oldTerm = n.type === 'concept' && n.fm.layer === 'business' && !n.explored
+  if (oldTerm) out.push('a business concept is a term: write it as a term note in notes/domain/')
+  // A stored line on a type that works its layer out is redundant when it agrees and wrong when it differs; an old term
+  // already has its own warning above.
+  const stored = n.fm.layer
+  const worked = layerOf(n.fm.type, n.explored, '')
+  if (stored !== undefined && !STORES_LAYER.has(n.fm.type) && TYPES.has(n.fm.type) && stored !== worked && !oldTerm) {
+    const subject = ['feature', 'term', 'contract'].includes(n.fm.type) ? `a ${n.fm.type}` : n.explored ? 'an explored note' : 'an authored concept'
+    out.push(`layer is ${stored}, but ${subject} is ${worked}`)
+  }
   if (n.type === 'concept' && n.fm.avoid !== undefined) out.push('avoid on a concept belongs on a term note')
   return out
 }
@@ -116,20 +125,16 @@ function broken(n) {
   }
   if (typeof fm.description !== 'string' || !fm.description.trim()) out.push('description is missing')
   if (!TYPES.has(fm.type)) out.push(`type is ${fm.type ? `"${fm.type}"` : 'missing'}; it is one of ${[...TYPES].join(', ')}`)
-  if (!LAYERS.has(fm.layer)) out.push(`layer is ${fm.layer ? `"${fm.layer}"` : 'missing'}; it is business or application`)
+  // Only a decision and a how-to store a layer; on any other type the line is optional, and warned of when it differs.
+  if (STORES_LAYER.has(fm.type) && !LAYERS.has(fm.layer)) out.push(`layer is ${fm.layer ? `"${fm.layer}"` : 'missing'}; it is business or application`)
   if (fm.type === 'contract' && where === 'explored') out.push('a contract is an authored note')
-  if (fm.type === 'contract' && LAYERS.has(fm.layer) && fm.layer !== 'application') out.push('a contract is always application')
   if (fm.type === 'term' && where === 'explored') out.push('a term is authored, never explored')
-  if (fm.type === 'term' && LAYERS.has(fm.layer) && fm.layer !== 'business') out.push('a term is always business')
   if (fm.type === 'term') {
     if (!n.pairings.length) out.push('a term needs at least one pairing under ## Pairings')
     for (const line of n.badPairings) out.push(`pairing line does not parse: ${line}`)
     for (const p of n.pairings) if (!DEGREES.has(p.degree)) out.push(`degree ${p.degree} of the ${p.repo} pairing is not same, narrower or broader`)
   }
   if (fm.type === 'feature' && where && where !== 'explored') out.push(`a feature is an explored note only, in ${repoNotesDir}`)
-  if (fm.type === 'feature' && LAYERS.has(fm.layer) && fm.layer !== 'business') out.push('a feature is always business')
-  // An explored decision mirrors one of the repository's ADRs, and takes that decision's layer.
-  if (where === 'explored' && fm.type !== 'decision' && LAYERS.has(fm.layer) && fm.layer !== 'business') out.push('an explored note is business, unless it is a decision')
 
   const isList = (v) => Array.isArray(v) || (typeof v === 'string' && /^\[.*\]$/.test(v))
   // repos is required where the folder names no repository: every authored note.

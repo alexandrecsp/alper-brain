@@ -14,7 +14,7 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { TYPES, LAYERS, cardOf, loadBrain, parse } from './notes.mjs'
+import { TYPES, LAYERS, STORES_LAYER, cardOf, layerOf, loadBrain, parse } from './notes.mjs'
 
 const USAGE = 'Usage: node recall.mjs <brain> [--repo <slug>]... [--layer business|application] [--type <type>]... [--query "<words>"]... [--top <n>] | --legacy'
 
@@ -56,7 +56,7 @@ export function rank(brainPath, options = {}) {
   const reposOf = (n) => (n.type === 'term' && n.pairings.length ? n.pairings.map((p) => p.repo) : n.repos)
   const inRepos = (n) => !opts.repos.length || reposOf(n).some((r) => opts.repos.includes(r))
   const contracts = notes.filter((n) => n.type === 'contract' && !n.superseded && inRepos(n))
-  // A note with no layer yet is kept under either layer, so a brain not yet migrated still recalls in full.
+  // Only a decision or a how-to can lack a layer, since every other type has it worked out; one without it is kept under either layer.
   const fits = (n) =>
     n.type !== 'contract' && inRepos(n)
     && (!opts.layer || n.layer === opts.layer || !LAYERS.has(n.layer))
@@ -181,9 +181,12 @@ function main(argv) {
       const found = loadBrain(brain).notes.flatMap((n) => {
         const why = []
         if (!TYPES.has(n.type)) why.push(`type ${n.type || 'missing'}`)
+        // Only a decision and a how-to store a layer: a note of any other type has it worked out.
         if (!LAYERS.has(n.layer)) why.push(`layer ${n.layer || 'missing'}`)
         // An explored concept is business by FORMAT.md; one with an avoid line is an old term all the same.
-        if (n.type === 'concept' && n.layer === 'business' && (!n.explored || n.avoid.length)) why.push('business concept')
+        if (n.type === 'concept' && n.fm.layer === 'business' && (!n.explored || n.avoid.length)) why.push('business concept')
+        // A stored line equal to the worked-out layer repeats the type; migration drops it.
+        if (TYPES.has(n.type) && !STORES_LAYER.has(n.type) && n.fm.layer === layerOf(n.type, n.explored, '')) why.push('layer line repeats its type')
         if (n.explored && namesGlossaryOrAdr(n.body)) why.push('sources name a glossary or an ADR')
         return why.length ? [`${n.path} · ${why.join(', ')}`] : []
       })

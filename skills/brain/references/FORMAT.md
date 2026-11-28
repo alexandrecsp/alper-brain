@@ -160,7 +160,7 @@ Related: [[invoice-event-contract]]
 - `name`: the file name without `.md`, in kebab-case, unique across the **whole brain** and not only its folder, since `[[name]]` resolves by it here and in Obsidian. A note naming one repository starts with its slug, as `billing-api-retry-idempotency`, so a folder listing groups it with its repository; the brain page's graph drops the prefix from the label, since the colour already shows the repository. A note naming several takes no prefix, and neither does a `term`, which is named for the business: `customer`, `ledger-account`. A new note a link already names keeps that name. `scripts/schema.mjs` warns about a name without its prefix, a `term` excepted, and does not fail on it, since a note's name changes only with every link to it.
 - `description`: one line that stands alone. Recall judges relevance from it without opening the note.
 - `type`: one of the types below.
-- `layer`: `business` or `application`, by **Layers**.
+- `layer`: `business` or `application`, worked out from the note's type and its `explored` line by **Layers**. Which types store the line is in **Layers**, and `scripts/schema.mjs` warns of a stored line that differs from the worked-out one.
 - `repos`: on authored notes only, required, the registered slugs the note bears on, as `[billing-api]` or `[billing-api, web-app]`: one when the fact is about one repository, each one it holds for when it spans several. Recall finds a note for a repository by this line, so add a slug when another repository comes to rely on the fact. The note's folder follows the line, so a change to it moves the note, by [SYNC.md](SYNC.md)'s **Consolidate**. An explored note belongs to the repository whose folder holds it. A `term`'s line lists each repository its pairings name, once, and no other.
 - `explored`: on explored notes only, the short SHA of the commit the note was read at.
 - `aliases`: optional, 3 to 6 other words for the note's subject that its name and description leave out: business wording, the symptom a user reports, and the code's English terms. Recall ranks them like the description, so a search in other words still reaches the note. Write one `  - <alias>` line each under `aliases:`, as Obsidian does, or `[a, b]`.
@@ -170,7 +170,7 @@ Related: [[invoice-event-contract]]
 | type | holds |
 |---|---|
 | `feature` | something a user, an operator or another system can do through the repository: who does it, what happens, and its rules. Explored only; always `business` |
-| `term` | one canonical term of the business, named once above every repository, with each repository's word for it and its relations to other terms, by **The term note**. Authored only, always `business`, always in `notes/domain/` |
+| `term` | one canonical term of the business, named once above every repository, with each repository's word for it, by **The term note**. Authored only, always `business`, always in `notes/domain/` |
 | `concept` | how a part of the system works. An authored one is always `application`: an authored `business` `concept` is the old form of a `term`, which `scripts/schema.mjs` warns of. An explored one is `business`, like every explored note |
 | `decision` | a choice and its reason: a product choice (`business`) or a technical one (`application`). |
 | `how-to` | what to do about a trap or a recurring task: surprising behaviour, a past incident and its lesson, or a procedure no script or doc in the repository runs |
@@ -178,9 +178,19 @@ Related: [[invoice-event-contract]]
 
 Write the `description` and the body in plain prose, by [PROSE.md](PROSE.md). The body states the fact first. A `decision` or `how-to` follows it with **Why:** and **How to apply:** lines; a procedure's steps follow its **How to apply:** line as a numbered list. Link every note it builds on or bears on with `[[name]]`: each link is an edge in the graph. A link to a note not written yet draws as a dashed node, marking a note worth writing.
 
+Any note can name what a link means in a `## Relations` section, which `scripts/notes.mjs` is the one parser of:
+
+```markdown
+## Relations
+- starts [[billing-api-invoicing]]
+- is a [[party]]
+```
+
+A **relation line** is `- <verb> [[<note>]]`. The verb is free, in the domain's words; `is a` and `part of` are reserved for hierarchy. Its target may be a note not written yet. A plain `[[link]]` stays valid without one. Write a relation only when the code or the domain proves the link.
+
 ### The term note
 
-A `term` keeps flat frontmatter, with `type: term`, `layer: business` and `repos` listing the slugs its pairings name. Its body opens with the definition and the states the entity moves through, then holds two sections, which `scripts/notes.mjs` is the one parser of:
+A `term` keeps flat frontmatter, with `type: term` and `repos` listing the slugs its pairings name. Its body opens with the definition and the states the entity moves through, then holds a `## Pairings` section, and may hold `## Relations`, as any note may. `scripts/notes.mjs` is the one parser of both:
 
 ```markdown
 ## Pairings
@@ -193,7 +203,7 @@ A `term` keeps flat frontmatter, with `type: term`, `layer: business` and `repos
 ```
 
 - A **pairing line** is ``- <slug>[ · <context>]: `<word>`, <same|narrower|broader>[. <nuance>][. Avoid: `<w>`, `<w>`].`` The degree says how the repository's word relates to the term: `same`, `narrower` or `broader`. The context names one context of a repository, such as a module of a monolith. A term has at least one pairing.
-- A **relation line** is `- <verb> [[<term>]]`. The verb is free, in the domain's words; `is a` and `part of` are reserved for hierarchy. Its target may be a note not written yet.
+- A term's **relation line** is the note format's, with a term for its target.
 
 ### Layers
 
@@ -201,6 +211,8 @@ A note's **layer** names its reader:
 
 - **`business`**: what the product does and why, in the domain's words, for a product owner or a teammate on their first day. Every explored note is `business`.
 - **`application`**: how the system is built (its modules, data, interfaces and traps), for whoever changes the code.
+
+The layer is worked out, not written: a `feature`, a `term` and every explored note is `business`, and a `contract` and an authored `concept` is `application`. Only a `decision` and a `how-to` store a `layer` line, whose type leaves the layer open. `scripts/notes.mjs`'s `layerOf` and `STORES_LAYER` work it out for the scripts; `brain.html` holds a copy of both, since the page cannot import `notes.mjs`, and `note-copies.test.mjs` keeps the two alike.
 
 A fact about both takes the layer of the reader who acts on it: a refund limit is `business`, the job that enforces it `application`.
 
@@ -232,7 +244,6 @@ An explored note speaks the domain's words, so an outsider can read it, and ends
 name: billing-api-refunds
 description: A paid invoice can be refunded within 30 days, in full or in part, with finance approving any refund above 500
 type: feature
-layer: business
 explored: a1b2c3d
 ---
 

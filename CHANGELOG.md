@@ -29,6 +29,9 @@ Each release lists what changed for a user of the plugin. **Migrates by itself**
 - **`build`** writes each closing step's **Phase** before it acts, verifies every fixer's commits, and releases its claims on every way out.
 - **`commit`**: the key and title together fit in 72 characters, as `sdd squash` checks; an embedded brain's commit leaves the host's staged work alone.
 - **The brain's Record and Sync** moved to their own reference files, so other skills load only what they use.
+- **Explore drafts a term for each business entity.** The scribe for the area holding a business entity's model drafts its term, with the definition and the states, instead of an explored `concept`, and the entity's rules go to the features that enforce them. An explored `concept` on a business entity is retired once its term exists, and a technical entity such as an access token stays a `concept`. A scribe writes a `## Relations` line only when the code proves the link. `/brain sync` confirms the term drafts.
+- **The Notes graph shows a relation's verb.** Any note can name its links with verbs under `## Relations`; hover or select a note and each of its edges that holds a relation shows it, written from the note that holds it (billing issues invoice). A plain `[[link]]` draws as before.
+- **A note's layer is worked out from its type.** A `feature`, a `term` and every explored note is `business`, and a `contract` and an authored `concept` is `application`; only a `decision` and a `how-to` keep a `layer` line. Recall's `--layer` and every line it prints use the worked-out layer. **Migrates by itself**, at your next `/brain sync`, once you agree: it drafts an `update` that drops each repeated `layer` line, and you confirm it with the other drafts. **Update the plugin before the sync that migrates layer lines**: every teammate pulls the migrated notes, and an older plugin reads a note without a `layer` line as "layer missing".
 
 ## 2.2.0
 

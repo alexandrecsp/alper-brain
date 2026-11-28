@@ -118,3 +118,36 @@ test('a draft without an action is a record, and one without a target lands wher
   assert.equal(d.draft, 'record')
   assert.equal(d.target, '.local/drafts/api-x.md')
 })
+
+// The layer of a note with these frontmatter lines, explored or not, at a path inside a repository's notes.
+const layerOfNote = (fm, explored = false) =>
+  noteOf('notes/repos/api/api-x.md', note({ name: 'api-x', ...fm, ...(explored ? { explored: 'a1b2c3d' } : {}) })).layer
+
+test('noteOf works out business for a feature, a term and an explored note with no layer line', () => {
+  assert.deepEqual(
+    [layerOfNote({ type: 'feature' }, true), layerOfNote({ type: 'term' }), layerOfNote({ type: 'concept' }, true)],
+    ['business', 'business', 'business'],
+  )
+})
+
+test('noteOf works out application for a contract and an authored concept with no layer line', () => {
+  assert.deepEqual([layerOfNote({ type: 'contract' }), layerOfNote({ type: 'concept' })], ['application', 'application'])
+})
+
+test('noteOf keeps the stored layer of a decision and a how-to, explored or not', () => {
+  assert.deepEqual(
+    [
+      layerOfNote({ type: 'decision', layer: 'application' }),
+      layerOfNote({ type: 'decision', layer: 'business' }, true),
+      layerOfNote({ type: 'how-to', layer: 'application' }),
+      layerOfNote({ type: 'how-to', layer: 'application' }, true),
+    ],
+    ['application', 'business', 'application', 'application'],
+  )
+})
+
+test('noteOf reads relations on a feature, and a note without a Relations section has none', () => {
+  const feature = noteOf('notes/repos/api/api-billing.md', note({ name: 'api-billing', type: 'feature', explored: 'a1b2c3d' }, 'Bills.\n\n## Relations\n- starts [[api-invoicing]]'))
+  const plain = noteOf('notes/repos/api/api-x.md', note({ name: 'api-x', type: 'feature', explored: 'a1b2c3d' }))
+  assert.deepEqual([feature.relations, plain.relations], [[{ verb: 'starts', target: 'api-invoicing' }], []])
+})

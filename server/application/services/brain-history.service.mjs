@@ -1,4 +1,4 @@
-import { listOf, parse, placeOf } from '../../../skills/brain/scripts/notes.mjs'
+import { layerOf, listOf, parse, placeOf } from '../../../skills/brain/scripts/notes.mjs'
 
 // A note's place in a past commit's layout: the one before the clusters move kept authored notes in notes/authored/ and explored
 // ones in notes/exploration/<slug>/. Null for any other path.
@@ -11,7 +11,7 @@ const oldPlaceOf = (path) => {
 const placeIn = (path) => placeOf(path) ?? oldPlaceOf(path)
 
 // The brain's history in the timeline's JSON shape, which the page's Activity reads: every committed change to a note, oldest commit first.
-// It reads the commits and each note's text at its commit through the brain history port, and a note's `type`, `layer`, `kind` and
+// It reads the commits and each note's text at its commit through the brain history port, and a note's `type`, `layer` (worked out by `layerOf`, whether or not the commit stores it), `kind` and
 // `repos` through `notes.mjs`.
 export const historyOf = async (history, root) => {
   // A note's file: an authored or explored note, never a repository's card.
@@ -26,7 +26,7 @@ export const historyOf = async (history, root) => {
     return {
       note: path.split('/').at(-1).replace(/\.md$/, ''),
       type: fm.type || 'other',
-      layer: fm.layer || null,
+      layer: layerOf(fm.type, !!fm.explored, fm.layer) || null,
       kind: fm.explored ? 'explored' : 'authored',
       repos: place?.slug ? [place.slug] : listOf(fm.repos),
       superseded: fm.status === 'superseded',

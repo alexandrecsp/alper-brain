@@ -40,7 +40,6 @@ Write a **term note** by FORMAT.md's **The term note**: a `term` note in `notes/
 name: customer
 description: A Customer is a person or company that pays for what the shop delivers
 type: term
-layer: business
 repos: [billing-api, web-app]
 aliases: [cliente, buyer, shopper]
 avoid: [client]

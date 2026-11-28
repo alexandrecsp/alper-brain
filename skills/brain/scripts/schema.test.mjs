@@ -43,14 +43,13 @@ test('passes a well-formed authored note, explored note and contract', () => {
   assert.match(r.out, /^schema: ok, 4 files checked$/m)
 })
 
-test('passes an explored decision in either layer, and holds every other explored note to business', () => {
+test('passes an explored decision in either layer with no warning', () => {
   const b = brain()
   put(join(b, 'notes/repos/api/api-manual-sql.md'), note({ name: 'api-manual-sql', description: 'SQL is written by hand', type: 'decision', layer: 'application', explored: 'a1b2c3d' }))
-  put(join(b, 'notes/repos/api/api-retry-job.md'), note({ name: 'api-retry-job', description: 'A nightly job retries charges', type: 'concept', layer: 'application', explored: 'a1b2c3d' }))
-  const r = schema(b, ...['api-manual-sql', 'api-retry-job'].map((f) => join(b, `notes/repos/api/${f}.md`)))
-  assert.equal(r.status, 1)
-  assert.doesNotMatch(r.out, /api-manual-sql\.md:/)
-  assert.match(r.out, /^notes\/repos\/api\/api-retry-job\.md: an explored note is business, unless it is a decision$/m)
+  put(join(b, 'notes/repos/api/api-refund-rule.md'), note({ name: 'api-refund-rule', description: 'Refunds within 30 days', type: 'decision', layer: 'business', explored: 'a1b2c3d' }))
+  const r = schema(b, ...['api-manual-sql', 'api-refund-rule'].map((f) => join(b, `notes/repos/api/${f}.md`)))
+  assert.equal(r.status, 0, r.out)
+  assert.equal(r.out.trim(), 'schema: ok, 2 files checked')
 })
 
 test('holds avoid to a non-empty list on a term note, and keeps it off every type but a concept, which only warns', () => {
@@ -156,16 +155,14 @@ test('warns on a one-repository name without its slug, and still passes', () => 
   assert.match(r.out, /schema: ok, 1 file checked, 1 warning/)
 })
 
-test('rejects the type rules: a contract on one repository, an authored feature, an explored feature in the application layer', () => {
+test('rejects the type rules: a contract on one repository, an authored feature', () => {
   const b = brain()
   put(join(b, 'notes/repos/api/api-contract.md'), note({ name: 'api-contract', description: 'X', type: 'contract', layer: 'application', repos: '[api]' }))
   put(join(b, 'notes/repos/api/api-export.md'), note({ name: 'api-export', description: 'X', type: 'feature', layer: 'business', repos: '[api]' }))
-  put(join(b, 'notes/repos/api/api-refunds.md'), note({ name: 'api-refunds', description: 'X', type: 'feature', layer: 'application', explored: 'a1b2c3d' }))
   const r = schema(b)
   assert.equal(r.status, 1)
   assert.match(r.out, /api-contract\.md: a contract names at least two repos/)
   assert.match(r.out, /api-export\.md: a feature is an explored note only/)
-  assert.match(r.out, /api-refunds\.md: a feature is always business/)
 })
 
 test('rejects a name that differs from its file or is taken twice, and a superseded note that is no decision', () => {
@@ -210,13 +207,10 @@ test('passes a well-formed term in notes/domain/ with no warning, though its nam
   assert.equal(r.out.trim(), 'schema: ok, 1 file checked')
 })
 
-test('rejects an explored term, and a term whose layer is not business', () => {
+test('rejects an explored term', () => {
   const explored = term(brain(), { fm: { explored: 'a1b2c3d' } })
   assert.equal(explored.status, 1)
   assert.match(explored.out, /^notes\/domain\/customer\.md: a term is authored, never explored$/m)
-  const applied = term(brain(), { fm: { layer: 'application' } })
-  assert.equal(applied.status, 1)
-  assert.match(applied.out, /^notes\/domain\/customer\.md: a term is always business$/m)
 })
 
 test('rejects a term outside notes/domain/', () => {
@@ -281,4 +275,48 @@ test('passes an explored business concept with no warning', () => {
   const r = schema(b, join(b, 'notes/repos/api/api-retry-job.md'))
   assert.equal(r.status, 0, r.out)
   assert.doesNotMatch(r.out, /api-retry-job\.md/)
+})
+
+test('passes a feature, a term, a contract and an explored concept with no layer line', () => {
+  const b = brain()
+  put(join(b, 'notes/repos/api/api-refunds.md'), note({ name: 'api-refunds', description: 'Refunds within 30 days', type: 'feature', explored: 'a1b2c3d' }))
+  put(join(b, 'notes/repos/api/api-retry-job.md'), note({ name: 'api-retry-job', description: 'A nightly job retries charges', type: 'concept', explored: 'a1b2c3d' }))
+  put(join(b, 'notes/shared/invoice-contract.md'), note({ name: 'invoice-contract', description: 'The invoice event', type: 'contract', repos: '[api, web]' }))
+  put(join(b, 'notes/domain/customer.md'), note({ name: 'customer', description: 'A Customer buys from us', type: 'term', repos: '[api, web]' }, `A buyer.\n\n## Pairings\n${PAIRINGS.join('\n')}`))
+  const r = schema(b)
+  assert.equal(r.status, 0, r.out)
+  assert.equal(r.out.trim(), 'schema: ok, 5 files checked')
+})
+
+test('fails a decision and a how-to with no layer line', () => {
+  const b = brain()
+  put(join(b, 'notes/repos/api/api-manual-sql.md'), note({ name: 'api-manual-sql', description: 'SQL is written by hand', type: 'decision', repos: '[api]' }))
+  put(join(b, 'notes/repos/api/api-retry.md'), note({ ...good, layer: undefined }))
+  const r = schema(b)
+  assert.equal(r.status, 1)
+  assert.match(r.out, /^notes\/repos\/api\/api-manual-sql\.md: layer is missing; it is business or application$/m)
+  assert.match(r.out, /^notes\/repos\/api\/api-retry\.md: layer is missing; it is business or application$/m)
+})
+
+test('warns of a stored layer that differs from the worked-out one, and still passes', () => {
+  const b = brain()
+  put(join(b, 'notes/shared/invoice-contract.md'), note({ name: 'invoice-contract', description: 'The invoice event', type: 'contract', layer: 'business', repos: '[api, web]' }))
+  put(join(b, 'notes/repos/api/api-refunds.md'), note({ name: 'api-refunds', description: 'Refunds within 30 days', type: 'feature', layer: 'application', explored: 'a1b2c3d' }))
+  put(join(b, 'notes/domain/customer.md'), note({ name: 'customer', description: 'A Customer buys from us', type: 'term', layer: 'application', repos: '[api, web]' }, `A buyer.\n\n## Pairings\n${PAIRINGS.join('\n')}`))
+  put(join(b, 'notes/repos/api/api-retry-job.md'), note({ name: 'api-retry-job', description: 'A nightly job retries charges', type: 'concept', layer: 'application', explored: 'a1b2c3d' }))
+  const r = schema(b)
+  assert.equal(r.status, 0, r.out)
+  assert.match(r.out, /^notes\/shared\/invoice-contract\.md: warn: layer is business, but a contract is application$/m)
+  assert.match(r.out, /^notes\/repos\/api\/api-refunds\.md: warn: layer is application, but a feature is business$/m)
+  assert.match(r.out, /^notes\/domain\/customer\.md: warn: layer is application, but a term is business$/m)
+  assert.match(r.out, /^notes\/repos\/api\/api-retry-job\.md: warn: layer is application, but an explored note is business$/m)
+})
+
+test('prints the old-term warning alone on an authored concept stored as business', () => {
+  const b = brain()
+  put(join(b, 'notes/repos/api/api-invoice.md'), note({ name: 'api-invoice', description: 'A request for payment', type: 'concept', layer: 'business', repos: '[api]' }))
+  const r = schema(b, join(b, 'notes/repos/api/api-invoice.md'))
+  assert.equal(r.status, 0, r.out)
+  assert.match(r.out, /^notes\/repos\/api\/api-invoice\.md: warn: a business concept is a term/m)
+  assert.doesNotMatch(r.out, /layer is business, but/)
 })

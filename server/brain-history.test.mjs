@@ -185,3 +185,16 @@ test("a note recorded before the layout move keeps its changes from before it", 
     { title: 'Changes x again', changes: [{ path: 'notes/repos/app/x.md', action: 'updated' }] },
   ])
 })
+
+test('a change shows the same layer for a feature stored with its layer line and one without', async () => {
+  const b = await brainRepo()
+  const feature = (layerLine) => `---\ntype: feature\n${layerLine}explored: a1b2c3d\nrepos: [app]\n---\n# Note\n`
+  b.write('notes/repos/app/old.md', feature('layer: business\n'))
+  b.write('notes/repos/app/new.md', feature(''))
+  b.commit('Records old and new')
+  const { json } = await b.history()
+  assert.deepEqual(json.commits[0].changes.map(({ note, layer }) => ({ note, layer })), [
+    { note: 'new', layer: 'business' },
+    { note: 'old', layer: 'business' },
+  ])
+})

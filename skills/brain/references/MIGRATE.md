@@ -77,6 +77,6 @@ Bring each note RECALL.md's script lists with `--legacy` to FORMAT.md's types an
 1. **Draft each note's change.** Write one draft per listed note, by FORMAT.md's **Drafts**:
    - A `gotcha` becomes a `how-to`: an `update` that changes its `type` and keeps its text.
    - A `topic` is deleted: a `delete` whose reason is that links now gather a theme. When its paragraph holds a fact no member states, first fold that fact into the member it bears on, as that member's `update`.
-   - A note with no `layer` takes one: an `update` that adds it, by FORMAT.md's **Layers**. Every explored note takes `business`, and a `contract` takes `application`.
+   - A note whose `layer` line repeats its type (the reason "layer line repeats its type") drops it: an `update` that removes the line and keeps the rest of the text, since FORMAT.md's **Layers** works the layer out from the type. A `decision` and a `how-to` keep their line; one listed as "layer missing" takes it, an `update` that adds the `business` or `application` that FORMAT.md's **Layers** gives its reader.
 
-   One note's changes share one draft. Done when each listed note has exactly one draft, and each `update` holds a `type` and a `layer` FORMAT.md names.
+   One note's changes share one draft. Done when each listed note has exactly one draft, and each `update` holds a `type` FORMAT.md names, adds no `layer` line to a type other than a `decision` and a `how-to`, and drops only a `layer` line that repeats its type.

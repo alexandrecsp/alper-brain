@@ -18,7 +18,7 @@ Turn drafts into commits. `sync` runs it after its pull, on every draft in `.loc
    - fold duplicate drafts into one, and discard a draft whose fact a note now states in full;
    - make an `update` of a `record` whose note now exists, and rebase an `update` or `supersede` onto its note's current text, keeping the draft's new facts, so a teammate's edit survives;
    - turn a draft whose target note is gone into a `record`, or discard it when it was a `delete`;
-   - add the `[[links]]` each lacks, and give each draft its `type` and `layer` by FORMAT.md.
+   - add the `[[links]]` each lacks, and give each draft its `type`, and its `layer` only on a decision and a how-to, by FORMAT.md.
 
    Done when no two drafts or notes hold one fact, each draft matches its note's current text, each links its related notes, and PROSE.md's **Check** prints `prose: ok` and `<the brain skill's folder>/scripts/schema.mjs` prints `schema: ok`.
 2. **Propose.** Show the user one numbered list: each draft's `target`, its action, and its full text, or the diff for an `update`, `supersede` or `delete`. The user marks each one by number: commit it (all of them by default), discard it, or keep it as a draft for a later sync. Done when every draft is marked.
